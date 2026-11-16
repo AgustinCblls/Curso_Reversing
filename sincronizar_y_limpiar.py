@@ -27,13 +27,13 @@ for obs in obsoletos_pen:
 
 # 2. Lista canónica única de archivos para imprenta y archivo maestro
 archivos_canonicos = [
-    "CLS_Curso_Reversing.pdf",               # 672 págs (Obra Completa Unificada)
-    "Tomo_1_Parte_A_pags_1-188.pdf",         # 188 págs (Tomo I - Parte A)
-    "Tomo_1_Parte_B_pags_189-422.pdf",       # 234 págs (Tomo I - Parte B)
+    "CLS_Curso_Reversing.pdf",               # 708 págs (Obra Completa Unificada)
+    "Tomo_1_Parte_A_pags_1-224.pdf",         # 224 págs (Tomo I - Parte A)
+    "Tomo_1_Parte_B_pags_225-458.pdf",       # 234 págs (Tomo I - Parte B)
     "Tomo_2_Kernel_e_Internals.pdf",         # 198 págs (Tomo II)
     "Tomo_3_LLVM_Rust_Contenedores_IA.pdf",  # 52 págs (Tomo III)
     "Separata_Escritorio.pdf",               # 18 págs (Separata de Escritorio)
-    "Tomo_1_Tronco_y_Apoyo.pdf",             # 410 págs (Tomo I íntegro de referencia)
+    "Tomo_1_Tronco_y_Apoyo.pdf",             # 458 págs (Tomo I íntegro de referencia)
     "orden_impresion.pdf",                   # Hoja de imprenta (PDF)
     "orden_impresion.png",                   # Hoja de imprenta (PNG)
     "orden_impresion.html"                   # Hoja de imprenta (HTML)

@@ -51,6 +51,7 @@
 <tr><td><strong>C#</strong></td><td>Lenguaje de .NET que se compila a IL. Ver <a href="guia/03-dotnet-runtime.html">.NET</a>.</td></tr>
 <tr><td><strong>Cadena armada en el stack</strong></td><td>Texto que el programa escribe de a pedazos con <code>mov</code> de constantes en vez de guardarlo en <code>.rdata</code>; no aparece en la ventana de strings. Ver <a href="guia/02-ida.html">IDA</a>.</td></tr>
 <tr><td><strong>CALL</strong></td><td>Instrucción que llama a una función: empuja la dirección de retorno y salta. Ver <a href="guia/02-llamadas.html">llamadas</a>.</td></tr>
+<tr><td><strong>Callback</strong></td><td>Función propia cuya dirección se le pasa a otra función o a una API para que la llame. Ver <a href="guia/01-c-python.html">C y Python</a>.</td></tr>
 <tr><td><strong>Canary (stack canary)</strong></td><td>Valor aleatorio que el compilador coloca antes del return address para detectar desbordes. Ver <a href="guia/05-vulnerabilidades.html">vulnerabilidades</a>.</td></tr>
 <tr><td><strong>CF (carry flag)</strong></td><td>Flag que indica acarreo o desborde en una operación sin signo.</td></tr>
 <tr><td><strong>CMP</strong></td><td>Instrucción que resta dos valores, actualiza flags y descarta el resultado. Se usa antes de un salto condicional.</td></tr>
@@ -59,8 +60,10 @@
 <tr><td><strong>Complete Object Locator (COL)</strong></td><td>Estructura de RTTI de MSVC a la que apunta <code>vtable[-1]</code>; lleva al nombre de la clase. En x64 usa RVA. Ver <a href="guia/02-cpp-profundo.html">C++ profundo</a>.</td></tr>
 <tr><td><strong>Complemento a dos</strong></td><td>Convención para representar negativos: se invierten los bits y se suma 1. <code>0xFB</code> = −5 en 8 bits. Ver <a href="guia/01-numeros.html">números</a>.</td></tr>
 <tr><td><strong>Constante</strong></td><td>Valor fijo que no cambia durante la ejecución. En assembly aparece como inmediato (<code>mov eax, 50</code>).</td></tr>
+<tr><td><strong>Copy-on-write</strong></td><td>Mecanismo por el que una página compartida entre procesos se copia en privado recién cuando uno de ellos la modifica. Ver <a href="guia/01-windows.html">Windows por debajo</a>.</td></tr>
 <tr><td><strong>CPU</strong></td><td>Unidad central de proceso. Ejecuta instrucciones y tiene registros.</td></tr>
 <tr><td><strong>Crackme</strong></td><td>Programa pequeño diseñado para practicar reversing, generalmente con un objetivo didáctico.</td></tr>
+<tr><td><strong>CRT</strong></td><td><em>C Runtime</em>: la biblioteca estándar de C y el código de arranque que el compilador agrega al programa y que se ejecuta antes de <code>main</code>. Ver <a href="guia/01-windows.html">Windows por debajo</a>.</td></tr>
 <tr><td><strong>CS / DS / SS</strong></td><td>Registros de segmento de 16 bits. En 32/64 bits casi no se usan, salvo <code>FS</code>/<code>GS</code> para estructuras del sistema.</td></tr>
 </tbody></table></div>
 <h2 id="d-h">D–H</h2>
@@ -69,6 +72,7 @@
 <th>Término</th>
 <th>Explicación</th>
 </tr></thead><tbody>
+<tr><td><strong>Direccionamiento relativo a RIP</strong></td><td>Forma en que el código de 64 bits accede a sus datos: la instrucción guarda la distancia hasta el dato y el procesador la suma a la dirección de la instrucción siguiente. Ver <a href="guia/02-instrucciones.html">Instrucciones</a>.</td></tr>
 <tr><td><strong>DWORD</strong></td><td>Doble WORD: 4 bytes (32 bits).</td></tr>
 <tr><td><strong>Debugger</strong></td><td>Programa que ejecuta otro paso a paso, con pausas y vista de registros y memoria. En el curso se usa x64dbg.</td></tr>
 <tr><td><strong>Decompilador</strong></td><td>Herramienta que reconstruye una vista legible aproximada a partir de un binario o del IL. No recupera el código original exacto.</td></tr>
@@ -115,14 +119,18 @@
 <tr><td><strong>LEA</strong></td><td><em>Load effective address</em>: calcula una dirección sin leer memoria.</td></tr>
 <tr><td><strong>LIFO</strong></td><td><em>Last in, first out</em>: lo último que entra es lo primero que sale (una pila).</td></tr>
 <tr><td><strong>Little-endian</strong></td><td>Orden en que el byte menos significativo se guarda primero. Es el de x86/x64. Ver <a href="guia/01-numeros.html">números</a>.</td></tr>
+<tr><td><strong>Loader</strong></td><td>Componente de <code>ntdll.dll</code> que, al arrancar un proceso, carga las DLLs, llena la IAT y ejecuta el código de inicialización antes del entry point. Ver <a href="guia/01-windows.html">Windows por debajo</a>.</td></tr>
 <tr><td><strong>Malware</strong></td><td>Software diseñado para dañar, espiar o tomar control. Se estudia de forma defensiva. Ver <a href="guia/05-malware.html">malware</a>.</td></tr>
 <tr><td><strong>Marco de pila (stack frame)</strong></td><td>Región del stack de una función: argumentos, return address, <code>EBP</code> guardado y variables locales.</td></tr>
+<tr><td><strong>Máscara de bits</strong></td><td>Constante con bits en 1 que se combina con <code>AND</code>, <code>OR</code> o <code>XOR</code> para consultar, prender, apagar o invertir bits de otro número. Ver <a href="guia/02-instrucciones.html">Instrucciones</a>.</td></tr>
 <tr><td><strong>Memoria virtual</strong></td><td>Espacio de direcciones que el sistema presenta a cada proceso, independiente de la memoria física.</td></tr>
 <tr><td><strong>Memoria W+X</strong></td><td>Región o sección escribible y ejecutable a la vez; típica del stub de un packer que escribe código y después lo ejecuta. Ver <a href="guia/02-packers.html">Packers</a>.</td></tr>
 <tr><td><strong>Metadatos</strong></td><td>Información sobre tipos, métodos y referencias que acompaña al IL en un ensamblado .NET.</td></tr>
 <tr><td><strong>Mnemónico</strong></td><td>Nombre legible de una instrucción (<code>mov</code>, <code>add</code>).</td></tr>
+<tr><td><strong>Modo usuario / modo kernel</strong></td><td>Los dos niveles de privilegio que usa Windows: los programas corren en modo usuario (ring 3) y el núcleo y los drivers en modo kernel (ring 0). Ver <a href="guia/01-windows.html">Windows por debajo</a>.</td></tr>
 <tr><td><strong>MOV</strong></td><td>Instrucción de transferencia de datos; no modifica flags.</td></tr>
 <tr><td><strong>NOP</strong></td><td>Instrucción que no hace nada (<code>0x90</code>). Se usa para rellenar o parchear.</td></tr>
+<tr><td><strong>NTSTATUS</strong></td><td>Código de resultado de las funciones nativas y del kernel. <code>0</code> es éxito; los valores que empiezan con <code>C</code> son errores (por ejemplo <code>0xC0000005</code>, violación de acceso).</td></tr>
 <tr><td><strong>Número mágico</strong></td><td>Bytes fijos al comienzo de un archivo o mensaje que identifican su formato (por ejemplo <code>MZ</code> en un PE). Ver <a href="guia/04-metodo.html">Método de análisis</a>.</td></tr>
 <tr><td><strong>NX / DEP</strong></td><td>Mitigación que impide ejecutar código en páginas de datos (stack/heap).</td></tr>
 <tr><td><strong>OEP</strong></td><td><em>Original Entry Point</em>: punto de entrada del programa original antes de empaquetarlo; ahí se dumpea. Ver <a href="guia/02-packers.html">Packers</a>.</td></tr>
@@ -136,6 +144,7 @@
 <th>Término</th>
 <th>Explicación</th>
 </tr></thead><tbody>
+<tr><td><strong>Página</strong></td><td>Bloque de memoria de 4 KB (<code>0x1000</code> bytes): la unidad con la que Windows traduce direcciones y asigna permisos. Ver <a href="guia/01-windows.html">Windows por debajo</a>.</td></tr>
 <tr><td><strong>pclntab</strong></td><td>Tabla de los binarios de Go que relaciona direcciones con funciones y líneas; el runtime la necesita, así que los nombres sobreviven sin símbolos. Ver <a href="guia/02-huella-compilador.html">Huella de compilador</a>.</td></tr>
 <tr><td><strong>PE</strong></td><td><em>Portable Executable</em>: formato de ejecutables y DLLs de Windows. Ver <a href="guia/01-pe.html">PE</a>.</td></tr>
 <tr><td><strong>PEB</strong></td><td><em>Process Environment Block</em>: estructura del sistema con información del proceso. <code>PEB+2</code> delata el debugger.</td></tr>
@@ -148,6 +157,7 @@
 <tr><td><strong>R8–R15</strong></td><td>Registros adicionales de 64 bits en x86-64.</td></tr>
 <tr><td><strong>Registro</strong></td><td>Memoria pequeña y rápida dentro del procesador. Ver <a href="guia/02-registros.html">registros</a>.</td></tr>
 <tr><td><strong>Relocación</strong></td><td>Ajuste de direcciones absolutas cuando una imagen se carga en una base distinta de la preferida.</td></tr>
+<tr><td><strong>Reservar / comprometer</strong></td><td>Los dos pasos de pedir memoria: reservar aparta un rango de direcciones; comprometer le asigna memoria utilizable. Ver <a href="guia/01-windows.html">Windows por debajo</a>.</td></tr>
 <tr><td><strong>RET</strong></td><td>Instrucción que vuelve de una función: saca el return address del stack y salta.</td></tr>
 <tr><td><strong>ROP</strong></td><td><em>Return-Oriented Programming</em>: encadenar fragmentos de código existente para ejecutar operaciones. Se explica conceptualmente en <a href="guia/05-vulnerabilidades.html">vulnerabilidades</a>.</td></tr>
 <tr><td><strong>RTTI</strong></td><td><em>Run-Time Type Information</em>: datos que el compilador deja para <code>dynamic_cast</code> y <code>typeid</code>; en reversing da nombres de clases. Ver <a href="guia/02-cpp-profundo.html">C++ profundo</a>.</td></tr>
@@ -160,6 +170,7 @@
 <tr><td><strong>SSO (Small String Optimization)</strong></td><td>Optimización de <code>std::string</code> que guarda cadenas cortas dentro del propio objeto, sin memoria dinámica. Ver <a href="guia/02-cpp-profundo.html">C++ profundo</a>.</td></tr>
 <tr><td><strong>Stack</strong></td><td>Ver <strong>pila</strong>.</td></tr>
 <tr><td><strong>String</strong></td><td>Secuencia de caracteres, generalmente terminada en <code>0x00</code> en C.</td></tr>
+<tr><td><strong>Syscall</strong></td><td>Llamada al sistema: el pedido de un programa en modo usuario al kernel, y la instrucción que cambia de modo. Ver <a href="guia/01-windows.html">Windows por debajo</a>.</td></tr>
 </tbody></table></div>
 <h2 id="t-z">T–Z</h2>
 <div class="tabla"><table>
@@ -170,12 +181,14 @@
 <tr><td><strong>TEB</strong></td><td><em>Thread Environment Block</em>: estructura por hilo; <code>FS:[0x18]</code> apunta a ella en 32 bits.</td></tr>
 <tr><td><strong>TLS</strong></td><td><em>Thread Local Storage</em>: variables globales con una copia por hilo.</td></tr>
 <tr><td><strong>Traza condicional</strong></td><td>Ejecución paso a paso automática del debugger que evalúa condiciones de corte y de log en cada instrucción. Ver <a href="guia/02-scripting-debugger.html">Scripting de debugger</a>.</td></tr>
+<tr><td><strong>Unión (union)</strong></td><td>Tipo de C cuyos campos comparten los mismos bytes: permite leer un mismo dato de varias formas. Ver <a href="guia/01-c-python.html">C y Python</a>.</td></tr>
 <tr><td><strong>UTF-16 / funciones A y W</strong></td><td>Windows guarda el texto Unicode en UTF-16 (dos bytes por carácter en el caso común); las APIs de texto tienen versión <code>A</code> (página de códigos) y <code>W</code> (Unicode). Ver <a href="guia/02-ida.html">IDA</a>.</td></tr>
 <tr><td><strong>VA (virtual address)</strong></td><td>Dirección en el espacio de memoria del proceso.</td></tr>
 <tr><td><strong>VEH (vectored exception handler)</strong></td><td>Manejador de excepciones de todo el proceso, registrado con <code>AddVectoredExceptionHandler</code>, que se llama antes que los handlers por marco. Ver <a href="guia/2d-11-excepciones.html">2D.11</a>.</td></tr>
 <tr><td><strong>Version Tracking</strong></td><td>Herramienta de Ghidra que empareja funciones entre dos versiones y traslada nombres y comentarios. Ver <a href="guia/02-ghidra.html">Ghidra</a>.</td></tr>
 <tr><td><strong>VTable</strong></td><td>Tabla de punteros a métodos virtuales de un objeto C++.</td></tr>
 <tr><td><strong>WORD</strong></td><td>2 bytes (16 bits).</td></tr>
+<tr><td><strong>WOW64</strong></td><td>Capa que permite ejecutar programas de 32 bits en un Windows de 64, con redirección de carpetas y del Registro. Ver <a href="guia/01-windows.html">Windows por debajo</a>.</td></tr>
 <tr><td><strong>XOR</strong></td><td>Operación lógica "o exclusivo": 1 si los bits son distintos. Se usa para cifrar, poner a cero y ofuscar.</td></tr>
 <tr><td><strong>YARA</strong></td><td>Herramienta y lenguaje de reglas para detectar patrones en archivos. Ver <a href="guia/05-malware.html">malware</a>.</td></tr>
 <tr><td><strong>ZF (zero flag)</strong></td><td>Flag que se activa cuando el resultado de una operación es cero.</td></tr>

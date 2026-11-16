@@ -738,6 +738,7 @@ def generar_pdf_completo():
         ("guia/01-procesos.html", "1.3 Procesos e hilos"),
         ("guia/01-pe.html", "1.4 Formato PE"),
         ("guia/01-c-python.html", "1.5 C y Python"),
+        ("guia/01-windows.html", "1.6 Windows por debajo"),
         ("guia/02-registros.html", "2.1 Registros y flags"),
         ("guia/02-instrucciones.html", "2.2 Instrucciones"),
         ("guia/02-flujo.html", "2.3 Flujo"),
@@ -991,7 +992,7 @@ details.qa summary { font-size: 10pt; }
 
     orden = [
         ("Etapa 0", ["guia/00-laboratorio.html"]),
-        ("Etapa 1", ["guia/01-numeros.html", "guia/01-memoria.html", "guia/01-procesos.html", "guia/01-pe.html", "guia/01-c-python.html"]),
+        ("Etapa 1", ["guia/01-numeros.html", "guia/01-memoria.html", "guia/01-procesos.html", "guia/01-pe.html", "guia/01-c-python.html", "guia/01-windows.html"]),
         ("Etapa 2", ["guia/02-registros.html", "guia/02-instrucciones.html", "guia/02-flujo.html", "guia/02-llamadas.html", "guia/02-flotante.html", "guia/02-debugger.html", "guia/02-ida.html", "guia/02-optimizaciones.html", "guia/02-herramientas.html", "guia/02-ofuscacion.html", "guia/02-tls.html", "guia/02-mfc.html", "guia/02-huella-compilador.html", "guia/02-pe-fino.html", "guia/02-anti-analisis.html", "guia/02-ghidra.html", "guia/02-packers.html", "guia/02-cpp-profundo.html", "guia/02-windbg-heap.html", "guia/02-patch-diffing.html", "guia/02-scripting-debugger.html", "guia/02-opt-malware-dinamico.html", "guia/02-opt-shellcode-c2.html", "guia/02-opt-fuzzing.html", "guia/02-simbolico-desofuscacion.html", "guia/02-ofuscacion-vm.html", "guia/02-protectores-multicapa.html", "guia/02-anti-analisis-neutralizar.html", "guia/02-dbi-dynamorio-pin.html", "guia/02-frida-stalker.html", "guia/02-ghidra-sleigh.html", "guia/02-go-rust.html", "guia/02-vb6-pcode.html", "guia/02-desvirtualizacion-sleigh.html", "guia/02-arm64ec-winrt-aot.html"]),
         ("Etapa 3", ["guia/03-dotnet-runtime.html", "guia/03-dotnet-il.html"]),
         ("Etapa 4", ["guia/04-metodo.html", "guia/04-cripto.html", "guia/04-informe.html", "guia/04-dinamico-seguro.html", "guia/04-formatos-protocolos.html", "guia/04-protocolos-terceros.html"]),
@@ -1104,7 +1105,22 @@ details.qa summary { font-size: 10pt; }
             f"--print-to-pdf={ruta_pdf}",
             "file:///" + ruta_html.replace("\\", "/"),
         ]
+        # Chrome puede devolver el control antes de terminar de escribir el PDF:
+        # se borra el borrador previo y se espera a que el nuevo exista y deje de crecer.
+        import time
+        if os.path.exists(ruta_pdf):
+            os.remove(ruta_pdf)
         subprocess.run(cmd, check=True)
+        previo, estable = -1, 0
+        for _ in range(600):
+            actual = os.path.getsize(ruta_pdf) if os.path.exists(ruta_pdf) else -1
+            estable = estable + 1 if (actual > 0 and actual == previo) else 0
+            if estable >= 3:
+                break
+            previo = actual
+            time.sleep(1)
+        else:
+            raise RuntimeError(f"Chrome no generó {ruta_pdf}")
 
     etiquetas = {}
     paginas = {}
@@ -1413,7 +1429,7 @@ def generar_tomos_y_separata(ctx):
 
     orden_t1 = [
         ("Etapa 0", ["guia/00-laboratorio.html"]),
-        ("Etapa 1", ["guia/01-numeros.html", "guia/01-memoria.html", "guia/01-procesos.html", "guia/01-pe.html", "guia/01-c-python.html"]),
+        ("Etapa 1", ["guia/01-numeros.html", "guia/01-memoria.html", "guia/01-procesos.html", "guia/01-pe.html", "guia/01-c-python.html", "guia/01-windows.html"]),
         ("Etapa 2", ["guia/02-registros.html", "guia/02-instrucciones.html", "guia/02-flujo.html", "guia/02-llamadas.html", "guia/02-flotante.html", "guia/02-debugger.html", "guia/02-ida.html", "guia/02-optimizaciones.html", "guia/02-herramientas.html", "guia/02-ofuscacion.html", "guia/02-tls.html", "guia/02-mfc.html", "guia/02-huella-compilador.html", "guia/02-pe-fino.html", "guia/02-anti-analisis.html", "guia/02-ghidra.html", "guia/02-packers.html", "guia/02-cpp-profundo.html", "guia/02-windbg-heap.html", "guia/02-patch-diffing.html", "guia/02-scripting-debugger.html", "guia/02-opt-malware-dinamico.html", "guia/02-opt-shellcode-c2.html", "guia/02-opt-fuzzing.html", "guia/02-simbolico-desofuscacion.html", "guia/02-ofuscacion-vm.html", "guia/02-protectores-multicapa.html", "guia/02-anti-analisis-neutralizar.html", "guia/02-dbi-dynamorio-pin.html", "guia/02-frida-stalker.html", "guia/02-ghidra-sleigh.html", "guia/02-go-rust.html", "guia/02-vb6-pcode.html", "guia/02-desvirtualizacion-sleigh.html", "guia/02-arm64ec-winrt-aot.html"]),
         ("Etapa 3", ["guia/03-dotnet-runtime.html", "guia/03-dotnet-il.html"]),
         ("Etapa 4", ["guia/04-metodo.html", "guia/04-cripto.html", "guia/04-informe.html", "guia/04-dinamico-seguro.html", "guia/04-formatos-protocolos.html", "guia/04-protocolos-terceros.html"]),
@@ -1686,7 +1702,7 @@ VM con Windows x64 aislada, Visual Studio Developer Command Prompt (<code>cl.exe
 </tr></thead><tbody>
 <tr><td><strong>Apertura y Mapa del curso</strong> (<code>00_EMPEZAR_AQUI</code>, <code>index</code>)</td><td>Todos</td><td><strong>Tomo I</strong></td><td>{rango_en(info_t1, "portada-texto", ancla("guia/etapa-0.html"))}</td><td>{rango_en(ctx, "portada-texto", ancla("guia/etapa-0.html"))}</td></tr>
 <tr><td><strong>Etapa 0 · Laboratorio seguro</strong> (<code>0.1</code>)</td><td>Principiante</td><td><strong>Tomo I</strong></td><td>{rango_en(info_t1, ancla("guia/etapa-0.html"), ancla("guia/etapa-1.html"))}</td><td>{rango_en(ctx, ancla("guia/etapa-0.html"), ancla("guia/etapa-1.html"))}</td></tr>
-<tr><td><strong>Etapa 1 · Fundamentos binarios y PE</strong> (<code>1.1–1.5</code>)</td><td>Principiante</td><td><strong>Tomo I</strong></td><td>{rango_en(info_t1, ancla("guia/etapa-1.html"), ancla("guia/etapa-2.html"))}</td><td>{rango_en(ctx, ancla("guia/etapa-1.html"), ancla("guia/etapa-2.html"))}</td></tr>
+<tr><td><strong>Etapa 1 · Fundamentos binarios y PE</strong> (<code>1.1–1.6</code>)</td><td>Principiante</td><td><strong>Tomo I</strong></td><td>{rango_en(info_t1, ancla("guia/etapa-1.html"), ancla("guia/etapa-2.html"))}</td><td>{rango_en(ctx, ancla("guia/etapa-1.html"), ancla("guia/etapa-2.html"))}</td></tr>
 <tr><td><strong>Etapa 2A · Núcleo x86/x64, IDA y x64dbg</strong> (<code>2.1–2.9</code>)</td><td>Principiante</td><td><strong>Tomo I</strong></td><td>{rango_en(info_t1, ancla("guia/etapa-2.html"), ancla("guia/02-ofuscacion.html"))}</td><td>{rango_en(ctx, ancla("guia/etapa-2.html"), ancla("guia/02-ofuscacion.html"))}</td></tr>
 <tr><td><strong>Etapa 2B · Ofuscación, TLS, MFC, PEB, Anti-debug, Ghidra</strong> (<code>2.10–2.16</code>)</td><td>Intermedio</td><td><strong>Tomo I</strong></td><td>{rango_en(info_t1, ancla("guia/02-ofuscacion.html"), ancla("guia/02-packers.html"))}</td><td>{rango_en(ctx, ancla("guia/02-ofuscacion.html"), ancla("guia/02-packers.html"))}</td></tr>
 <tr><td><strong>Etapa 2C · Packers, C++ profundo, WinDbg/TTD, Diffing, Frida</strong> (<code>2.17–2.21</code>)</td><td>Interm. / Avanzado</td><td><strong>Tomo I</strong></td><td>{rango_en(info_t1, ancla("guia/02-packers.html"), ancla("guia/02-opt-malware-dinamico.html"))}</td><td>{rango_en(ctx, ancla("guia/02-packers.html"), ancla("guia/02-opt-malware-dinamico.html"))}</td></tr>

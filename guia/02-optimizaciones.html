@@ -25,7 +25,7 @@
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 2 · Introducción al reversing</span></nav><h1 id="cómo-cambia-el-código-con-optimizaciones">Cómo cambia el código con optimizaciones</h1>
 <aside class="callout aviso"><p class="callout-titulo">De dónde sale esta lección</p><p>Este tema no viene del curso clásico: lo agrega esta edición. El curso de reversing usa ejemplos compilados en modo depuración (<code>-O0</code>/Debug), donde el assembly sigue de cerca al código fuente. Los binarios reales vienen optimizados (<code>-O2</code>/Release) y se ven muy distintos. Esta lección cubre ese salto, que es donde más se traba quien recién sale de los ejercicios.</p></aside>
 <aside class="callout nota"><p class="callout-titulo">Objetivo de la lección</p><p>Al terminar vas a poder reconocer los patrones de optimización más comunes —inlining, <em>strength reduction</em>, división por constante, vectorización, <em>tail call</em>— y no confundirlos con "código raro" o con una protección.</p></aside>
-<p><strong>Prerrequisitos:</strong> instrucciones, flujo, llamadas (Etapa 2). <strong>Duración sugerida:</strong> 3 horas.</p>
+<p><strong>Prerrequisitos:</strong> instrucciones, flujo, llamadas (Etapa 2). <strong>Duración sugerida:</strong> 5 a 6 horas.</p>
 <h2 id="el-problema">El problema</h2>
 <p>En <code>-O0</code>, cada variable vive en el stack, cada operación es una instrucción y las funciones se llaman tal como las escribiste. En <code>-O2</code>, el compilador reescribe todo para que corra más rápido: mete funciones una dentro de otra, reemplaza multiplicaciones por sumas, borra código que "no hace falta" y reordena instrucciones. El resultado es correcto pero <strong>no se parece</strong> al fuente. Reconocer estos patrones es lo que separa leer un ejercicio de leer un programa real.</p>
 <h2 id="strength-reduction-multiplicar-sin-mul">Strength reduction: multiplicar sin <code>mul</code></h2>
@@ -46,6 +46,57 @@ mov   eax, 0xAAAAAAAB     ; número mágico
 mul   edx                 ; producto de 64 bits
 shr   edx, 1              ; EDX = x / 3</code></pre>
 <p>Cuando veas una multiplicación por una constante aparentemente arbitraria (<code>0xAAAAAAAB</code>, <code>0x55555556</code>, <code>0xCCCCCCCD</code>…) seguida de un <code>shr</code>, es una <strong>división por constante</strong>, no un algoritmo secreto. Hay tablas y calculadoras para recuperar el divisor; lo importante es reconocer el patrón y no perder tiempo buscando sentido a la constante.</p>
+<h3 id="las-dos-caras-del-mismo-patrón">Las dos caras del mismo patrón</h3>
+<p>La misma división se ve distinta según el compilador y la arquitectura. Estas dos secuencias calculan <code>x / 10</code> sin signo, con <code>x</code> en <code>ECX</code>:</p>
+<pre><code class="lenguaje-asm">; forma de 32 bits (típica de MSVC y de cualquier binario x86)
+mov  eax, 0xCCCCCCCD
+mul  ecx                 ; EDX:EAX = x * 0xCCCCCCCD
+shr  edx, 3              ; se usa la mitad alta (EDX) y se desplaza 3
+
+; forma de 64 bits (típica de GCC y Clang en x64)
+mov  eax, ecx
+mov  edx, 0xCCCCCCCD
+imul rax, rdx            ; el producto entero entra en RAX
+shr  rax, 35             ; 35 = 32 + 3</code></pre>
+<p>Son la misma cuenta. En la primera, quedarse con <code>EDX</code> ya equivale a desplazar 32 bits; en la segunda, el producto completo está en un solo registro y el desplazamiento es <code>32 + 3</code>. Por eso, <strong>un <code>shr</code> de 33 a 40 bits después de una multiplicación por una constante rara es la misma división</strong>, aunque no veas <code>EDX</code> por ningún lado.</p>
+<aside class="callout aviso"><p class="callout-titulo">GCC lo hace incluso sin optimizar</p><p>Con MSVC en modo Debug (<code>/Od</code>) una división por constante usa <code>div</code> o <code>idiv</code>. GCC, en cambio, emite el número mágico <strong>también con <code>-O0</code></strong>. Si compilás tus prácticas con MinGW y aparece una constante extraña en una función que solo divide por 10, no hiciste nada mal.</p></aside>
+<h3 id="tabla-de-números-mágicos-frecuentes">Tabla de números mágicos frecuentes</h3>
+<div class="tabla"><table>
+<thead><tr>
+<th>Divisor</th>
+<th>Sin signo: constante y desplazamiento</th>
+<th>Con signo: constante y desplazamiento</th>
+</tr></thead><tbody>
+<tr><td>3</td><td><code>0xAAAAAAAB</code>, <code>shr</code> 1</td><td><code>0x55555556</code>, sin desplazar</td></tr>
+<tr><td>5</td><td><code>0xCCCCCCCD</code>, <code>shr</code> 2</td><td><code>0x66666667</code>, <code>sar</code> 1</td></tr>
+<tr><td>10</td><td><code>0xCCCCCCCD</code>, <code>shr</code> 3</td><td><code>0x66666667</code>, <code>sar</code> 2</td></tr>
+<tr><td>100</td><td><code>0x51EB851F</code>, <code>shr</code> 5</td><td><code>0x51EB851F</code>, <code>sar</code> 5</td></tr>
+<tr><td>1000</td><td><code>0x10624DD3</code>, <code>shr</code> 6</td><td><code>0x10624DD3</code>, <code>sar</code> 6</td></tr>
+</tbody></table></div>
+<p>El desplazamiento de la tabla es el que se aplica <strong>a la mitad alta</strong> del producto (sumale 32 si el compilador usó la forma de 64 bits). Algunos divisores, como el 7, necesitan además una suma de corrección y generan una secuencia más larga; el patrón general se reconoce igual.</p>
+<p><strong>Cómo recuperar el divisor de una constante que no está en la tabla.</strong> Si la constante es <code>M</code> y el desplazamiento sobre la mitad alta es <code>s</code>, el divisor es aproximadamente <code>2^(32+s) / M</code>. Con <code>M = 0xCCCCCCCD</code> y <code>s = 3</code>:</p>
+<pre><code class="lenguaje-python">&gt;&gt;&gt; round(2**(32+3) / 0xCCCCCCCD)
+10</code></pre>
+<p>En la práctica, el decompilador lo hace solo y muestra <code>x / 10</code>. La cuenta sirve para cuando solo tenés el listado, o para desconfiar de un decompilado raro.</p>
+<h3 id="la-versión-con-signo-y-el-resto">La versión con signo, y el resto</h3>
+<p>Con números con signo la secuencia tiene un paso más, porque en C la división redondea hacia cero y el desplazamiento aritmético redondea hacia abajo. La corrección es <strong>sumarle 1 al resultado cuando el número es negativo</strong>, y se hace copiando el bit de signo:</p>
+<pre><code class="lenguaje-asm">; int x / 10, con x en ECX
+mov  eax, 0x66666667
+imul ecx                 ; EDX:EAX = x * constante (con signo)
+sar  edx, 2              ; cociente provisorio
+mov  eax, ecx
+shr  eax, 31             ; EAX = 1 si x es negativo, 0 si no
+add  eax, edx            ; corrección: redondeo hacia cero</code></pre>
+<p>El <code>shr reg, 31</code> (o <code>sar reg, 31</code> seguido de una resta) que queda suelto al final es la marca de la versión con signo. No es una operación aparte.</p>
+<p>El <strong>resto</strong> (<code>x % 10</code>) se calcula a partir del cociente: <code>resto = x − (x / 10) × 10</code>. En el listado ves el número mágico, después una multiplicación por 10 disfrazada (<code>lea eax, [rdx+rdx*4]</code> y <code>add eax, eax</code>) y una resta. Cuando ese bloque está dentro de un bucle que además va guardando bytes y sumándoles <code>0x30</code>, estás mirando una <strong>conversión de número a texto decimal</strong>: cada vuelta saca un dígito, y <code>0x30</code> es el carácter <code>'0'</code>.</p>
+<p>Las divisiones por <strong>potencias de dos</strong> no usan número mágico. Sin signo es un <code>shr</code>. Con signo aparece la misma corrección por redondeo, de otra forma:</p>
+<pre><code class="lenguaje-asm">; int x / 4, con x en ECX          (forma típica de MSVC)
+mov  eax, ecx
+cdq                      ; EDX = 0 si x &gt;= 0, 0xFFFFFFFF si x &lt; 0
+and  edx, 3              ; EDX = 3 solo si x es negativo
+add  eax, edx            ; le suma (divisor - 1) a los negativos
+sar  eax, 2              ; ahora sí, dividir por 4</code></pre>
+<p>GCC hace lo mismo con <code>lea eax, [rcx+3]</code>, <code>test ecx, ecx</code> y <code>cmovns eax, ecx</code> antes del <code>sar</code>. La lectura es siempre la misma: <strong>«sumar divisor menos uno si es negativo, y después <code>sar</code>» es una división con signo por una potencia de dos</strong>.</p>
 <h2 id="inlining-la-función-que-desaparece">Inlining: la función que desaparece</h2>
 <p>Con <code>-O2</code>, una función corta que llamás una vez puede <strong>desaparecer</strong>: el compilador copia su cuerpo donde se usaba (<em>inlining</em>). Entonces:</p>
 <ul><li>No vas a encontrar un <code>call</code> a esa función.</li><li>El código de la función aparece <strong>mezclado</strong> dentro de quien la llamaba.</li><li>Varias funciones del fuente pueden colapsar en un solo bloque grande.</li></ul>
@@ -54,6 +105,48 @@ shr   edx, 1              ; EDX = x / 3</code></pre>
 <p>Un bucle que suma o copia un arreglo puede convertirse en instrucciones <strong>packed</strong> (<code>addps</code>, <code>movdqu</code>, <code>paddd</code>) que procesan varios elementos por vuelta. En vez de un bucle de 100 iteraciones de a 1, ves un bucle de 25 de a 4. Si un bucle "no tiene sentido" porque usa <code>xmm</code> y avanza de a 16 bytes, está vectorizado (ver la lección de punto flotante y SSE).</p>
 <h2 id="tail-call-un-jmp-donde-esperabas-call">Tail call: un <code>jmp</code> donde esperabas <code>call</code></h2>
 <p>Si lo último que hace una función es llamar a otra y devolver su resultado, el compilador reemplaza <code>call f; ret</code> por un simple <code>jmp f</code> (<em>tail call</em>). Ahorra un marco de stack. El efecto al analizar: una función "termina" saltando a otra con <code>jmp</code>, sin <code>ret</code> propio. No es un salto sospechoso ni ofuscación: es una llamada final optimizada.</p>
+<h2 id="variables-que-ya-no-viven-en-el-stack">Variables que ya no viven en el stack</h2>
+<p>En <code>-O0</code> cada variable tiene su casillero fijo en el stack: se carga antes de cada uso y se guarda después de cada cambio. Es lento, pero cómodo de leer. Con optimización, eso desaparece:</p>
+<ul><li><strong>Las variables viven en registros.</strong> Una local puede pasar toda su vida en <code>ESI</code> sin tocar la memoria. No hay <code>[rbp-N]</code> que mirar en el volcado: su valor está en el panel de registros.</li><li><strong>Un mismo registro guarda varias variables</strong>, una después de otra, cuando la primera ya no se usa. Y una misma variable puede cambiar de registro a mitad de la función.</li><li><strong>Algunas variables no existen.</strong> Si el compilador puede calcular el valor de antemano, o combinarla con otra, la elimina.</li><li><strong>No hay <code>EBP</code>/<code>RBP</code> como base.</strong> El prólogo <code>push ebp</code> / <code>mov ebp, esp</code> de la lección 1.2 desaparece y todo se referencia como <code>[rsp+N]</code>. En 32 bits esto complica la lectura, porque <code>ESP</code> cambia con cada <code>push</code>: el mismo argumento puede ser <code>[esp+8]</code> en una línea y <code>[esp+0xC]</code> dos líneas después. Los desensambladores llevan esa cuenta y por eso muestran nombres como <code>arg_0</code> en lugar del número.</li><li><strong>Las funciones chicas no tienen marco.</strong> Una función que no llama a nadie (<em>función hoja</em>) puede no reservar stack y trabajar solo con los registros de los argumentos.</li></ul>
+<p>Consecuencia para el debugger: en código optimizado, el panel de variables locales y el volcado del stack informan mucho menos. El método pasa a ser seguir <strong>registros</strong>, y anotar a mano qué representa cada uno en cada tramo de la función.</p>
+<h2 id="bucles-transformados">Bucles transformados</h2>
+<p>Los bucles son lo que más cambia, porque es donde el compilador gana más tiempo. Este es un bucle que suma un arreglo:</p>
+<pre><code class="lenguaje-c">int suma(const int *v, int n) {
+    int s = 0;
+    for (int i = 0; i &lt; n; i++)
+        s += v[i];
+    return s;
+}</code></pre>
+<p>Sin optimizar, el listado sigue al fuente: hay un <code>i</code> en el stack, una comparación <code>i &lt; n</code> en cada vuelta, un acceso <code>[v + i*4]</code> y un <code>s</code> que se lee y se guarda en memoria en cada iteración. Con optimización moderada (sin vectorizar), la forma típica en x64 es esta, con <code>v</code> en <code>RCX</code> y <code>n</code> en <code>EDX</code>:</p>
+<pre><code class="lenguaje-asm">suma:
+    test   edx, edx
+    jle    .vacio            ; si n &lt;= 0, no entra al bucle
+    movsxd rdx, edx
+    lea    rdx, [rcx+rdx*4]  ; RDX = puntero al final del arreglo
+    xor    eax, eax          ; s = 0, directamente en EAX
+.bucle:
+    add    eax, [rcx]        ; s += *v
+    add    rcx, 4            ; v++
+    cmp    rcx, rdx
+    jne    .bucle            ; la condición está al final
+    ret
+.vacio:
+    xor    eax, eax
+    ret</code></pre>
+<p>El compilador que uses puede dar un resultado algo distinto, pero estas cuatro transformaciones aparecen casi siempre:</p>
+<div class="tabla"><table>
+<thead><tr>
+<th>Transformación</th>
+<th>Qué cambió</th>
+<th>Cómo reconocerla</th>
+</tr></thead><tbody>
+<tr><td><strong>Inversión del bucle</strong></td><td>La condición pasó del principio al final. Antes del bucle queda una comprobación suelta para el caso de cero vueltas.</td><td>Un <code>test</code>/<code>cmp</code> con salto que <strong>esquiva</strong> el bucle, y el salto condicional hacia atrás al final.</td></tr>
+<tr><td><strong>Eliminación del índice</strong></td><td><code>i</code> desapareció. Se avanza el puntero directamente y se compara contra un puntero al final.</td><td>Un <code>add reg, 4</code> (o 1, 2, 8) y un <code>cmp</code> entre dos punteros. El paso delata el tamaño del elemento.</td></tr>
+<tr><td><strong>Acumulador en registro</strong></td><td><code>s</code> vive en <code>EAX</code> todo el tiempo y ya es el valor de retorno.</td><td>No hay accesos al stack dentro del bucle.</td></tr>
+<tr><td><strong>Sin marco</strong></td><td>No hay prólogo ni epílogo.</td><td>La función empieza directamente con lógica y termina en <code>ret</code>.</td></tr>
+</tbody></table></div>
+<p>Con más optimización aparecen otras tres:</p>
+<ul><li><strong>Desenrollado</strong> (<em>loop unrolling</em>): el cuerpo se repite varias veces por vuelta para saltar menos. Ves cuatro <code>add</code> casi idénticos con offsets <code>[rcx]</code>, <code>[rcx+4]</code>, <code>[rcx+8]</code>, <code>[rcx+12]</code> y un avance de 16, más un bucle chico aparte que procesa los elementos que sobran.</li><li><strong>Vectorización</strong>: la sección anterior.</li><li><strong>Reemplazo por una función o instrucción</strong>: un bucle que pone un arreglo en cero se convierte en una llamada a <code>memset</code> o en un <code>rep stosd</code>; uno que copia, en <code>memcpy</code> o <code>rep movsb</code>. El bucle que escribiste <strong>no está</strong>. Al revés también pasa: un <code>memcpy</code> o <code>strlen</code> del fuente puede aparecer expandido en el lugar, sin ningún <code>call</code>.</li></ul>
 <h2 id="otros-patrones-frecuentes">Otros patrones frecuentes</h2>
 <div class="tabla"><table>
 <thead><tr>
@@ -68,21 +161,40 @@ shr   edx, 1              ; EDX = x / 3</code></pre>
 <tr><td>bloques reordenados</td><td>el camino "frío" (error) va al final</td><td>mejora la predicción de saltos</td></tr>
 <tr><td>constantes plegadas</td><td><code>mov eax, 480</code> donde el fuente decía <code>(a+b)*4</code></td><td><em>constant folding</em> en tiempo de compilación</td></tr>
 </tbody></table></div>
+<h2 id="funciones-que-cambian-de-forma">Funciones que cambian de forma</h2>
+<p>El <em>inlining</em> no es la única manera en que el compilador rompe la correspondencia entre funciones del fuente y funciones del binario:</p>
+<div class="tabla"><table>
+<thead><tr>
+<th>Qué pasa</th>
+<th>Cómo se ve</th>
+<th>Qué no hay que concluir</th>
+</tr></thead><tbody>
+<tr><td><strong>Copias especializadas.</strong> Si una función se llama siempre con el mismo valor en un argumento, el compilador genera una versión con ese valor fijo.</td><td>Una función con menos argumentos que la del fuente. Con símbolos de GCC, nombres como <code>f.constprop.0</code> o <code>f.isra.0</code>.</td><td>Que el programador escribió dos funciones.</td></tr>
+<tr><td><strong>Fusión de funciones idénticas</strong> (<em>identical COMDAT folding</em>, opción <code>/OPT:ICF</code> de MSVC, activa en Release).</td><td>Dos funciones distintas del fuente comparten <strong>una sola dirección</strong>. Con símbolos, el desensamblador elige uno de los dos nombres.</td><td>Que dos lugares del programa llaman a «la misma función» en sentido lógico: solo comparten bytes.</td></tr>
+<tr><td><strong>Código muerto eliminado.</strong> Una rama que nunca puede ejecutarse, o un resultado que nadie usa, se borra.</td><td>Falta un <code>if</code> que sí está en el fuente; una función «no hace nada».</td><td>Que el binario fue modificado.</td></tr>
+<tr><td><strong>Funciones que no retornan.</strong> Después de un <code>call</code> a <code>exit</code>, <code>abort</code> o a una función que lanza una excepción, el compilador no pone nada.</td><td>La función termina en un <code>call</code> y enseguida vienen bytes <code>CC</code> (<code>int3</code>, relleno) o el comienzo de otra función. No hay <code>ret</code>.</td><td>Que el desensamblador cortó mal la función, o que hay ofuscación.</td></tr>
+<tr><td><strong><code>switch</code> compilado como búsqueda.</strong> Si los casos están muy separados, no hay tabla de saltos (lección 2.3) sino comparaciones en forma de árbol.</td><td>Una cadena de <code>cmp</code> con <code>jg</code>/<code>jl</code> que parte el rango en mitades, y los <code>je</code> al final.</td><td>Que eran <code>if</code> anidados escritos a mano.</td></tr>
+</tbody></table></div>
 <h2 id="cómo-convivir-con-esto">Cómo convivir con esto</h2>
 <ol><li><strong>Aprendé con <code>-O0</code>, analizá con <code>-O2</code>.</strong> Compilá tu ejemplo en los dos modos y poné los listados lado a lado. Ver la misma lógica en ambas versiones entrena el ojo.</li><li><strong>Usá el decompilador.</strong> Ghidra o Hex-Rays deshacen muchos de estos patrones: te muestran <code>x / 3</code> en vez del número mágico, y la función inlineada como una sola expresión. No es mágico, pero ahorra tiempo.</li><li><strong>Pensá en comportamiento, no en forma.</strong> La pregunta no es "¿por qué hay un <code>lea</code> acá?", sino "¿qué valor queda en este registro al final?".</li></ol>
-<aside class="callout practica"><p class="callout-titulo">Práctica</p><ol><li>Compilá una función <code>int f(int x){ return x*5 + x/3; }</code> con <code>-O0</code> y con <code>-O2</code>. Encontrá el <code>lea [rax+rax*4]</code> (el <code>*5</code>) y el número mágico (el <code>/3</code>).</li><li>Escribí dos funciones chicas donde una llame a la otra y compilá con <code>-O2</code>. ¿Desapareció la llamada (inlining)?</li><li>Hacé un bucle que sume un arreglo de 1000 <code>int</code> y compilá con <code>-O3 -mavx2</code>. ¿Ves registros <code>xmm</code>/<code>ymm</code> y avance de a varios elementos?</li><li>Abrí el <code>-O2</code> en Ghidra y compará el decompilado con tu fuente. ¿Recuperó la división por 3?</li></ol></aside>
+<aside class="callout practica"><p class="callout-titulo">Práctica</p><ol><li>Compilá una función <code>int f(int x){ return x*5 + x/3; }</code> con <code>-O0</code> y con <code>-O2</code>. Encontrá el <code>lea [rax+rax*4]</code> (el <code>*5</code>) y el número mágico (el <code>/3</code>).</li><li>Escribí dos funciones chicas donde una llame a la otra y compilá con <code>-O2</code>. ¿Desapareció la llamada (inlining)?</li><li>Hacé un bucle que sume un arreglo de 1000 <code>int</code> y compilá con <code>-O3 -mavx2</code>. ¿Ves registros <code>xmm</code>/<code>ymm</code> y avance de a varios elementos?</li><li>Abrí el <code>-O2</code> en Ghidra y compará el decompilado con tu fuente. ¿Recuperó la división por 3?</li><li>Compilá la función <code>suma</code> de la sección de bucles con <code>-O0</code>, <code>-O1</code> y <code>-O2</code> (con Visual Studio: <code>/Od</code>, <code>/O1</code> y <code>/O2</code>). Para cada versión anotá: dónde vive <code>s</code>, dónde vive <code>i</code> (si existe), dónde está la condición del bucle y cuántas instrucciones tiene el cuerpo.</li><li>Escribí <code>void digitos(unsigned x, char *out)</code> que guarde en <code>out</code> los dígitos decimales de <code>x</code> usando <code>% 10</code> y <code>/ 10</code> en un bucle. Compilá con optimización y encontrá: el número mágico, la multiplicación por 10 disfrazada, la resta y el <code>0x30</code>.</li><li>Sin compilar: una función contiene <code>mov eax, 0x51EB851F</code>, <code>imul ecx</code>, <code>sar edx, 5</code> y después un <code>shr</code> de 31 sobre una copia de <code>ECX</code> que se suma. ¿Qué calcula?</li><li>Sin compilar: en un binario aparece <code>imul rax, rdx</code> con <code>RDX = 0x10624DD3</code>, seguido de <code>shr rax, 38</code>. ¿Qué divisor es?</li></ol></aside>
+<details class="qa"><summary>Ver qué deberías encontrar en los ejercicios 5 a 8</summary><div class="respuesta"><p><strong>5.</strong> En <code>-O0</code>: <code>s</code> e <code>i</code> en el stack, condición evaluada en cada vuelta (GCC la pone abajo y entra con un <code>jmp</code>), y un cuerpo con varias lecturas y escrituras a memoria. En <code>-O1</code>: <code>s</code> en <code>EAX</code>, <code>i</code> reemplazado por un puntero o conservado en un registro, condición al final, cuerpo de tres o cuatro instrucciones. En <code>-O2</code> puede verse igual que <code>-O1</code> o aparecer vectorizado con registros <code>xmm</code>, según la versión del compilador: las dos respuestas son correctas.</p><p><strong>6.</strong> La constante <code>0xCCCCCCCD</code> con un desplazamiento de 3 (o de 35 en la forma de 64 bits); un <code>lea reg, [reg+reg*4]</code> seguido de un <code>add reg, reg</code> o un <code>shl</code>, que juntos son <code>× 10</code>; un <code>sub</code> que deja el resto; y un <code>add</code> de <code>0x30</code> (a veces escrito <code>'0'</code>) antes de guardar el byte.</p><p><strong>7.</strong> <code>x / 100</code> con signo: la constante <code>0x51EB851F</code> con <code>sar</code> 5 es la fila del 100 en la tabla, y el <code>shr</code> de 31 sumado es la corrección de redondeo de la versión con signo.</p><p><strong>8.</strong> Mil: <code>38 = 32 + 6</code>, y <code>0x10624DD3</code> con desplazamiento 6 es la fila del 1000. Con la fórmula, <code>round(2**38 / 0x10624DD3) = 1000</code>.</p></div></details>
 <h2 id="preguntas-de-repaso">Preguntas de repaso</h2>
 <details class="qa"><summary>Ves <code>lea eax, [rax+rax*4]</code>. ¿Qué es?</summary><div class="respuesta"><p>Una multiplicación por 5 (<code>x + x*4</code>). <code>lea</code> se usa acá para aritmética, no para calcular una dirección.</p></div></details>
 <details class="qa"><summary>Aparece <code>mov eax, 0xAAAAAAAB</code> seguido de <code>mul</code> y <code>shr</code>. ¿Qué está pasando?</summary><div class="respuesta"><p>Es una división por constante (por 3) implementada con un número mágico. El compilador evita <code>div</code>.</p></div></details>
 <details class="qa"><summary>Una función termina con <code>jmp otra_funcion</code> en vez de <code>call</code> + <code>ret</code>. ¿Es sospechoso?</summary><div class="respuesta"><p>No. Es una <em>tail call</em>: la última acción era llamar y devolver, y el compilador la optimizó a un salto.</p></div></details>
 <details class="qa"><summary>No encontrás el <code>call</code> a una función que sí está en el fuente. ¿Qué pudo pasar?</summary><div class="respuesta"><p>Inlining: el compilador copió su cuerpo dentro de quien la llamaba, así que no hay llamada separada.</p></div></details>
+<details class="qa"><summary>En una función optimizada no encontrás la variable del bucle en el stack. ¿Dónde está?</summary><div class="respuesta"><p>En un registro, o no existe: el compilador puede haberla reemplazado por un puntero que avanza y se compara contra el final del arreglo.</p></div></details>
+<details class="qa"><summary>Antes de un bucle hay una comparación que lo esquiva por completo, y la condición está al final. ¿Es un <code>if</code> más un <code>do…while</code>?</summary><div class="respuesta"><p>Probablemente no: es la forma normal en que un compilador optimizado escribe un <code>for</code> o un <code>while</code>. La comprobación previa cubre el caso de cero iteraciones.</p></div></details>
+<details class="qa"><summary>Dos funciones con nombres distintos tienen la misma dirección. ¿Es un error del desensamblador?</summary><div class="respuesta"><p>No. El linker fusionó dos funciones cuyo código era idéntico byte a byte para ahorrar espacio.</p></div></details>
+<details class="qa"><summary>Una función termina en un <code>call</code> sin <code>ret</code> y siguen bytes <code>CC</code>. ¿Qué significa?</summary><div class="respuesta"><p>Que la función llamada no retorna (termina el programa o lanza una excepción), así que el compilador no generó nada después. Los <code>CC</code> son relleno entre funciones.</p></div></details>
 <h2 id="antes-de-avanzar">Antes de avanzar</h2>
 <p>Tenés que poder:</p>
-<ul><li>Reconocer <em>strength reduction</em> (<code>lea</code>/shifts) y división por constante (número mágico).</li><li>Explicar por qué una función del fuente puede no existir como función en el binario.</li><li>Identificar un bucle vectorizado y una <em>tail call</em>.</li><li>Usar un decompilador para deshacer estos patrones.</li></ul>
+<ul><li>Reconocer <em>strength reduction</em> (<code>lea</code>/shifts) y división por constante (número mágico).</li><li>Explicar por qué una función del fuente puede no existir como función en el binario.</li><li>Identificar un bucle vectorizado y una <em>tail call</em>.</li><li>Recuperar el divisor de un número mágico con la tabla o con la fórmula, y distinguir la versión con signo.</li><li>Reconocer un bucle invertido, sin índice y con el acumulador en un registro.</li><li>Seguir una variable por registros cuando no tiene lugar en el stack.</li><li>Usar un decompilador para deshacer estos patrones.</li></ul>
 <aside class="callout nota"><p class="callout-titulo">Puerta de salida</p><p>Si podés mirar un listado <code>-O2</code> y decir "esto es <code>x*5</code>, esto es <code>x/3</code>, esta función está inlineada" sin frustrarte, estás listo para binarios reales.</p></aside>
 <h2 id="fuentes-de-esta-lección">Fuentes de esta lección</h2>
 <ul><li>Agner Fog, <em>Optimizing subroutines in assembly language</em> y <em>Instruction tables</em> (patrones de código generado y costos).</li><li>Documentación de <strong>GCC</strong> (<code>-O1/-O2/-O3</code>) y <strong>LLVM/Clang</strong> sobre pases de optimización.</li><li><em>Hacker's Delight</em> (Warren) para división por constantes y trucos aritméticos.</li></ul>
-<aside class="callout nota"><p class="callout-titulo">De dónde sale cada parte de esta lección</p><p><strong>Conocimiento externo (agregado por esta edición):</strong> todos los patrones de optimización. El corpus tradicional usa binarios sin optimizar, así que este salto no estaba cubierto. <strong>Recomendación editorial:</strong> la estrategia "aprendé con Debug, analizá con Release" y los ejercicios.</p></aside>
+<aside class="callout nota"><p class="callout-titulo">De dónde sale cada parte de esta lección</p><p><strong>Conocimiento externo (agregado por esta edición):</strong> todos los patrones de optimización. El corpus tradicional usa binarios sin optimizar, así que este salto no estaba cubierto. Los listados de assembly de esta lección son formas típicas escritas a mano, no la salida de un compilador concreto: el tuyo puede ordenar las instrucciones o elegir los registros de otra manera. <strong>Recomendación editorial:</strong> la estrategia "aprendé con Debug, analizá con Release" y los ejercicios.</p></aside>
 </main>
 <footer class="pie">
   <p>Material educativo y defensivo. Las prácticas se limitan a programas propios, software abierto o crackmes diseñados para aprender. No se enseña a eludir licencias, DRM ni controles de acceso.</p>

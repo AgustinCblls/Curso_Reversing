@@ -24,7 +24,7 @@
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 2 · Introducción al reversing</span></nav><h1 id="instrucciones-mover-calcular-y-manipular-bits">Instrucciones: mover, calcular y manipular bits</h1>
 <aside class="callout nota"><p class="callout-titulo">Objetivo de la lección</p><p>Al terminar vas a poder leer un bloque de instrucciones y decir qué valor queda en cada registro, distinguiendo transferencias, operaciones aritméticas, lógicas, desplazamientos y accesos a memoria.</p></aside>
-<p><strong>Prerrequisitos:</strong> registros y flags. <strong>Duración sugerida:</strong> 5 horas. Estimación aproximada.</p>
+<p><strong>Prerrequisitos:</strong> registros y flags. <strong>Duración sugerida:</strong> 6 a 7 horas. Estimación aproximada.</p>
 <h2 id="cómo-se-lee-una-instrucción">Cómo se lee una instrucción</h2>
 <p>Casi todas las instrucciones tienen la forma:</p>
 <pre><code class="lenguaje-asm">MNEMÓNICO destino, fuente</code></pre>
@@ -33,6 +33,49 @@
 <pre><code class="lenguaje-asm">mov eax, 0x401000      ; EAX = el número 0x401000
 mov eax, [0x401000]    ; EAX = lo que hay en la dirección 0x401000</code></pre>
 <p>Esa diferencia es la que separa un puntero de un valor. El capítulo 02 la explica al mover un valor desde memoria a <code>EAX</code>: los bytes <code>36 00 00 38</code> en la dirección se convierten en <code>0x38000036</code> en el registro (<a class="fuente" href="../../CLS_resultados_intermedios/transcripciones/extraidos/Reversing%20desde%20cero%20%28Ricardo%20y%20Solid%29/Ricardo%20Narvaja%20y%20Solid%20-%20Reversing%20desde%20cero_02%20Instrucciones%201_02%20Instrucciones%201.txt">Reversing desde cero, cap. 02</a>, 00:07:00–00:08:00).</p>
+<h2 id="modos-de-direccionamiento">Modos de direccionamiento: qué hay adentro de los corchetes</h2>
+<p>Lo que va entre corchetes no es cualquier expresión. El procesador admite una sola forma general, y cada parte es opcional:</p>
+<pre><code class="lenguaje-text">[ base + índice * escala + desplazamiento ]
+
+base, índice   : registros
+escala         : 1, 2, 4 u 8
+desplazamiento : una constante (puede ser negativa)</code></pre>
+<p>Lo valioso es que <strong>cada combinación delata qué estaba haciendo el código fuente</strong>. Con esta tabla podés mirar un acceso a memoria y decir qué tipo de dato es antes de entender el resto de la función:</p>
+<div class="tabla"><table>
+<thead><tr>
+<th>Forma</th>
+<th>Ejemplo</th>
+<th>Qué suele ser en C</th>
+</tr></thead><tbody>
+<tr><td>Registro de pila + constante</td><td><code>[ebp-8]</code>, <code>[rsp+0x20]</code></td><td>Una variable local</td></tr>
+<tr><td><code>EBP</code> + constante positiva</td><td><code>[ebp+8]</code></td><td>Un argumento (32 bits)</td></tr>
+<tr><td>Solo base</td><td><code>[eax]</code></td><td><code>*p</code>: lo apuntado por un puntero</td></tr>
+<tr><td>Base + constante</td><td><code>[eax+0x10]</code></td><td><code>p-&gt;campo</code>: un campo en el offset <code>0x10</code> de una estructura</td></tr>
+<tr><td>Base + índice × escala</td><td><code>[eax+ecx*4]</code></td><td><code>arreglo[i]</code>; la escala es el tamaño de cada elemento (4 = <code>int</code>)</td></tr>
+<tr><td>Base + índice × escala + constante</td><td><code>[eax+ecx*8+0x18]</code></td><td>Un arreglo que está dentro de una estructura</td></tr>
+<tr><td>Solo constante</td><td><code>[0x403000]</code></td><td>Una variable global (32 bits)</td></tr>
+<tr><td><code>RIP</code> + constante</td><td><code>[rip+0x1FFA]</code></td><td>Una variable global o una constante (64 bits)</td></tr>
+</tbody></table></div>
+<p>La escala es una pista fuerte del tipo: <code>*1</code> es un arreglo de <code>char</code> o bytes, <code>*2</code> de <code>short</code> o caracteres UTF-16, <code>*4</code> de <code>int</code> o <code>float</code>, <code>*8</code> de punteros o <code>double</code> en 64 bits.</p>
+<p><strong>El tamaño del acceso.</strong> Los corchetes dicen <em>dónde</em>, pero no <em>cuántos bytes</em>. Cuando hay un registro, su tamaño lo define (<code>mov eax, [ebx]</code> lee 4 bytes; <code>mov al, [ebx]</code> lee 1). Cuando no alcanza, el desensamblador lo escribe adelante:</p>
+<pre><code class="lenguaje-asm">mov byte ptr  [eax], 0     ; escribe 1 byte   (un char)
+mov word ptr  [eax], 0     ; escribe 2 bytes  (un short)
+mov dword ptr [eax], 0     ; escribe 4 bytes  (un int)
+mov qword ptr [rax], 0     ; escribe 8 bytes  (un puntero o un long long)</code></pre>
+<p>x64dbg además antepone un registro de segmento, como en <code>dword ptr ds:[eax]</code> o <code>ss:[ebp-8]</code>. En Windows moderno <code>ds:</code>, <code>ss:</code>, <code>cs:</code> y <code>es:</code> no cambian nada y podés ignorarlos. Los únicos que importan son <code>fs:</code> (32 bits) y <code>gs:</code> (64 bits), que apuntan a los datos del hilo, como viste en la lección 1.3.</p>
+<h3 id="direccionamiento-relativo-a-rip">Direccionamiento relativo a <code>RIP</code> (solo 64 bits)</h3>
+<p>En 32 bits, una variable global se accede con su <strong>dirección absoluta</strong> escrita dentro de la instrucción: <code>mov eax, [0x403000]</code> se codifica <code>A1 00 30 40 00</code>, con la dirección a la vista (y en little-endian). Si el programa se carga en otra base, hay que corregir esos cuatro bytes: para eso existen las relocalizaciones.</p>
+<p>En 64 bits casi nunca se hace así. La instrucción guarda la <strong>distancia</strong> entre ella misma y el dato, y el procesador la suma a <code>RIP</code>. Como en el <code>call</code> de la lección 1.1, la cuenta parte de <strong>la instrucción siguiente</strong>:</p>
+<pre><code class="lenguaje-text">dirección        bytes                instrucción
+0x140001000      8B 05 FA 1F 00 00    mov eax, [rip+0x1FFA]
+
+destino = dirección de la instrucción siguiente + desplazamiento
+        = (0x140001000 + 6) + 0x1FFA
+        = 0x140001006 + 0x1FFA
+        = 0x140003000</code></pre>
+<p>La ventaja es que el código funciona igual en cualquier dirección de carga, porque la distancia entre el código y sus datos no cambia cuando la imagen se mueve entera. Por eso los binarios de 64 bits tienen muchas menos relocalizaciones.</p>
+<p>Lo que hay que saber para leerlo:</p>
+<ul><li><strong>Las herramientas hacen la cuenta por vos</strong>, y cada una lo muestra distinto. La misma instrucción aparece como <code>mov eax, dword ptr ds:[0x0000000140003000]</code> en x64dbg, <code>mov eax, cs:dword_140003000</code> en IDA y <code>MOV EAX, dword ptr [DAT_140003000]</code> en Ghidra. Ninguna muestra <code>rip</code>; todas muestran el destino ya calculado.</li><li><strong>Si mirás los bytes, el desplazamiento no es la dirección.</strong> En el ejemplo los bytes dicen <code>FA 1F 00 00</code> (<code>0x1FFA</code>), no <code>0x140003000</code>. Dos instrucciones que leen la misma variable desde lugares distintos tienen desplazamientos distintos.</li><li><strong>Con <code>lea</code> es la forma de obtener la dirección de un dato.</strong> <code>lea rcx, [rip+0x2F20]</code> seguido de un <code>call</code> es el patrón típico de «pasar una cadena como primer argumento»: lo vas a ver antes de cada <code>printf</code> en 64 bits.</li><li>Un desplazamiento de 32 bits con signo alcanza ±2 GB. Por eso el código y sus datos tienen que estar cerca, y un módulo de 64 bits no puede medir más de 2 GB.</li></ul>
 <h2 id="transferencias">Transferencias</h2>
 <h3 id="mov"><code>MOV</code></h3>
 <pre><code class="lenguaje-asm">mov eax, 5          ; inmediato -&gt; registro
@@ -65,6 +108,18 @@ sub eax, 4      ; EAX = EAX - 4</code></pre>
 <p>Suman o restan 1. Son más cortas que <code>add eax, 1</code> y <strong>no modifican <code>CF</code></strong> (sí <code>ZF</code>, <code>SF</code>, <code>OF</code>). En el capítulo 06 se ve <code>INC EAX</code> con <code>EAX = 0xFFFFFFFF</code> (pasa a 0) y <code>DEC EAX</code> con <code>EAX = 1</code> (queda 0 y activa <code>ZF</code>) (<a class="fuente" href="../../CLS_resultados_intermedios/transcripciones/extraidos/Reversing%20desde%20cero%20%28Ricardo%20y%20Solid%29/Ricardo%20Narvaja%20y%20Solid%20-%20Reversing%20desde%20cero_06%20Instrucciones%203_06%20Instrucciones%203.txt">Reversing desde cero, cap. 06</a>, 00:20:03–00:21:00).</p>
 <h3 id="mul-imul-div-idiv"><code>MUL</code>, <code>IMUL</code>, <code>DIV</code>, <code>IDIV</code></h3>
 <p>Ya las vimos en registros. Para 32 bits: <code>MUL</code> usa <code>EDX:EAX</code>; <code>DIV</code> divide <code>EDX:EAX</code>. <code>IMUL</code>/<code>IDIV</code> son las versiones con signo. En 64 bits, <code>RDX:RAX</code>.</p>
+<h3 id="adc-sbb-y-neg"><code>ADC</code>, <code>SBB</code> y <code>NEG</code>: cuando el acarreo importa</h3>
+<p><code>ADC</code> (<em>add with carry</em>) suma los dos operandos <strong>más el flag <code>CF</code></strong>; <code>SBB</code> (<em>subtract with borrow</em>) resta los dos operandos y además resta <code>CF</code>. Sirven para operar con números más grandes que un registro, encadenando el acarreo de una mitad a la otra. Es lo que genera un compilador de 32 bits cuando el fuente usa <code>long long</code> (64 bits):</p>
+<pre><code class="lenguaje-asm">; (EDX:EAX) = (EDX:EAX) + (EBX:ECX)     dos números de 64 bits en un programa de 32
+add eax, ecx    ; suma las mitades bajas; si se pasa de 32 bits, CF = 1
+adc edx, ebx    ; suma las mitades altas, más el acarreo de la anterior</code></pre>
+<p>Con <code>EDX:EAX = 0x00000001:FFFFFFFF</code> y sumando 1: el <code>add</code> deja <code>EAX = 0</code> y <code>CF = 1</code>; el <code>adc edx, 0</code> deja <code>EDX = 2</code>. Resultado <code>0x00000002:00000000</code>, que es lo correcto. Regla de lectura: <strong>un <code>add</code> seguido de un <code>adc</code> (o un <code>sub</code> seguido de un <code>sbb</code>) es una sola operación sobre un número del doble de tamaño</strong>. En 64 bits el mismo par aparece para números de 128 bits, sobre todo en criptografía.</p>
+<p><code>NEG</code> cambia el signo: <code>neg eax</code> es <code>EAX = 0 − EAX</code>. Deja <code>CF = 1</code> si el valor no era cero.</p>
+<p>Las dos se combinan en un modismo que confunde la primera vez, porque no parece aritmética:</p>
+<pre><code class="lenguaje-asm">neg eax         ; CF = 1 si EAX era distinto de cero
+sbb eax, eax    ; EAX = EAX - EAX - CF  =  -CF
+                ; resultado: 0 si EAX era 0, 0xFFFFFFFF (-1) si no</code></pre>
+<p>Es una forma sin saltos de convertir «cualquier valor distinto de cero» en <code>−1</code>. Suele ir seguida de un <code>and eax, valor</code> (elige entre 0 y <code>valor</code>) o de un <code>neg eax</code> / <code>inc eax</code> (lo convierte en 1 o 0). Cuando veas <code>sbb reg, reg</code> con el mismo registro dos veces, no busques qué se resta: está copiando <code>CF</code> a todos los bits.</p>
 <h2 id="lógica-de-bits">Lógica de bits</h2>
 <div class="tabla"><table>
 <thead><tr>
@@ -89,6 +144,71 @@ ror eax, 4    ; rota a la derecha</code></pre>
 <pre><code class="lenguaje-text">shl eax, 2   -&gt; 0x44     (0x11 * 4)
 shr eax, 2   -&gt; 0x04     (0x11 / 4, parte entera)</code></pre>
 <p><code>SHL</code>/<code>SHR</code> <strong>pierden</strong> los bits que salen; <code>ROL</code>/<code>ROR</code> los reinyectan por el otro extremo. El capítulo 08 lo muestra con <code>0x11 &lt;&lt; 2 = 0x44</code> y <code>0x44 &gt;&gt; 2 = 0x11</code> (00:24:33–00:28:11).</p>
+<h2 id="máscaras-de-bits">Máscaras de bits: leer flags y campos</h2>
+<p>Las instrucciones lógicas rara vez se usan para «hacer lógica». Casi siempre se usan para trabajar con <strong>bits individuales dentro de un número</strong>: opciones que se prenden y se apagan, permisos, atributos. Windows hace esto en casi todas sus APIs, así que es una de las lecturas más frecuentes del reversing. Una <strong>máscara</strong> es una constante que tiene en 1 los bits que te interesan.</p>
+<p>Hay cuatro operaciones, y cada una tiene su instrucción:</p>
+<div class="tabla"><table>
+<thead><tr>
+<th>Querés</th>
+<th>En C</th>
+<th>En assembly</th>
+<th>Por qué funciona</th>
+</tr></thead><tbody>
+<tr><td><strong>Consultar</strong> un bit</td><td><code>if (x &amp; 4)</code></td><td><code>test eax, 4</code> + <code>jz</code>/<code>jnz</code></td><td><code>AND</code> deja solo ese bit; <code>ZF = 1</code> si estaba apagado</td></tr>
+<tr><td><strong>Prender</strong> un bit</td><td><code>x |= 4</code></td><td><code>or eax, 4</code></td><td><code>OR</code> con 1 da 1; con 0 no cambia nada</td></tr>
+<tr><td><strong>Apagar</strong> un bit</td><td><code>x &amp;= ~4</code></td><td><code>and eax, 0xFFFFFFFB</code></td><td><code>AND</code> con 0 da 0; con 1 no cambia nada</td></tr>
+<tr><td><strong>Invertir</strong> un bit</td><td><code>x ^= 4</code></td><td><code>xor eax, 4</code></td><td><code>XOR</code> con 1 invierte; con 0 no cambia nada</td></tr>
+</tbody></table></div>
+<p>La que cuesta reconocer es la de apagar, porque la constante aparece <strong>invertida</strong>: <code>0xFFFFFFFB</code> es «todos los bits en 1 menos el bit 2». Cuando veas un <code>and</code> con una constante llena de <code>F</code>, invertila mentalmente (<code>~0xFFFFFFFB = 0x00000004</code>) y vas a ver qué bit se está apagando.</p>
+<p>Existen además instrucciones específicas que nombran el bit por su <strong>número</strong> en vez de por su máscara: <code>bt eax, 5</code> copia el bit 5 a <code>CF</code> (se sigue con <code>jc</code>/<code>jnc</code>), <code>bts</code> además lo prende y <code>btr</code> además lo apaga.</p>
+<h3 id="extraer-un-campo-de-varios-bits">Extraer un campo de varios bits</h3>
+<p>Cuando el dato ocupa varios bits seguidos en medio de un número, se lo saca en dos pasos: <strong>desplazar</strong> para llevarlo al extremo derecho y <strong>enmascarar</strong> para descartar lo que quedó a la izquierda.</p>
+<pre><code class="lenguaje-asm">; EAX = 0x12345678. Querés el segundo byte (bits 8 a 15), que vale 0x56
+shr eax, 8       ; EAX = 0x00123456   el campo quedó abajo
+and eax, 0xFF    ; EAX = 0x00000056   se descarta el resto</code></pre>
+<p>El par <code>shr</code> + <code>and</code> (o al revés, <code>and</code> + <code>shr</code>) es la firma de «leer un campo empaquetado». El camino inverso, armar un número a partir de piezas, es <code>shl</code> + <code>or</code>. Los vas a ver al parsear formatos de archivo y protocolos (Etapa 4) y al leer campos de bits de C (lección 1.5).</p>
+<h3 id="otros-modismos-con-and">Otros modismos con <code>AND</code></h3>
+<div class="tabla"><table>
+<thead><tr>
+<th>Instrucción</th>
+<th>Qué hace realmente</th>
+</tr></thead><tbody>
+<tr><td><code>and eax, 0xFF</code></td><td>Se queda con el byte bajo (equivale a <code>movzx eax, al</code>)</td></tr>
+<tr><td><code>and eax, 1</code></td><td>¿Par o impar? Es <code>x % 2</code> sin signo</td></tr>
+<tr><td><code>and eax, 7</code></td><td><code>x % 8</code> sin signo. En general, <code>and</code> con <code>2ⁿ − 1</code> es el resto de dividir por <code>2ⁿ</code></td></tr>
+<tr><td><code>and eax, 0xFFFFFFF0</code></td><td>Redondea <strong>hacia abajo</strong> a un múltiplo de 16</td></tr>
+<tr><td><code>and rsp, 0xFFFFFFFFFFFFFFF0</code></td><td>Alinea el stack a 16 bytes (lo exige la convención de x64, lección 2.4)</td></tr>
+<tr><td><code>add eax, 0xFFF</code> + <code>and eax, 0xFFFFF000</code></td><td>Redondea <strong>hacia arriba</strong> a una página de <code>0x1000</code> (lección 1.6)</td></tr>
+</tbody></table></div>
+<h3 id="ejemplo-paso-a-paso-descomponer-una-constante-de-una-api">Ejemplo paso a paso: descomponer una constante de una API</h3>
+<p>Muchos argumentos de las APIs de Windows son varias opciones combinadas con <code>OR</code> en un solo número. Cuando en el listado ves una constante que no significa nada, lo primero es comprobar si es una <strong>suma de flags</strong>. El método: escribila en binario, y cada bit en 1 es una opción.</p>
+<p>Un programa llama a <code>CreateFileW</code> con el segundo argumento (<code>dwDesiredAccess</code>) en <code>0xC0000000</code>, y más adelante a <code>SetFileAttributesW</code> con <code>0x26</code>:</p>
+<pre><code class="lenguaje-text">0xC0000000 = 1100 0000 0000 0000 0000 0000 0000 0000
+             │└─ bit 30 = 0x40000000 = GENERIC_WRITE
+             └── bit 31 = 0x80000000 = GENERIC_READ
+             → abre el archivo para leer y escribir
+
+0x26       = 0010 0110
+               │   ││
+               │   │└─ bit 1 = 0x02 = FILE_ATTRIBUTE_HIDDEN
+               │   └── bit 2 = 0x04 = FILE_ATTRIBUTE_SYSTEM
+               └────── bit 5 = 0x20 = FILE_ATTRIBUTE_ARCHIVE
+             → marca el archivo como oculto y de sistema</code></pre>
+<p>Los nombres y valores salen de la documentación de cada API en Microsoft Learn; nadie los sabe de memoria. Dos advertencias:</p>
+<ul><li><strong>No toda constante es una máscara.</strong> Algunas APIs reciben un valor de una lista, donde solo uno es válido a la vez (por ejemplo, la protección de página <code>0x40</code> de <code>VirtualAlloc</code>). La documentación dice cuál es el caso: si habla de «una combinación de los siguientes valores», son flags.</li><li><strong>El desensamblador puede hacerlo por vos.</strong> IDA y Ghidra traen las constantes de Windows con nombre y permiten reemplazar el número por su expresión simbólica (lección 2.7). Pero hay que saber leerlo a mano para darse cuenta de cuándo aplicarlo.</li></ul>
+<p>El mismo ejercicio con otras operaciones, para fijar las cuatro de la tabla. Partiendo siempre de <code>EAX = 0x12345678</code>:</p>
+<div class="tabla"><table>
+<thead><tr>
+<th>Instrucción</th>
+<th>Resultado en <code>EAX</code></th>
+<th>Qué hizo</th>
+</tr></thead><tbody>
+<tr><td><code>and eax, 0xFF00</code></td><td><code>0x00005600</code></td><td>Aisló el segundo byte, sin moverlo</td></tr>
+<tr><td><code>or eax, 0x80000000</code></td><td><code>0x92345678</code></td><td>Prendió el bit 31</td></tr>
+<tr><td><code>and eax, 0xFFFFFFF0</code></td><td><code>0x12345670</code></td><td>Apagó los cuatro bits bajos</td></tr>
+<tr><td><code>xor eax, 0xFF</code></td><td><code>0x12345687</code></td><td>Invirtió el byte bajo (<code>0x78</code> → <code>0x87</code>)</td></tr>
+<tr><td><code>test eax, 8</code></td><td>sin cambio; <code>ZF = 0</code></td><td>Consultó el bit 3, que está prendido (<code>0x78 = 0111 1000</code>)</td></tr>
+</tbody></table></div>
 <h2 id="comparar-sin-restar-cmp-y-test">Comparar sin restar: <code>CMP</code> y <code>TEST</code></h2>
 <p><code>CMP a, b</code> hace <code>a - b</code>, actualiza flags y <strong>descarta el resultado</strong>. <code>TEST a, b</code> hace <code>a AND b</code>, actualiza flags y también descarta el resultado.</p>
 <pre><code class="lenguaje-asm">cmp eax, 4      ; ¿EAX == 4?  -&gt; ZF=1 si son iguales
@@ -133,7 +253,8 @@ sub  ebx, 0x44</code></pre>
 </tbody></table></div>
 <p>Comprobación: <code>0x11 ^ 0x0F = 0x1E</code>; <code>0x1E &amp; 0x1F = 0x1E</code>; <code>0x1E &lt;&lt; 2 = 0x78</code>; <code>0x78 - 0x44 = 0x34</code>. Todos los valores entran en 8 bits, así que no hay acarreo.</p>
 <h2 id="práctica">Práctica</h2>
-<ol><li>Ejecutá el bloque anterior en x64dbg y completá la tabla con los valores reales. (Para cargarlo, ensamblá las instrucciones una por una con la barra espaciadora, como se explica en <a href="02-registros.html#práctica">la práctica de la lección 2.1</a>.)</li><li>Cambiá <code>mov eax, 0x11</code> por <code>mov eax, 0xFFFFFFFF</code> y predecí qué pasa en cada paso.</li><li>Escribí una secuencia de tres instrucciones que deje <code>EAX = 0</code> sin usar <code>mov</code>.</li><li>¿Qué diferencia hay entre <code>mov eax, [ebx]</code> y <code>lea eax, [ebx]</code>?</li><li>Traducí a assembly la comprobación de <code>if (x == 0) return;</code> con <code>x</code> en <code>EAX</code>. <em>(Pista: usá <code>test eax, eax</code> o <code>cmp eax, 0</code> para encender el flag <code>ZF=1</code> cuando <code>EAX</code> vale cero; en las lecciones 2.3 y 2.4 verás cómo combinarlo con el salto condicional <code>jz</code>/<code>jne</code> y la instrucción <code>ret</code>.)</em></li><li>Explicá por qué <code>INC</code> no sirve para detectar acarreo sin signo.</li></ol>
+<ol><li>Ejecutá el bloque anterior en x64dbg y completá la tabla con los valores reales. (Para cargarlo, ensamblá las instrucciones una por una con la barra espaciadora, como se explica en <a href="02-registros.html#práctica">la práctica de la lección 2.1</a>.)</li><li>Cambiá <code>mov eax, 0x11</code> por <code>mov eax, 0xFFFFFFFF</code> y predecí qué pasa en cada paso.</li><li>Escribí una secuencia de tres instrucciones que deje <code>EAX = 0</code> sin usar <code>mov</code>.</li><li>¿Qué diferencia hay entre <code>mov eax, [ebx]</code> y <code>lea eax, [ebx]</code>?</li><li>Traducí a assembly la comprobación de <code>if (x == 0) return;</code> con <code>x</code> en <code>EAX</code>. <em>(Pista: usá <code>test eax, eax</code> o <code>cmp eax, 0</code> para encender el flag <code>ZF=1</code> cuando <code>EAX</code> vale cero; en las lecciones 2.3 y 2.4 verás cómo combinarlo con el salto condicional <code>jz</code>/<code>jne</code> y la instrucción <code>ret</code>.)</em></li><li>Explicá por qué <code>INC</code> no sirve para detectar acarreo sin signo.</li><li>En un programa de 64 bits, la instrucción <code>mov eax, [rip+0x2010]</code> está en <code>0x140001500</code> y ocupa 6 bytes. ¿Qué dirección lee?</li><li>Descomponé en flags estas dos constantes: <code>0x3000</code> como tercer argumento de <code>VirtualAlloc</code> (<code>MEM_COMMIT = 0x1000</code>, <code>MEM_RESERVE = 0x2000</code>) y <code>0x07</code> como atributos de archivo (<code>READONLY = 0x01</code>, <code>HIDDEN = 0x02</code>, <code>SYSTEM = 0x04</code>).</li><li>Escribí las instrucciones para: (a) apagar el bit 3 de <code>EAX</code>; (b) saltar a <code>destino</code> si el bit 5 de <code>EAX</code> está prendido; (c) dejar en <code>EAX</code> solo los bits 8 a 15, llevados al extremo derecho.</li><li><code>EDX:EAX</code> vale <code>0x00000000:FFFFFFF0</code>. Se ejecuta <code>add eax, 0x20</code> y después <code>adc edx, 0</code>. ¿Cuánto valen los dos registros y <code>CF</code> después de cada instrucción?</li><li>¿Qué tipo de dato de C sugiere cada acceso? (a) <code>mov eax, [rbp-0x14]</code>; (b) <code>movzx eax, byte ptr [rcx+rdx]</code>; (c) <code>mov rax, [rcx+rdx*8]</code>; (d) <code>mov eax, [rcx+0x18]</code>.</li></ol>
+<details class="qa"><summary>Ver las respuestas de los ejercicios 7 a 11</summary><div class="respuesta"><p><strong>7.</strong> <code>(0x140001500 + 6) + 0x2010 = 0x140001506 + 0x2010 = 0x140003516</code>.</p><p><strong>8.</strong> <code>0x3000 = MEM_COMMIT | MEM_RESERVE</code>: reserva y compromete en una sola llamada. <code>0x07 = READONLY | HIDDEN | SYSTEM</code> (binario <code>0000 0111</code>, los tres bits bajos).</p><p><strong>9.</strong> (a) <code>and eax, 0xFFFFFFF7</code>, porque el bit 3 vale 8 y <code>~8 = 0xFFFFFFF7</code>. (b) <code>test eax, 0x20</code> seguido de <code>jnz destino</code>; también sirve <code>bt eax, 5</code> seguido de <code>jc destino</code>. (c) <code>shr eax, 8</code> seguido de <code>and eax, 0xFF</code>.</p><p><strong>10.</strong> Después del <code>add</code>: <code>EAX = 0x00000010</code> y <code>CF = 1</code>, porque <code>0xFFFFFFF0 + 0x20 = 0x100000010</code> no entra en 32 bits. Después del <code>adc</code>: <code>EDX = 0 + 0 + 1 = 1</code> y <code>CF = 0</code>. El número de 64 bits quedó en <code>0x00000001:00000010</code>.</p><p><strong>11.</strong> (a) Una variable local de 4 bytes, probablemente un <code>int</code>. (b) Un elemento de un arreglo de bytes o una cadena: <code>cadena[i]</code>, leído como sin signo. (c) Un elemento de un arreglo de punteros o de enteros de 64 bits: <code>tabla[i]</code>. (d) Un campo de 4 bytes en el offset <code>0x18</code> de una estructura apuntada por <code>RCX</code>.</p></div></details>
 <h2 id="preguntas-de-repaso">Preguntas de repaso</h2>
 <p><strong>1. ¿Qué significa que el resultado se guarda en el primer operando?</strong> Que en <code>add eax, ebx</code> el resultado queda en <code>EAX</code>, no en <code>EBX</code>. El segundo operando se lee pero no se modifica.</p>
 <p><strong>2. ¿<code>LEA</code> lee memoria?</strong> No. Calcula la dirección efectiva de la expresión entre corchetes y la guarda. Es aritmética de punteros.</p>
@@ -143,11 +264,11 @@ sub  ebx, 0x44</code></pre>
 <p><strong>6. ¿Por qué <code>TEST EAX, EAX</code> es útil?</strong> Porque activa <code>ZF</code> si <code>EAX</code> es cero, sin modificar el registro. Es la forma estándar de comprobar un valor nulo.</p>
 <h2 id="antes-de-avanzar">Antes de avanzar</h2>
 <p>Tenés que poder:</p>
-<ul><li>Leer un bloque de 10 instrucciones y calcular el valor final de los registros.</li><li>Distinguir <code>mov</code> de <code>lea</code> y <code>mov</code> de <code>movsx</code>/<code>movzx</code>.</li><li>Explicar qué flags cambian <code>add</code>, <code>sub</code>, <code>inc</code>, <code>and</code>, <code>shl</code> y <code>cmp</code>.</li><li>Reconocer las instrucciones de cadena y su relación con <code>ESI</code>/<code>EDI</code>.</li></ul>
+<ul><li>Leer un bloque de 10 instrucciones y calcular el valor final de los registros.</li><li>Distinguir <code>mov</code> de <code>lea</code> y <code>mov</code> de <code>movsx</code>/<code>movzx</code>.</li><li>Explicar qué flags cambian <code>add</code>, <code>sub</code>, <code>inc</code>, <code>and</code>, <code>shl</code> y <code>cmp</code>.</li><li>Reconocer las instrucciones de cadena y su relación con <code>ESI</code>/<code>EDI</code>.</li><li>Decir qué tipo de dato sugiere un acceso a memoria por la forma de sus corchetes, y calcular el destino de un acceso relativo a <code>RIP</code>.</li><li>Reconocer las cuatro operaciones con máscaras (consultar, prender, apagar, invertir) y descomponer una constante en flags.</li><li>Leer un par <code>add</code>/<code>adc</code> como una sola suma de doble tamaño.</li></ul>
 <aside class="callout nota"><p class="callout-titulo">Puerta de salida</p><p>Si podés resolver el bloque del ejemplo sin ejecutarlo y después verificarlo en el debugger, estás listo para el flujo de control.</p></aside>
 <h2 id="fuentes-de-esta-lección">Fuentes de esta lección</h2>
-<ul><li><a class="fuente" href="../../CLS_resultados_intermedios/transcripciones/extraidos/Reversing%20desde%20cero%20%28Ricardo%20y%20Solid%29/Ricardo%20Narvaja%20y%20Solid%20-%20Reversing%20desde%20cero_02%20Instrucciones%201_02%20Instrucciones%201.txt">Reversing desde cero, cap. 02</a> — <code>MOV</code>, <code>XCHG</code>, <code>ADD</code>, <code>SUB</code>, memoria y corchetes.</li><li><a class="fuente" href="../../CLS_resultados_intermedios/transcripciones/extraidos/Reversing%20desde%20cero%20%28Ricardo%20y%20Solid%29/Ricardo%20Narvaja%20y%20Solid%20-%20Reversing%20desde%20cero_04%20Instrucciones%202_04%20Instrucciones%202.txt">Reversing desde cero, cap. 04</a> — flags, <code>MUL</code> y <code>DIV</code>.</li><li><a class="fuente" href="../../CLS_resultados_intermedios/transcripciones/extraidos/Reversing%20desde%20cero%20%28Ricardo%20y%20Solid%29/Ricardo%20Narvaja%20y%20Solid%20-%20Reversing%20desde%20cero_06%20Instrucciones%203_06%20Instrucciones%203.txt">Reversing desde cero, cap. 06</a> — <code>CALL</code>, <code>RET</code>, <code>JMP</code>, <code>PUSH</code>/<code>POP</code>, <code>INC</code>/<code>DEC</code>.</li><li><a class="fuente" href="../../CLS_resultados_intermedios/transcripciones/extraidos/Reversing%20desde%20cero%20%28Ricardo%20y%20Solid%29/Ricardo%20Narvaja%20y%20Solid%20-%20Reversing%20desde%20cero_08%20Instrucciones%204_08%20Instrucciones%204.txt">Reversing desde cero, cap. 08</a> — lógicas y desplazamientos.</li><li><a class="fuente" href="../../CLS_resultados_intermedios/transcripciones/extraidos/Reversing%20desde%20cero%20%28Ricardo%20y%20Solid%29/Ricardo%20Narvaja%20y%20Solid%20-%20Reversing%20desde%20cero_09%20Instrucciones%205_09%20Instrucciones%205.txt">Reversing desde cero, cap. 09</a> — <code>CMP</code>, <code>TEST</code>, <code>LEAVE</code>.</li><li><a class="fuente" href="../../CLS_resultados_intermedios/transcripciones/extraidos/Reversing%20desde%20cero%20%28Ricardo%20y%20Solid%29/Ricardo%20Narvaja%20y%20Solid%20-%20Reversing%20desde%20cero_12%20Practica%20de%20Instrucciones_12%20Practica%20de%20Instrucciones.txt">Reversing desde cero, cap. 12</a> — práctica con <code>MOVSX</code>/<code>MOVZX</code>, <code>LEA</code>, <code>LOOP</code> y cadenas.</li><li><a href="../ida_tutes/4.html">Curso IDA · tutes 4–6</a> — las mismas instrucciones en IDA: editar con <em>Assemble</em>, el byte sobrante como <code>db</code> y el relleno <code>NOP</code>; <code>LEA</code> para direcciones; regla de <code>ADD</code> (no se permiten dos operandos en memoria a la vez).</li></ul>
-<aside class="callout nota"><p class="callout-titulo">De dónde sale cada parte de esta lección</p><p><strong>Núcleo conceptual:</strong> los valores de los ejemplos (<code>0x11</code>, <code>0x0F</code>, <code>0x44</code>, <code>0x8384</code>, <code>"core"</code>) y la secuencia de instrucciones de los capítulos 02 a 12. <strong>Conocimiento externo:</strong> la tabla de operaciones y la semántica precisa de cada flag. <strong>Recomendación editorial:</strong> el bloque integrador y los ejercicios.</p></aside>
+<ul><li><a class="fuente" href="../../CLS_resultados_intermedios/transcripciones/extraidos/Reversing%20desde%20cero%20%28Ricardo%20y%20Solid%29/Ricardo%20Narvaja%20y%20Solid%20-%20Reversing%20desde%20cero_02%20Instrucciones%201_02%20Instrucciones%201.txt">Reversing desde cero, cap. 02</a> — <code>MOV</code>, <code>XCHG</code>, <code>ADD</code>, <code>SUB</code>, memoria y corchetes.</li><li><a class="fuente" href="../../CLS_resultados_intermedios/transcripciones/extraidos/Reversing%20desde%20cero%20%28Ricardo%20y%20Solid%29/Ricardo%20Narvaja%20y%20Solid%20-%20Reversing%20desde%20cero_04%20Instrucciones%202_04%20Instrucciones%202.txt">Reversing desde cero, cap. 04</a> — flags, <code>MUL</code> y <code>DIV</code>.</li><li><a class="fuente" href="../../CLS_resultados_intermedios/transcripciones/extraidos/Reversing%20desde%20cero%20%28Ricardo%20y%20Solid%29/Ricardo%20Narvaja%20y%20Solid%20-%20Reversing%20desde%20cero_06%20Instrucciones%203_06%20Instrucciones%203.txt">Reversing desde cero, cap. 06</a> — <code>CALL</code>, <code>RET</code>, <code>JMP</code>, <code>PUSH</code>/<code>POP</code>, <code>INC</code>/<code>DEC</code>.</li><li><a class="fuente" href="../../CLS_resultados_intermedios/transcripciones/extraidos/Reversing%20desde%20cero%20%28Ricardo%20y%20Solid%29/Ricardo%20Narvaja%20y%20Solid%20-%20Reversing%20desde%20cero_08%20Instrucciones%204_08%20Instrucciones%204.txt">Reversing desde cero, cap. 08</a> — lógicas y desplazamientos.</li><li><a class="fuente" href="../../CLS_resultados_intermedios/transcripciones/extraidos/Reversing%20desde%20cero%20%28Ricardo%20y%20Solid%29/Ricardo%20Narvaja%20y%20Solid%20-%20Reversing%20desde%20cero_09%20Instrucciones%205_09%20Instrucciones%205.txt">Reversing desde cero, cap. 09</a> — <code>CMP</code>, <code>TEST</code>, <code>LEAVE</code>.</li><li><a class="fuente" href="../../CLS_resultados_intermedios/transcripciones/extraidos/Reversing%20desde%20cero%20%28Ricardo%20y%20Solid%29/Ricardo%20Narvaja%20y%20Solid%20-%20Reversing%20desde%20cero_12%20Practica%20de%20Instrucciones_12%20Practica%20de%20Instrucciones.txt">Reversing desde cero, cap. 12</a> — práctica con <code>MOVSX</code>/<code>MOVZX</code>, <code>LEA</code>, <code>LOOP</code> y cadenas.</li><li><a href="../ida_tutes/4.html">Curso IDA · tutes 4–6</a> — las mismas instrucciones en IDA: editar con <em>Assemble</em>, el byte sobrante como <code>db</code> y el relleno <code>NOP</code>; <code>LEA</code> para direcciones; regla de <code>ADD</code> (no se permiten dos operandos en memoria a la vez).</li><li>Intel, <em>64 and IA-32 Architectures Software Developer's Manual</em>, vol. 1 (modos de direccionamiento) y vol. 2 (<code>ADC</code>, <code>SBB</code>, <code>NEG</code>, <code>BT</code>) — referencia de las secciones agregadas por esta edición.</li><li>Microsoft Learn, documentación de <code>CreateFileW</code>, <code>VirtualAlloc</code> y <em>File Attribute Constants</em> — valores de los flags usados en los ejemplos.</li></ul>
+<aside class="callout nota"><p class="callout-titulo">De dónde sale cada parte de esta lección</p><p><strong>Núcleo conceptual:</strong> los valores de los ejemplos (<code>0x11</code>, <code>0x0F</code>, <code>0x44</code>, <code>0x8384</code>, <code>"core"</code>) y la secuencia de instrucciones de los capítulos 02 a 12. <strong>Conocimiento externo:</strong> la tabla de operaciones y la semántica precisa de cada flag. <strong>Conocimiento externo (agregado por esta edición):</strong> las secciones de modos de direccionamiento, direccionamiento relativo a <code>RIP</code>, <code>ADC</code>/<code>SBB</code>/<code>NEG</code> y máscaras de bits. <strong>Recomendación editorial:</strong> el bloque integrador y los ejercicios.</p></aside>
 </main>
 <footer class="pie">
   <p>Material educativo y defensivo. Las prácticas se limitan a programas propios, software abierto o crackmes diseñados para aprender. No se enseña a eludir licencias, DRM ni controles de acceso.</p>

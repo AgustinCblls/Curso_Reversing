@@ -24,7 +24,7 @@
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 1 · Fundamentos</span></nav><h1 id="c-y-python-mínimos-para-analizar">C y Python mínimos para analizar</h1>
 <aside class="callout nota"><p class="callout-titulo">Objetivo de la lección</p><p>Al terminar vas a poder leer y escribir programas chicos en C (variables, condiciones, bucles, funciones, punteros) y en Python (tipos, listas, funciones, archivos binarios), compilarlos, ejecutarlos en el laboratorio y usarlos como conejillos de indias para el debugger.</p></aside>
-<p><strong>Prerrequisitos:</strong> Etapa 0 y las lecciones anteriores de la Etapa 1. <strong>Duración sugerida:</strong> 6 a 8 horas. Estimación aproximada.</p>
+<p><strong>Prerrequisitos:</strong> Etapa 0 y las lecciones anteriores de la Etapa 1. <strong>Duración sugerida:</strong> 8 a 10 horas. Estimación aproximada.</p>
 <h2 id="una-advertencia-honesta-sobre-los-materiales-tradicionales">Antes de empezar: qué sirve y qué no del material clásico de Python</h2>
 <p>Si te cruzaste con la carpeta <code>Python ISO video tutes</code> del material clásico, tené en cuenta que <strong>no es un curso de Python</strong>. Son 55 clases de <strong>lógica y fundamentos de programación</strong> (dictadas por Daniel Bermúdez, con pseudocódigo y ejemplos en Basic, Pascal y C) grabadas en 2007, cuando la versión vigente era Python 2.5.1. No contienen código Python ejecutable, y la segunda parte que anuncian, con Python "puro", no está en la carpeta.</p>
 <p>Eso no lo vuelve inútil. Lo que sí enseña —algoritmos, secuencia, decisión, ciclos, arreglos, matrices y funciones— es una buena base mental para programar, así que podés mirarlos por la lógica. Para la sintaxis, esta lección usa <strong>Python 3</strong> y <strong>C estándar</strong>, con recursos externos actuales que se indican abajo.</p>
@@ -77,6 +77,150 @@ int main(void) {
 <pre><code class="lenguaje-bash">gcc -O0 -g -o check.exe check.c</code></pre>
 <p><code>-O0</code> desactiva optimizaciones para que el assembly sea fácil de seguir; <code>-g</code> agrega información de depuración. En Visual Studio, compilá en modo Debug.</p>
 <p><strong>Qué mirar en el debugger:</strong> el <code>if (a &gt; 50 || b &lt; 50)</code> se convierte en dos comparaciones y saltos; el <code>(a+b)*4</code> se convierte en un <code>add</code> seguido de un <code>shl eax, 2</code> (desplazar dos bits a la izquierda es multiplicar por 4). Eso conecta directo con la lección de instrucciones.</p>
+<h2 id="cómo-se-ven-los-datos-de-c-en-memoria">Cómo se ven los datos de C en memoria</h2>
+<p>Las cinco construcciones de arriba alcanzan para seguir el <strong>flujo</strong> de un programa. Para entender sus <strong>datos</strong> hacen falta algunas más. El criterio es el mismo: no hace falta dominarlas, hace falta reconocer qué deja cada una en el binario. Al final de la sección hay un programa que las junta todas para que las compruebes.</p>
+<h3 id="dónde-vive-cada-variable">Dónde vive cada variable</h3>
+<p>Según cómo se declara, una variable termina en un lugar distinto del proceso, y ese lugar define cómo se la accede en assembly:</p>
+<div class="tabla"><table>
+<thead><tr>
+<th>Declaración</th>
+<th>Dónde vive</th>
+<th>Cómo se accede</th>
+<th>Cuánto dura</th>
+</tr></thead><tbody>
+<tr><td>Local: <code>int x;</code> dentro de una función</td><td>Stack</td><td><code>[ebp-N]</code> o <code>[rsp+N]</code></td><td>Hasta que la función retorna</td></tr>
+<tr><td>Global con valor: <code>int g = 5;</code></td><td>Sección <code>.data</code></td><td>Dirección fija: <code>[0x403000]</code> en 32 bits, relativa a <code>RIP</code> en 64</td><td>Todo el proceso</td></tr>
+<tr><td>Global sin valor: <code>int g;</code></td><td><code>.bss</code> (GCC) o la parte final de <code>.data</code> (MSVC); arranca en cero y no ocupa lugar en el archivo</td><td>Igual que la anterior</td><td>Todo el proceso</td></tr>
+<tr><td>Constante o literal: <code>"hola"</code>, <code>const int k = 7;</code></td><td><code>.rdata</code> (solo lectura)</td><td>Igual que una global</td><td>Todo el proceso</td></tr>
+<tr><td>Local <code>static</code>: <code>static int n;</code> dentro de una función</td><td><code>.data</code> o <code>.bss</code>, <strong>no el stack</strong></td><td>Igual que una global</td><td>Todo el proceso: conserva el valor entre llamadas</td></tr>
+<tr><td>Dinámica: <code>p = malloc(16);</code></td><td>Heap</td><td>A través del puntero: <code>[eax]</code>, <code>[eax+4]</code></td><td>Hasta el <code>free</code></td></tr>
+</tbody></table></div>
+<p>Dos cosas que se desprenden de la tabla. Primero, una variable local <code>static</code> es, para el binario, una global: la palabra solo limita desde dónde se la puede nombrar en el fuente. Segundo, en <code>const char *mensaje = "hola";</code> hay <strong>dos</strong> datos: los cinco bytes de la cadena, en <code>.rdata</code>, y el puntero <code>mensaje</code>, en <code>.data</code>, que contiene la dirección de la cadena. Esa indirección es la razón por la que a veces la referencia a una cadena no lleva directo al código que la usa.</p>
+<h3 id="estructuras-campos-en-offsets-fijos">Estructuras: campos en offsets fijos</h3>
+<p>Una <code>struct</code> agrupa varios datos en un bloque continuo. Cada campo queda a una distancia fija del inicio (su <strong>offset</strong>), y el compilador intercala bytes de relleno (<em>padding</em>) para que cada campo empiece en una dirección múltiplo de su tamaño:</p>
+<pre><code class="lenguaje-c">struct registro {
+    char  tipo;       /* offset 0, 1 byte                        */
+                      /* offsets 1 a 3: relleno                  */
+    int   id;         /* offset 4, 4 bytes                       */
+    short len;        /* offset 8, 2 bytes                       */
+    char  nombre[8];  /* offset 10, 8 bytes                      */
+                      /* offsets 18 y 19: relleno final          */
+};                    /* sizeof = 20                             */</code></pre>
+<p>En el binario no queda ningún nombre: <code>r-&gt;id</code> es <code>[eax+4]</code> y <code>r-&gt;len</code> es <code>word ptr [eax+8]</code>. Reconstruir una estructura es hacer el camino inverso: juntar todos los accesos del tipo <code>[registro+constante]</code> que usan el mismo puntero, anotar offset y tamaño de cada uno, y armar la tabla. La lección <a href="02-ida.html">2.7</a> muestra cómo cargarla en el desensamblador para que el listado pase a mostrar nombres de campos.</p>
+<h3 id="uniones-los-mismos-bytes-vistos-de-otra-forma">Uniones: los mismos bytes vistos de otra forma</h3>
+<p>Una <code>union</code> se declara igual que una estructura, pero todos sus campos empiezan en el <strong>offset 0</strong> y comparten los mismos bytes. Su tamaño es el del campo más grande. No convierte nada: reinterpreta.</p>
+<pre><code class="lenguaje-c">union vista {
+    unsigned int  u;      /* los 4 bytes como entero            */
+    float         f;      /* los mismos 4 bytes como flotante   */
+    unsigned char b[4];   /* los mismos 4 bytes, uno por uno    */
+};
+
+union vista v;
+v.u = 0x3F800000;
+/* ahora v.f vale 1.0  y  v.b es  00 00 80 3F  (little-endian) */</code></pre>
+<p>En assembly una unión es invisible: solo se ve que la misma dirección se lee a veces como 4 bytes enteros, a veces con una instrucción de punto flotante, a veces byte por byte. Si al reconstruir una estructura encontrás que un mismo offset se usa con tamaños o tipos incompatibles, probablemente sea una unión. Windows las usa mucho; la más común es <code>LARGE_INTEGER</code>, un número de 64 bits que también se puede leer como dos mitades de 32 (<code>LowPart</code> y <code>HighPart</code>).</p>
+<h3 id="campos-de-bits-y-flags">Campos de bits y flags</h3>
+<p>Para guardar varios datos chicos en un solo entero hay dos estilos. El primero es declarar <strong>campos de bits</strong>, indicando cuántos bits ocupa cada uno:</p>
+<pre><code class="lenguaje-c">struct estado {
+    unsigned int listo : 1;   /* bit 0          */
+    unsigned int modo  : 3;   /* bits 1 a 3     */
+    unsigned int nivel : 4;   /* bits 4 a 7     */
+};</code></pre>
+<p>Con <code>listo = 1</code>, <code>modo = 5</code> y <code>nivel = 9</code>, el entero completo vale <code>1 + (5 &lt;&lt; 1) + (9 &lt;&lt; 4) = 1 + 10 + 144 = 0x9B</code>. El compilador genera por su cuenta los desplazamientos y máscaras; leer <code>e.modo</code> se convierte en algo como:</p>
+<pre><code class="lenguaje-asm">mov eax, [rbp-0x14]   ; el entero que contiene los tres campos
+shr eax, 1            ; descarta el bit de 'listo'
+and eax, 7            ; se queda con 3 bits: el valor de 'modo'</code></pre>
+<p>El segundo estilo, que es el que usa la API de Windows, es declarar <strong>constantes con un bit cada una</strong> y combinarlas a mano con <code>|</code>, <code>&amp;</code> y <code>~</code>:</p>
+<pre><code class="lenguaje-c">#define OPC_LECTURA   0x01
+#define OPC_ESCRITURA 0x02
+#define OPC_OCULTO    0x04
+
+unsigned opciones = OPC_LECTURA | OPC_OCULTO;   /* 0x05          */
+if (opciones &amp; OPC_ESCRITURA) { /* ... */ }     /* consultar     */
+opciones &amp;= ~OPC_OCULTO;                        /* apagar: 0x01  */</code></pre>
+<p>En el binario los dos estilos se ven igual: <code>and</code>, <code>or</code>, <code>test</code> y desplazamientos con constantes. Cómo leerlos está desarrollado en la sección de máscaras de bits de la <a href="02-instrucciones.html#máscaras-de-bits">lección 2.2</a>.</p>
+<h3 id="enumeraciones">Enumeraciones</h3>
+<p>Un <code>enum</code> le pone nombre a una lista de enteros consecutivos: en <code>enum color { ROJO, VERDE, AZUL };</code>, <code>ROJO</code> vale 0, <code>VERDE</code> 1 y <code>AZUL</code> 2. Los nombres existen solo en el fuente. En el binario <code>if (c == AZUL)</code> es <code>cmp eax, 2</code>, y nada indica que ese 2 tuviera nombre. Cuando una variable se compara contra varios números chicos y consecutivos, o entra a un <code>switch</code>, lo más probable es que fuera una enumeración; ponerle nombres a esos valores en el desensamblador es de lo que más aclara un listado.</p>
+<h3 id="punteros-a-función">Punteros a función</h3>
+<p>Una variable puede guardar la dirección de una función, y el programa puede llamarla a través de esa variable:</p>
+<pre><code class="lenguaje-c">int suma(int a, int b)  { return a + b; }
+int resta(int a, int b) { return a - b; }
+
+int (*op)(int, int) = suma;      /* 'op' guarda la direccion de suma       */
+int r = op(7, 3);                /* llama a lo que 'op' apunte: 10         */
+
+int (*tabla[2])(int, int) = { suma, resta };
+r = tabla[1](7, 3);              /* elige la funcion por indice: 4         */</code></pre>
+<p>En assembly, una llamada normal es un <code>call</code> con el destino a la vista. Una llamada por puntero es un <strong><code>call</code> indirecto</strong>: <code>call rax</code>, <code>call qword ptr [rbp-0x20]</code> o, con una tabla, <code>call qword ptr [rax+rcx*8]</code>. La diferencia para el análisis es grande: <strong>mirando solo esa instrucción no se sabe a dónde va</strong>. Hay que averiguar qué se guardó en el puntero (análisis estático hacia atrás) o poner un breakpoint y mirar el registro (análisis dinámico).</p>
+<p>Los punteros a función están en todas partes aunque no los escribas vos:</p>
+<ul><li><strong>Callbacks:</strong> le pasás a una API la función que querés que llame. <code>CreateThread</code> recibe la función del hilo (lo viste en 1.3); <code>qsort</code> recibe la que compara; <code>EnumWindows</code>, la que procesa cada ventana. Cuando el argumento de una API es una dirección dentro de <code>.text</code>, es un callback, y ahí hay código que vale la pena mirar.</li><li><strong>La IAT:</strong> es una tabla de punteros a función que llena el loader (lección 1.6).</li><li><strong>Las vtables de C++:</strong> tablas de punteros a función, una por clase, para los métodos virtuales (lecciones <a href="02-llamadas.html">2.4</a> y <a href="02-cpp-profundo.html">2.18</a>).</li><li><strong>Tablas de despacho:</strong> un arreglo de funciones indexado por un número de comando. Es una alternativa al <code>switch</code>, y la base de las máquinas virtuales de la lección 2.26.</li></ul>
+<h3 id="ejemplo-paso-a-paso-todos-los-datos-en-un-programa">Ejemplo paso a paso: todos los datos en un programa</h3>
+<p>Este programa declara una variable de cada tipo y muestra tamaños, offsets y valores. Guardalo como <code>datos.c</code>:</p>
+<pre><code class="lenguaje-c">#include &lt;stdio.h&gt;
+#include &lt;stddef.h&gt;
+#include &lt;string.h&gt;
+
+struct registro { char tipo; int id; short len; char nombre[8]; };
+union  vista    { unsigned int u; float f; unsigned char b[4]; };
+struct estado   { unsigned int listo : 1; unsigned int modo : 3; unsigned int nivel : 4; };
+enum   color    { ROJO, VERDE, AZUL };
+
+int global_ini = 0x11223344;
+int global_cero;
+const char *mensaje = "hola";
+
+int suma(int a, int b)  { return a + b; }
+int resta(int a, int b) { return a - b; }
+
+int contador(void) {
+    static int veces = 0;
+    return ++veces;
+}
+
+int main(void) {
+    int local = 5;
+    union vista v;
+    struct estado e;
+    unsigned int crudo = 0;
+    enum color c = AZUL;
+    int (*tabla[2])(int, int) = { suma, resta };
+
+    printf("registro: sizeof=%u offsets=%u %u %u %u\n",
+           (unsigned)sizeof(struct registro),
+           (unsigned)offsetof(struct registro, tipo),
+           (unsigned)offsetof(struct registro, id),
+           (unsigned)offsetof(struct registro, len),
+           (unsigned)offsetof(struct registro, nombre));
+
+    v.u = 0x3F800000;
+    printf("union: f=%f bytes=%02x %02x %02x %02x\n", v.f, v.b[0], v.b[1], v.b[2], v.b[3]);
+
+    memset(&amp;e, 0, sizeof e);
+    e.listo = 1; e.modo = 5; e.nivel = 9;
+    memcpy(&amp;crudo, &amp;e, sizeof e);
+    printf("campos de bits: crudo=0x%08x\n", crudo);
+
+    printf("enum: AZUL=%d\n", (int)c);
+    printf("punteros a funcion: %d %d\n", tabla[0](7, 3), tabla[1](7, 3));
+
+    contador(); contador();
+    printf("static: contador=%d\n", contador());
+
+    printf("local=%p global_ini=%p global_cero=%p\n",
+           (void *)&amp;local, (void *)&amp;global_ini, (void *)&amp;global_cero);
+    printf("mensaje=%p (el puntero esta en %p)\n", (void *)mensaje, (void *)&amp;mensaje);
+    return 0;
+}</code></pre>
+<p><strong>Qué tiene que imprimir.</strong> Las primeras seis líneas son iguales en cualquier compilador de Windows para x86 o x64:</p>
+<pre><code class="lenguaje-text">registro: sizeof=20 offsets=0 4 8 10
+union: f=1.000000 bytes=00 00 80 3f
+campos de bits: crudo=0x0000009b
+enum: AZUL=2
+punteros a funcion: 10 4
+static: contador=3</code></pre>
+<p>Las dos últimas muestran direcciones, que cambian en cada ejecución por el ASLR. Lo que hay que comparar es su <strong>forma</strong>: la de <code>local</code> es claramente distinta (está en el stack, lejos de todo), mientras que <code>global_ini</code>, <code>global_cero</code>, la cadena y el puntero <code>mensaje</code> están cerca entre sí, dentro de la imagen del <code>.exe</code>, pero no pegadas: caen en secciones distintas.</p>
+<p><strong>Qué mirar en el debugger.</strong> Con el programa detenido en <code>main</code>:</p>
+<ul><li>Seguí en el volcado la dirección de <code>global_ini</code>: vas a ver <code>44 33 22 11</code>, el valor inicial en little-endian. Buscá después esos mismos bytes en el archivo con el editor hexadecimal: están, porque <code>.data</code> se guarda en disco.</li><li>Ubicá en el mapa de memoria (o en el visor de PE) a qué sección pertenece cada una de las cuatro direcciones.</li><li>Encontrá la llamada <code>tabla[0](7, 3)</code>. No es un <code>call suma</code>: es un <code>call</code> a un registro o a una posición de memoria. Mirá de dónde sale ese valor.</li><li>Encontrá la lectura de <code>e.modo</code> o las escrituras de los tres campos: instrucciones <code>and</code>, <code>or</code> y desplazamientos sobre la misma posición del stack.</li></ul>
 <h2 id="el-subconjunto-de-python-que-vas-a-usar-como-herramienta">El subconjunto de Python que vas a usar como herramienta</h2>
 <p>Python no compila a un <code>.exe</code> nativo (en el sentido clásico), así que no es el lenguaje que vas a ver en un debugger de Windows. Es la <strong>navaja suiza</strong> para procesar archivos, calcular hashes, parsear cabeceras y automatizar tareas.</p>
 <h3 id="ejemplo-leer-los-primeros-bytes-de-un-ejecutable">Ejemplo: leer los primeros bytes de un ejecutable</h3>
@@ -122,7 +266,8 @@ else:
 <ol><li><strong><code>pefile</code></strong> — lee cabeceras PE, secciones e imports de un ejecutable de Windows con unas pocas líneas.</li><li><strong><code>capstone</code></strong> — desensambla bytes a instrucciones x86/x64 desde Python.</li><li><strong>IDAPython / Ghidra scripting</strong> — automatizar el análisis dentro del desensamblador.</li></ol>
 <p>Esos tres se desarrollan, con ejemplos, en la rama de <a href="05-automatizacion.html">automatización</a> de la Etapa 5. Lo de esta lección —<code>bytes</code>, <code>hex</code>, <code>struct</code>, archivos— es la base que te deja usarlos sin que sean magia.</p>
 <h2 id="práctica">Práctica</h2>
-<ol><li>Compilá el programa <code>check.c</code> y probalo con <code>40 80</code>, <code>50 50</code>, <code>51 80</code> y <code>40 79</code>. Anotá qué imprime cada caso.</li><li>Abrilo en x64dbg, llegá a <code>main</code> buscando la cadena <code>"Primer valor: "</code> (como en la <a href="00-laboratorio.html#receta-mínima-compilar-y-abrir-en-el-debugger">receta mínima de la lección 0.1</a>), poné un breakpoint ahí y seguí con F8 hasta la comparación. Anotá en qué instrucción se convierte <code>(a+b)*4</code>.</li><li>Escribí un programa en C que pida una palabra y la compare con <code>"clase"</code> usando <code>strcmp</code>. Compilalo y encontralo en el debugger.</li><li>Escribí un script en Python que recorra una carpeta, calcule el SHA-256 de cada archivo y escriba un CSV con <code>ruta,hash</code>. Usalo sobre tu carpeta de prácticas.</li><li>Modificá el script para que lea la cabecera PE y muestre <code>ImageBase</code> y <code>AddressOfEntryPoint</code> (podés reutilizar el de la lección de PE). Usá <code>struct.unpack_from</code> sobre los offsets correctos.</li><li>Instalá <code>pefile</code> (<code>pip install pefile</code>) y obtené los mismos valores con la librería (<code>pe.OPTIONAL_HEADER.ImageBase</code>, <code>pe.OPTIONAL_HEADER.AddressOfEntryPoint</code>). Compará con tu versión a mano: ¿coinciden? Así ves qué te ahorra la librería.</li><li>Hacé el Tutorial oficial de Python (secciones 3 a 7) o los primeros capítulos de <em>Automate the Boring Stuff</em>, y rehacé el script del item 4 sin mirar el ejemplo.</li></ol>
+<ol><li>Compilá el programa <code>check.c</code> y probalo con <code>40 80</code>, <code>50 50</code>, <code>51 80</code> y <code>40 79</code>. Anotá qué imprime cada caso.</li><li>Abrilo en x64dbg, llegá a <code>main</code> buscando la cadena <code>"Primer valor: "</code> (como en la <a href="00-laboratorio.html#receta-mínima-compilar-y-abrir-en-el-debugger">receta mínima de la lección 0.1</a>), poné un breakpoint ahí y seguí con F8 hasta la comparación. Anotá en qué instrucción se convierte <code>(a+b)*4</code>.</li><li>Escribí un programa en C que pida una palabra y la compare con <code>"clase"</code> usando <code>strcmp</code>. Compilalo y encontralo en el debugger.</li><li>Escribí un script en Python que recorra una carpeta, calcule el SHA-256 de cada archivo y escriba un CSV con <code>ruta,hash</code>. Usalo sobre tu carpeta de prácticas.</li><li>Modificá el script para que lea la cabecera PE y muestre <code>ImageBase</code> y <code>AddressOfEntryPoint</code> (podés reutilizar el de la lección de PE). Usá <code>struct.unpack_from</code> sobre los offsets correctos.</li><li>Instalá <code>pefile</code> (<code>pip install pefile</code>) y obtené los mismos valores con la librería (<code>pe.OPTIONAL_HEADER.ImageBase</code>, <code>pe.OPTIONAL_HEADER.AddressOfEntryPoint</code>). Compará con tu versión a mano: ¿coinciden? Así ves qué te ahorra la librería.</li><li>Hacé el Tutorial oficial de Python (secciones 3 a 7) o los primeros capítulos de <em>Automate the Boring Stuff</em>, y rehacé el script del item 4 sin mirar el ejemplo.</li><li>Compilá <code>datos.c</code> y comprobá que las seis primeras líneas coinciden con las del texto. Después anotá, para <code>local</code>, <code>global_ini</code>, <code>global_cero</code>, la cadena <code>"hola"</code> y el puntero <code>mensaje</code>, en qué sección o región está cada uno y con qué permisos.</li><li>Sin compilar: calculá el <code>sizeof</code> y los offsets de <code>struct s { char a; char b; int c; char d; };</code>. Después reordená los campos para que ocupe lo menos posible.</li><li>Sin compilar: en <code>struct estado</code>, ¿cuánto vale el entero completo con <code>listo = 0</code>, <code>modo = 7</code> y <code>nivel = 2</code>? ¿Qué instrucciones extraerían <code>nivel</code>?</li><li>En <code>datos.c</code>, cambiá <code>tabla[0](7, 3)</code> por <code>tabla[local % 2](7, 3)</code>, compilá y encontrá el <code>call</code> en el debugger. ¿Qué función se llama, y cómo lo comprobás sin leer el fuente?</li></ol>
+<details class="qa"><summary>Ver las respuestas de los ejercicios 9 a 11</summary><div class="respuesta"><p><strong>9.</strong> <code>a</code> en el offset 0, <code>b</code> en 1, relleno en 2 y 3, <code>c</code> en 4, <code>d</code> en 8, relleno de 9 a 11: <code>sizeof = 12</code>. Poniendo el <code>int</code> primero (<code>c</code>, <code>a</code>, <code>b</code>, <code>d</code>) quedan los offsets 0, 4, 5 y 6 y un solo byte de relleno al final: <code>sizeof = 8</code>.</p><p><strong>10.</strong> <code>0 + (7 &lt;&lt; 1) + (2 &lt;&lt; 4) = 14 + 32 = 46 = 0x2E</code>. Para extraer <code>nivel</code>: <code>shr eax, 4</code> y después <code>and eax, 0xF</code>.</p><p><strong>11.</strong> <code>local</code> vale 5 y <code>5 % 2 = 1</code>, así que se llama a <code>tabla[1]</code>, que es <code>resta</code>, y el resultado es 4. Para comprobarlo sin el fuente: breakpoint en el <code>call</code> indirecto, mirar el valor del registro o de la posición de memoria que usa como destino, y seguir esa dirección en el desensamblador (o entrar con F7). La función a la que llegás hace un <code>sub</code>.</p></div></details>
 <h2 id="preguntas-de-repaso">Preguntas de repaso</h2>
 <p><strong>1. ¿Por qué <code>scanf</code> necesita <code>&amp;a</code> y <code>printf</code> no?</strong> Porque <code>scanf</code> tiene que <strong>escribir</strong> en la variable, y para eso necesita su dirección. <code>printf</code> solo lee el valor.</p>
 <p><strong>2. ¿Qué diferencia hay entre <code>int</code> y <code>unsigned int</code>?</strong> El rango y la interpretación. <code>int</code> usa complemento a dos e incluye negativos; <code>unsigned int</code> solo representa valores no negativos y puede llegar al doble del máximo positivo.</p>
@@ -131,11 +276,11 @@ else:
 <p><strong>5. ¿Los tutoriales tradicionales de lógica enseñan Python moderno?</strong> No. Enseñan lógica de programación con pseudocódigo y ejemplos en Basic, Pascal y C. Son útiles como base mental, pero no reemplazan un curso de Python 3 moderno.</p>
 <h2 id="antes-de-avanzar">Antes de avanzar</h2>
 <p>Tenés que poder:</p>
-<ul><li>Leer un programa en C de 20 líneas y decir qué hace.</li><li>Escribir, compilar y ejecutar un programa propio en C.</li><li>Leer y escribir un archivo binario en Python y calcular su hash.</li><li>Leer un entero de un archivo binario con <code>struct.unpack_from</code> y explicar qué significa <code>"&lt;I"</code>.</li></ul>
-<aside class="callout nota"><p class="callout-titulo">Puerta de salida de la Etapa 1</p><p>Con esto terminás los fundamentos. Si podés escribir tus propios binarios, ya tenés con qué practicar todo lo que sigue sin depender de software ajeno.</p></aside>
+<ul><li>Leer un programa en C de 20 líneas y decir qué hace.</li><li>Decir en qué región vive una variable local, una global, una <code>static</code>, una constante y un bloque de <code>malloc</code>.</li><li>Calcular los offsets y el tamaño de una estructura sencilla, y explicar qué es una unión.</li><li>Reconocer un <code>call</code> indirecto y explicar por qué no alcanza con leerlo para saber a dónde va.</li><li>Escribir, compilar y ejecutar un programa propio en C.</li><li>Leer y escribir un archivo binario en Python y calcular su hash.</li><li>Leer un entero de un archivo binario con <code>struct.unpack_from</code> y explicar qué significa <code>"&lt;I"</code>.</li></ul>
+<aside class="callout nota"><p class="callout-titulo">Puerta de salida</p><p>Si podés escribir tus propios binarios, ya tenés con qué practicar todo lo que sigue sin depender de software ajeno. Queda una lección para cerrar los fundamentos: <a href="01-windows.html">1.6 · Windows por debajo del programa</a>, que explica qué hace el sistema operativo alrededor de esos binarios.</p></aside>
 <h2 id="fuentes-de-esta-lección">Fuentes de esta lección</h2>
 <ul><li><a class="fuente" href="../../CLS_resultados_intermedios/transcripciones/extraidos/Python%20ISO%20video tutes/Videotutoriales_FundamentosdeProgramacion_FundamentosdeProgramacion.txt">Python ISO video tutes, Fundamentos de programación</a> — qué es programar, intérprete vs compilador, <code>print</code> en Python 2.</li><li><a class="fuente" href="../../CLS_resultados_intermedios/transcripciones/extraidos/Python%20ISO%20video tutes/Videotutoriales_QueesPython_QueesPython.txt">Python ISO video tutes, Qué es Python</a> — presentación del curso y versión de la época.</li><li><a class="fuente" href="../../CLS_resultados_intermedios/transcripciones/extraidos/Python%20ISO%20video tutes/Videotutoriales_Arreglos1_Arreglos1.txt">Python ISO video tutes, Arreglos</a> — ejemplo del tipo de contenido real de la colección.</li><li><a class="fuente" href="../../CLS_resultados_intermedios/transcripciones/extraidos/Reversing%20desde%20cero%20%28Ricardo%20y%20Solid%29/Ricardo%20Narvaja%20y%20Solid%20-%20Reversing%20desde%20cero_15%20Ejercicio%202%20-%20An%C3%A1lisis%20est%C3%A1tico_15%20Ejercicio%202%20-%20An%C3%A1lisis%20est%C3%A1tico.txt">Reversing desde cero, cap. 15</a> — lógica del programa de práctica y comparación con <code>0x32</code>/<code>0x1E0</code>.</li></ul>
-<aside class="callout nota"><p class="callout-titulo">De dónde sale cada parte de esta lección</p><p><strong>Núcleo conceptual:</strong> la lógica del programa del capítulo 15 y el contenido real de las transcripciones de Python ISO. <strong>Conocimiento externo:</strong> sintaxis de C y Python 3, compilación, hash, <code>struct</code>, y los recursos de aprendizaje externos (Tutorial oficial, Automate the Boring Stuff, Real Python, etc.). <strong>Recomendación editorial:</strong> los programas de práctica, la corrección sobre el curso de Python de reversing y la ruta de Python hacia <code>pefile</code>/<code>capstone</code>.</p></aside>
+<aside class="callout nota"><p class="callout-titulo">De dónde sale cada parte de esta lección</p><p><strong>Núcleo conceptual:</strong> la lógica del programa del capítulo 15 y el contenido real de las transcripciones de Python ISO. <strong>Conocimiento externo:</strong> sintaxis de C y Python 3, compilación, hash, <code>struct</code>, y los recursos de aprendizaje externos (Tutorial oficial, Automate the Boring Stuff, Real Python, etc.). <strong>Conocimiento externo (agregado por esta edición):</strong> la sección «Cómo se ven los datos de C en memoria» (ubicación de las variables, estructuras, uniones, campos de bits, enumeraciones y punteros a función); el programa <code>datos.c</code> no fue compilado al redactarla, así que si una salida no coincide, confiá en lo que ves y anotalo. <strong>Recomendación editorial:</strong> los programas de práctica, la corrección sobre el curso de Python de reversing y la ruta de Python hacia <code>pefile</code>/<code>capstone</code>.</p></aside>
 </main>
 <footer class="pie">
   <p>Material educativo y defensivo. Las prácticas se limitan a programas propios, software abierto o crackmes diseñados para aprender. No se enseña a eludir licencias, DRM ni controles de acceso.</p>

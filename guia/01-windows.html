@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etapa 1 · Windows por debajo del programa</title>
+<meta name="description" content="Memoria virtual y páginas, modo usuario y modo kernel, el camino de una API hasta la syscall, DLLs y loader, WOW64 y el recorrido del fuente al ejecutable.">
+<link rel="stylesheet" href="../guia/estilo.css">
+</head>
+<body>
+<a class="salto" href="#contenido">Saltar al contenido</a>
+<header class="cabecera">
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5 · 27/10/2026</span></div>
+  <nav class="principal" aria-label="Navegación principal">
+    <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
+    <a href="../guia/index.html">Curso</a>
+    <a href="../materiales.html">Materiales</a>
+    <a href="../fichas/index.html">Fichas</a>
+    <a href="../glosario.html">Glosario</a>
+    <a href="../preguntas_y_respuestas.html">Repaso</a>
+    <a href="../buscar.html">Buscar</a>
+  </nav>
+</header>
+<main id="contenido">
+<nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 1 · Fundamentos</span></nav><h1 id="windows-por-debajo-del-programa">Windows por debajo del programa</h1>
+<aside class="callout aviso"><p class="callout-titulo">De dónde sale esta lección</p><p>Este tema no viene del curso clásico: lo agrega esta edición. Los videos usan páginas, permisos, DLLs y APIs desde el primer capítulo, pero dan por sabido qué hay debajo. Esta lección junta en un solo lugar la teoría del sistema operativo que el resto del curso usa sin explicar. Es una lección de <strong>base teórica</strong>: tiene menos debugger y más modelo mental que las anteriores.</p></aside>
+<aside class="callout nota"><p class="callout-titulo">Objetivo de la lección</p><p>Al terminar vas a poder explicar por qué cada proceso tiene su propio espacio de direcciones y qué es una página; seguir una llamada a una API desde tu programa hasta la instrucción <code>syscall</code>; describir qué hace el loader entre el doble clic y tu <code>main</code>; decir qué cambia cuando un programa de 32 bits corre en un Windows de 64; y nombrar los pasos que convierten un <code>.c</code> en un <code>.exe</code>.</p></aside>
+<p><strong>Prerrequisitos:</strong> lecciones 1.1 a 1.5 (en especial <a href="01-procesos.html">procesos y mapa de memoria</a> y <a href="01-pe.html">formato PE</a>). <strong>Duración sugerida:</strong> 4 a 5 horas. Estimación aproximada.</p>
+<h2 id="por-qué-hace-falta">Por qué hace falta</h2>
+<p>Hasta acá viste las piezas sueltas: un proceso tiene un mapa de memoria con permisos (1.3), un <code>.exe</code> tiene secciones alineadas a <code>0x1000</code> y una tabla de imports (1.4), y tu programa en C llama a funciones como <code>printf</code> o <code>CreateThread</code> (1.5). Falta el pegamento. ¿Por qué la alineación es justo <code>0x1000</code>? ¿Qué hay «del otro lado» de <code>CreateThread</code>? ¿Quién llena la IAT, y cuándo? ¿De dónde sale el código que corre antes de <code>main</code>?</p>
+<p>Ninguna de estas respuestas es difícil, pero si faltan, las lecciones avanzadas (anti-análisis, packers, internals, kernel) se vuelven recetas. Con este modelo armado, cada tema nuevo va a tener dónde encajar.</p>
+<h2 id="memoria-virtual-cada-proceso-ve-su-propio-mundo">Memoria virtual: cada proceso ve su propio mundo</h2>
+<p>Las direcciones que ves en el debugger <strong>no son posiciones de la memoria RAM</strong>. Son <strong>direcciones virtuales</strong>: números que solo tienen sentido dentro de un proceso. El procesador, con ayuda del sistema operativo, traduce cada dirección virtual a una dirección física en cada acceso. Esa traducción la hace un componente del CPU llamado <strong>MMU</strong> (<em>Memory Management Unit</em>), consultando unas tablas que mantiene el kernel: las <strong>tablas de páginas</strong>.</p>
+<p>De esa idea salen tres consecuencias que vas a usar todo el tiempo:</p>
+<ul><li><strong>Aislamiento.</strong> Dos procesos pueden tener datos distintos en la misma dirección virtual. Si abrís dos programas y los dos muestran algo en <code>0x00400000</code>, no es la misma memoria: cada uno tiene sus propias tablas. Por eso un proceso no puede leer ni pisar la memoria de otro por accidente.</li><li><strong>La memoria no es continua.</strong> El espacio de direcciones es enorme y está casi todo vacío. Solo existen las regiones que alguien pidió; el resto no está respaldado por nada, y tocarlo produce un error.</li><li><strong>Los permisos son por página.</strong> La misma tabla que traduce guarda si esa porción se puede leer, escribir o ejecutar.</li></ul>
+<h3 id="la-página-la-unidad-de-todo">La página: la unidad de todo</h3>
+<p>La traducción no se hace byte por byte sino en bloques de tamaño fijo llamados <strong>páginas</strong>. En x86 y x64 una página mide <strong>4 KB = 4096 bytes = <code>0x1000</code></strong>. Una dirección virtual se parte en dos: los <strong>12 bits bajos</strong> son el desplazamiento dentro de la página (porque 2<sup>12</sup> = 4096) y el resto identifica la página.</p>
+<pre><code class="lenguaje-text">dirección virtual : 0x00401372
+                      └──┬──┘└┬┘
+número de página  :   0x00401     (los bits altos)
+offset en página  :          0x372 (los 12 bits bajos = 3 dígitos hex)
+la página empieza :   0x00401000
+la página termina :   0x00401FFF</code></pre>
+<p>En hexadecimal la cuenta es inmediata: <strong>los tres últimos dígitos son el offset, y poniéndolos en cero obtenés el inicio de la página</strong>. La traducción reemplaza el número de página virtual por uno físico y deja el offset como está.</p>
+<p>Ahora varias cosas de las lecciones anteriores dejan de ser arbitrarias:</p>
+<ul><li>El <code>SectionAlignment</code> típico de un PE es <code>0x1000</code> porque <strong>cada sección necesita permisos distintos</strong> (<code>.text</code> ejecutable, <code>.data</code> escribible) y los permisos se asignan por página. Dos secciones no pueden compartir una página.</li><li>En disco no hay páginas, así que el archivo usa una alineación más chica (<code>FileAlignment</code>, típicamente <code>0x200</code>). De ahí la diferencia entre RVA y file offset que calculaste en 1.1 y 1.4.</li><li>Un breakpoint de memoria (2.6) vigila páginas enteras, no bytes sueltos: el debugger cambia el permiso de la página y filtra los accesos.</li></ul>
+<aside class="callout nota"><p class="callout-titulo">Optativo en la primera pasada · cómo es la tabla por dentro</p><p>En x64 la tabla de páginas tiene cuatro niveles. De los 64 bits de una dirección se usan 48: cuatro grupos de 9 bits eligen una entrada en cada nivel (9+9+9+9 = 36) y los 12 restantes son el offset. Por eso las direcciones válidas de x64 son «canónicas»: los 16 bits altos tienen que ser todos copias del bit 47. No hace falta más detalle para reversing en modo usuario; el tema vuelve en la <a href="6-01-arquitectura-kernel.html">Etapa 6</a>.</p></aside>
+<h3 id="cuánto-espacio-hay-y-cómo-se-reparte">Cuánto espacio hay y cómo se reparte</h3>
+<p>El espacio de direcciones se divide en dos mitades: una para el proceso (<strong>modo usuario</strong>) y otra para el sistema operativo (<strong>modo kernel</strong>). La mitad del kernel es la misma en todos los procesos, pero desde tu programa no se puede leer.</p>
+<div class="tabla"><table>
+<thead><tr>
+<th>Proceso</th>
+<th>Rango de usuario</th>
+<th>Tamaño</th>
+<th>Rango del kernel</th>
+</tr></thead><tbody>
+<tr><td>32 bits (x86)</td><td><code>0x00000000</code> – <code>0x7FFFFFFF</code></td><td>2 GB</td><td><code>0x80000000</code> – <code>0xFFFFFFFF</code></td></tr>
+<tr><td>64 bits (x64)</td><td><code>0x00000000'00000000</code> – <code>0x00007FFF'FFFFFFFF</code></td><td>128 TB</td><td>desde <code>0xFFFF8000'00000000</code></td></tr>
+</tbody></table></div>
+<p>Regla práctica para leer una dirección de un vistazo: en 32 bits, si empieza con <code>8</code> o más, es del kernel. En 64 bits, si empieza con <code>00007F…</code> es de usuario (típicamente una DLL o el <code>.exe</code> con ASLR) y si empieza con <code>FFFF…</code> es del kernel. En un debugger de modo usuario como x64dbg <strong>nunca</strong> vas a poder leer direcciones del kernel.</p>
+<p>Los primeros 64 KB (<code>0x0000</code> – <code>0xFFFF</code>) nunca se asignan. Es a propósito: así, usar un puntero nulo (o un puntero nulo más un offset chico, como <code>[0+0x10]</code>) produce siempre una <strong>violación de acceso</strong> (excepción <code>0xC0000005</code>) en vez de leer basura silenciosamente.</p>
+<h3 id="estados-de-una-página-libre-reservada-comprometida">Estados de una página: libre, reservada, comprometida</h3>
+<p>Cada página del espacio de un proceso está en uno de tres estados:</p>
+<div class="tabla"><table>
+<thead><tr>
+<th>Estado</th>
+<th>Qué significa</th>
+<th>¿Se puede usar?</th>
+</tr></thead><tbody>
+<tr><td><strong>Libre</strong> (<em>free</em>)</td><td>Nadie la pidió.</td><td>No: acceder da violación de acceso.</td></tr>
+<tr><td><strong>Reservada</strong> (<em>reserved</em>)</td><td>El rango de direcciones está apartado para que nadie más lo use, pero todavía no tiene memoria detrás.</td><td>No: acceder también da violación de acceso.</td></tr>
+<tr><td><strong>Comprometida</strong> (<em>committed</em>)</td><td>El sistema garantiza memoria para esa página (RAM o archivo de paginación).</td><td>Sí, según su protección.</td></tr>
+</tbody></table></div>
+<p>La API que pide memoria a este nivel es <code>VirtualAlloc</code>, y sus dos flags principales corresponden a esos estados: <code>MEM_RESERVE</code> (<code>0x2000</code>) y <code>MEM_COMMIT</code> (<code>0x1000</code>). Es muy común verlos juntos como <code>0x3000</code>. <code>malloc</code> y <code>new</code> no llaman a <code>VirtualAlloc</code> en cada pedido: usan el <strong>heap</strong>, un administrador que pide regiones grandes con <code>VirtualAlloc</code> y las reparte en bloques chicos (se estudia en <a href="02-windbg-heap.html">2.19</a>).</p>
+<p>Separar reservar de comprometer permite apartar un rango grande y contiguo sin gastar memoria. El <strong>stack</strong> funciona así: Windows reserva 1 MB por hilo pero compromete solo unas pocas páginas; debajo deja una <strong>página de guarda</strong> (<em>guard page</em>). Cuando el programa la toca, el sistema compromete una página más y mueve la guarda hacia abajo. Por eso, en el mapa de memoria, el stack aparece como una región con una parte usable, una página marcada con <code>G</code> y el resto reservado.</p>
+<p>Dos detalles numéricos que explican cosas que vas a ver:</p>
+<ul><li><code>VirtualAlloc</code> reserva en direcciones múltiplos de <strong>64 KB</strong> (<code>0x10000</code>, la <em>granularidad de asignación</em>), aunque compromete de a páginas de 4 KB. Por eso las regiones privadas suelen empezar en direcciones terminadas en <code>0000</code>.</li><li>Los tamaños siempre se redondean hacia arriba a páginas completas: pedir 1 byte compromete <code>0x1000</code>.</li></ul>
+<h3 id="tipo-y-protección-lo-que-muestra-el-mapa-de-memoria">Tipo y protección: lo que muestra el mapa de memoria</h3>
+<p>En la pestaña <strong>Memory Map</strong> de x64dbg (lección 1.3) cada fila es una región de páginas consecutivas con el mismo tipo y la misma protección. Ahora podés leer todas las columnas:</p>
+<div class="tabla"><table>
+<thead><tr>
+<th>Tipo</th>
+<th>Sigla</th>
+<th>De dónde sale el contenido</th>
+<th>Ejemplos</th>
+</tr></thead><tbody>
+<tr><td>Imagen</td><td><code>IMG</code></td><td>De un archivo PE mapeado por el loader.</td><td>Tu <code>.exe</code>, <code>ntdll.dll</code>, <code>kernel32.dll</code></td></tr>
+<tr><td>Mapeada</td><td><code>MAP</code></td><td>De un archivo o de memoria compartida, sin tratarlo como ejecutable.</td><td>Archivos de datos, tablas de idioma, memoria compartida entre procesos</td></tr>
+<tr><td>Privada</td><td><code>PRV</code></td><td>De nadie: memoria nueva, solo de este proceso.</td><td>Stack, heap, lo que devuelve <code>VirtualAlloc</code></td></tr>
+</tbody></table></div>
+<div class="tabla"><table>
+<thead><tr>
+<th>Constante</th>
+<th>Valor</th>
+<th>Permite</th>
+<th>Dónde es normal</th>
+</tr></thead><tbody>
+<tr><td><code>PAGE_NOACCESS</code></td><td><code>0x01</code></td><td>Nada</td><td>Páginas reservadas a propósito</td></tr>
+<tr><td><code>PAGE_READONLY</code></td><td><code>0x02</code></td><td>Leer</td><td><code>.rdata</code>, constantes</td></tr>
+<tr><td><code>PAGE_READWRITE</code></td><td><code>0x04</code></td><td>Leer y escribir</td><td><code>.data</code>, stack, heap</td></tr>
+<tr><td><code>PAGE_EXECUTE_READ</code></td><td><code>0x20</code></td><td>Leer y ejecutar</td><td><code>.text</code></td></tr>
+<tr><td><code>PAGE_EXECUTE_READWRITE</code></td><td><code>0x40</code></td><td>Todo</td><td>Casi nunca en código normal</td></tr>
+<tr><td><code>PAGE_GUARD</code></td><td><code>0x100</code> (se combina)</td><td>Dispara una excepción al primer acceso</td><td>Límite del stack</td></tr>
+</tbody></table></div>
+<p>La idea de seguridad detrás de esta tabla se llama <strong>W^X</strong> («escribible <em>o</em> ejecutable, no las dos»): los datos no se ejecutan y el código no se modifica. El mecanismo que lo impone se llama <strong>DEP</strong> (o bit NX). De ahí sale una señal que vas a usar mucho más adelante: <strong>una región privada, ejecutable y escribible es una rareza que merece una explicación</strong>. Puede ser legítima (un motor de JavaScript o .NET que genera código en el momento) o puede ser código que se desempaqueta en memoria (lecciones <a href="02-packers.html">2.17</a> y <a href="02-anti-analisis.html">2.15</a>). La API que cambia la protección de una página ya existente es <code>VirtualProtect</code>.</p>
+<h3 id="paginado-bajo-demanda-y-páginas-compartidas">Paginado bajo demanda y páginas compartidas</h3>
+<p>Que una página esté comprometida no significa que ya ocupe RAM. Windows trabaja <strong>bajo demanda</strong>: la primera vez que el programa toca una página, el procesador no encuentra la traducción y genera un <strong>fallo de página</strong> (<em>page fault</em>). El kernel lo atiende, trae el contenido (del archivo <code>.exe</code>, del archivo de paginación, o una página en cero), completa la tabla y reanuda la instrucción como si nada hubiera pasado. Tu programa no se entera. Un fallo de página es normal; solo se convierte en error cuando no hay nada que traer o el permiso no alcanza.</p>
+<p>La misma maquinaria permite <strong>compartir</strong>. El código de <code>ntdll.dll</code> o <code>kernel32.dll</code> está en RAM <strong>una sola vez</strong> y las tablas de todos los procesos apuntan a las mismas páginas físicas. Si un proceso escribe en una de esas páginas (por ejemplo, un debugger que pone un breakpoint, o las relocalizaciones), Windows le hace en ese momento una copia privada: eso es <strong>copy-on-write</strong>. Consecuencias prácticas:</p>
+<ul><li>Parchear <code>kernel32.dll</code> en memoria dentro de tu debugger afecta <strong>solo a ese proceso</strong>, no al archivo ni a los demás programas.</li><li>Las DLLs del sistema suelen cargarse en la <strong>misma dirección en todos los procesos</strong> hasta el próximo reinicio (el ASLR las sortea una vez por arranque). Tu <code>.exe</code>, en cambio, puede cambiar de base en cada ejecución.</li></ul>
+<h2 id="modo-usuario-y-modo-kernel">Modo usuario y modo kernel</h2>
+<p>El procesador tiene niveles de privilegio (<em>rings</em>). Windows usa dos: <strong>ring 3</strong> (modo usuario) y <strong>ring 0</strong> (modo kernel).</p>
+<div class="tabla"><table>
+<thead><tr>
+<th></th>
+<th>Modo usuario (ring 3)</th>
+<th>Modo kernel (ring 0)</th>
+</tr></thead><tbody>
+<tr><td>Quién corre ahí</td><td>Tu programa, las DLLs, los servicios</td><td>El núcleo (<code>ntoskrnl.exe</code>) y los drivers (<code>.sys</code>)</td></tr>
+<tr><td>Qué memoria ve</td><td>Solo la mitad de usuario de su propio proceso</td><td>Todo</td></tr>
+<tr><td>Acceso al hardware</td><td>Ninguno directo</td><td>Completo</td></tr>
+<tr><td>Si falla</td><td>Muere ese proceso</td><td>Se cae el sistema (pantalla azul)</td></tr>
+<tr><td>Con qué se depura</td><td>x64dbg, WinDbg</td><td>WinDbg desde otra máquina (Etapa 6)</td></tr>
+</tbody></table></div>
+<p>Un programa en modo usuario <strong>no puede</strong> abrir un archivo, crear un proceso, pedir memoria ni mandar un paquete por la red por sí mismo: todo eso toca recursos que administra el kernel. Lo único que puede hacer es <strong>pedírselo</strong>. Ese pedido se llama <strong>llamada al sistema</strong> (<em>system call</em> o <em>syscall</em>), y es la única puerta entre los dos mundos.</p>
+<h3 id="el-camino-de-una-api-de-tu-programa-al-kernel">El camino de una API, de tu programa al kernel</h3>
+<p>Cuando tu programa llama a <code>CreateFileW</code> para abrir un archivo, la llamada baja por capas. Cada capa es una DLL:</p>
+<pre><code class="lenguaje-text">tu_programa.exe      call CreateFileW          (a través de la IAT)
+        │
+kernel32.dll         CreateFileW               la API documentada (Win32)
+        │
+KernelBase.dll       CreateFileW               donde vive hoy la implementación real
+        │
+ntdll.dll            NtCreateFile              la API nativa: prepara la syscall
+        │
+   ── syscall ──     frontera ring 3 → ring 0
+        │
+ntoskrnl.exe         NtCreateFile              el kernel hace el trabajo
+        │
+   driver del sistema de archivos, disco…</code></pre>
+<p>Qué hace cada capa:</p>
+<ul><li><strong><code>kernel32.dll</code> / <code>KernelBase.dll</code></strong> ofrecen la <strong>API de Windows</strong> (Win32): documentada, estable y cómoda. Validan argumentos, convierten formatos (por ejemplo, la ruta <code>C:\lab\a.txt</code> al formato interno <code>\??\C:\lab\a.txt</code>) y traducen el resultado. En Windows moderno <code>kernel32</code> muchas veces solo reenvía a <code>KernelBase</code>.</li><li><strong><code>ntdll.dll</code></strong> ofrece la <strong>API nativa</strong>: funciones <code>Nt…</code> que son casi una por cada servicio del kernel, y funciones <code>Rtl…</code> y <code>Ldr…</code> de apoyo (heap, cadenas, loader). Es la última DLL antes del kernel y está en <strong>todos</strong> los procesos, sin excepción.</li><li><strong>El kernel</strong> comprueba permisos, hace el trabajo y devuelve un código de resultado.</li></ul>
+<p>Otras DLLs que vas a ver siempre en los imports cumplen el mismo papel para otras áreas: <code>user32.dll</code> (ventanas y mensajes), <code>gdi32.dll</code> (dibujo), <code>advapi32.dll</code> (Registro, servicios, seguridad), <code>ws2_32.dll</code> (red).</p>
+<h3 id="cómo-es-la-frontera-el-stub-de-ntdll">Cómo es la frontera: el stub de <code>ntdll</code></h3>
+<p>Las funciones <code>Nt…</code> de <code>ntdll.dll</code> son todas iguales y muy cortas. En un Windows 10/11 de 64 bits se ven así:</p>
+<pre><code class="lenguaje-asm">ntdll!NtCreateFile:
+  mov  r10, rcx                     ; copia el primer argumento a R10
+  mov  eax, 0x55                    ; número de servicio de NtCreateFile
+  test byte ptr [0x7FFE0308], 1     ; comprobación interna del sistema
+  jne  camino_alternativo
+  syscall                           ; ring 3 → ring 0
+  ret</code></pre>
+<p>Cómo se lee:</p>
+<ul><li><strong><code>mov eax, N</code></strong> carga el <strong>número de servicio</strong>: un índice en una tabla del kernel que dice qué función se pide. Ese número <strong>no está documentado y cambia entre versiones de Windows</strong>; por eso los programas normales nunca lo usan directamente y llaman a <code>ntdll</code>.</li><li><strong><code>mov r10, rcx</code></strong> existe porque la instrucción <code>syscall</code> destruye <code>RCX</code> (guarda ahí la dirección de retorno). El resto de los argumentos viaja como en cualquier llamada x64 (lección <a href="02-llamadas.html">2.4</a>).</li><li><strong><code>syscall</code></strong> cambia a ring 0 y salta a una dirección fija del kernel. Para un debugger de modo usuario es una caja negra: pasás por encima con F8 y al volver <code>RAX</code> tiene el resultado.</li><li>La dirección <code>0x7FFE0000</code> es una página de solo lectura que el kernel comparte con todos los procesos (<code>KUSER_SHARED_DATA</code>). Vas a ver accesos a <code>0x7FFE….</code> en muchos binarios: son lecturas de datos del sistema (hora, versión), no un puntero raro.</li></ul>
+<p>En procesos de 32 bits el mecanismo es otro (<code>sysenter</code> en un Windows de 32 bits; un salto a la capa WOW64 en uno de 64, ver más abajo), pero la idea es idéntica: un número en <code>EAX</code> y un cambio de modo.</p>
+<aside class="callout nota"><p class="callout-titulo">Por qué esto importa para lo que viene</p><p>Casi todas las herramientas de observación —un breakpoint en <code>CreateFileW</code>, un monitor de APIs, un antivirus que engancha funciones— miran alguna de las capas de <strong>modo usuario</strong>. Un programa que quiere pasar desapercibido puede saltearse capas: llamar directo a <code>ntdll</code>, o incluso ejecutar <code>syscall</code> por su cuenta con el número correcto. Reconocer ese patrón (un <code>mov eax, N</code> seguido de <code>syscall</code> <strong>fuera</strong> de <code>ntdll</code>) es parte de la <a href="02-anti-analisis.html">lección 2.15</a>. Sin este mapa de capas, ese tema no se entiende.</p></aside>
+<h3 id="convenciones-de-la-api-que-conviene-saber-desde-ya">Convenciones de la API que conviene saber desde ya</h3>
+<p><strong>Sufijos <code>A</code> y <code>W</code>.</strong> Casi toda API que recibe texto existe dos veces: <code>CreateFileA</code> recibe cadenas de un byte por carácter (ANSI) y <code>CreateFileW</code> recibe cadenas <strong>UTF-16</strong>, de dos bytes por carácter (<em>wide</em>). Windows trabaja internamente en UTF-16: la versión <code>A</code> solo convierte el texto y llama a la <code>W</code>. En memoria, <code>"Hola"</code> en ANSI es <code>48 6F 6C 61 00</code>, y en UTF-16 es <code>48 00 6F 00 6C 00 61 00 00 00</code>. Si buscás una cadena en un binario y no aparece, puede estar en el otro formato (la <a href="02-ida.html">lección 2.7</a> lo retoma).</p>
+<p><strong>Sufijo <code>Ex</code>.</strong> Una versión posterior de la misma API con más parámetros: <code>VirtualAlloc</code> / <code>VirtualAllocEx</code>, <code>CreateProcess</code> / <code>CreateProcessAsUser</code>. La vieja suele llamar a la nueva.</p>
+<p><strong><code>Nt</code> y <code>Zw</code>.</strong> En <code>ntdll</code> cada servicio aparece con dos nombres (<code>NtCreateFile</code> y <code>ZwCreateFile</code>). En modo usuario son <strong>la misma dirección</strong>; la diferencia solo existe dentro del kernel.</p>
+<p><strong>Cómo avisa una API que falló.</strong> Hay tres sistemas de códigos y conviene no mezclarlos:</p>
+<div class="tabla"><table>
+<thead><tr>
+<th>Sistema</th>
+<th>Quién lo usa</th>
+<th>Cómo se lee</th>
+<th>Ejemplos</th>
+</tr></thead><tbody>
+<tr><td><strong>Código de error Win32</strong></td><td>Las APIs de <code>kernel32</code>, <code>user32</code>, <code>advapi32</code></td><td>La función devuelve un valor «de fallo» (<code>FALSE</code>, <code>NULL</code> o <code>INVALID_HANDLE_VALUE</code> = −1) y el detalle se pide con <code>GetLastError()</code>.</td><td><code>2</code> archivo no encontrado · <code>5</code> acceso denegado · <code>87</code> parámetro inválido · <code>122</code> buffer insuficiente</td></tr>
+<tr><td><strong><code>NTSTATUS</code></strong></td><td>Las funciones <code>Nt…</code> y el kernel</td><td>Es el valor de retorno (en <code>EAX</code>/<code>RAX</code>). <code>0</code> es éxito; si empieza con <code>C</code>, es un error.</td><td><code>0x00000000</code> éxito · <code>0xC0000005</code> violación de acceso · <code>0xC0000022</code> acceso denegado · <code>0xC0000034</code> nombre no encontrado</td></tr>
+<tr><td><strong><code>HRESULT</code></strong></td><td>COM y APIs modernas</td><td>Es el valor de retorno. <code>0</code> es éxito (<code>S_OK</code>); si el bit más alto está en 1 (empieza con <code>8</code>), falló.</td><td><code>0x80070005</code> acceso denegado · <code>0x80004005</code> fallo genérico</td></tr>
+</tbody></table></div>
+<p>Los tres están relacionados: cuando <code>NtCreateFile</code> devuelve <code>0xC0000034</code>, <code>KernelBase</code> lo traduce al error Win32 <code>2</code> y lo guarda para <code>GetLastError</code>. El «último error» es <strong>por hilo</strong>: vive en el TEB (el bloque de datos del hilo que nombramos en 1.3), y <code>GetLastError</code> no hace más que leerlo. Al analizar, un <code>call GetLastError</code> seguido de un <code>cmp eax, 5</code> o <code>cmp eax, 0x7A</code> te está diciendo qué caso de error esperaba el programador.</p>
+<h2 id="dlls-y-el-loader-qué-pasa-antes-de-tu-main">DLLs y el loader: qué pasa antes de tu <code>main</code></h2>
+<p>Una <strong>DLL</strong> (<em>Dynamic-Link Library</em>) es un archivo PE igual que un <code>.exe</code>, con una diferencia de propósito: no arranca un proceso, sino que <strong>se carga dentro de uno</strong> para ofrecerle funciones. Lo que ofrece está en su <strong>tabla de exports</strong>; lo que necesita de otras, en su <strong>tabla de imports</strong> (lección 1.4). El componente que une las dos se llama <strong>loader</strong> y vive en <code>ntdll.dll</code> (todas las funciones <code>Ldr…</code>).</p>
+<h3 id="tres-formas-de-usar-una-dll">Tres formas de usar una DLL</h3>
+<div class="tabla"><table>
+<thead><tr>
+<th>Forma</th>
+<th>Cuándo se carga</th>
+<th>Qué ves en el análisis estático</th>
+</tr></thead><tbody>
+<tr><td><strong>Import estático</strong></td><td>Al arrancar el proceso, antes de <code>main</code>.</td><td>La DLL y sus funciones aparecen en la tabla de imports. Es lo que mirás primero.</td></tr>
+<tr><td><strong>Carga dinámica</strong></td><td>Cuando el programa llama a <code>LoadLibrary</code> y después a <code>GetProcAddress</code>.</td><td>La DLL <strong>no</strong> aparece en los imports. Solo ves <code>LoadLibrary</code>, <code>GetProcAddress</code> y, con suerte, los nombres como cadenas.</td></tr>
+<tr><td><strong>Delay-load</strong></td><td>La primera vez que se llama a una de sus funciones.</td><td>Aparece en un directorio aparte del PE (lección <a href="02-pe-fino.html">2.14</a>).</td></tr>
+</tbody></table></div>
+<p>La carga dinámica tiene usos normales (plugins, funciones que solo existen en versiones nuevas de Windows) y es también la forma clásica de <strong>esconder</strong> qué APIs usa un programa. La regla que te llevás: <strong>la tabla de imports dice lo mínimo que el programa usa, no todo lo que puede llegar a usar</strong>.</p>
+<p><code>LoadLibraryW(L"user32.dll")</code> devuelve un <code>HMODULE</code>, y ese valor es simplemente <strong>la dirección base</strong> donde quedó mapeada la DLL (vas a ver el <code>MZ</code> de la cabecera si mirás esa dirección en el volcado). <code>GetProcAddress(hModule, "MessageBoxW")</code> recorre la tabla de exports de esa DLL y devuelve la dirección de la función. Después el programa la llama con un <code>call</code> indirecto a través de un registro o una variable.</p>
+<h3 id="del-doble-clic-al-entry-point">Del doble clic al entry point</h3>
+<p>Esta es la secuencia completa, simplificada, de lo que pasa cuando arranca un proceso:</p>
+<ol><li><strong>El kernel crea el proceso</strong>: un espacio de direcciones vacío. Mapea el <code>.exe</code> y <code>ntdll.dll</code> como regiones de tipo imagen, y crea el primer hilo con su stack.</li><li><strong>El primer hilo arranca dentro de <code>ntdll</code></strong> (no en tu programa), en la rutina de inicialización del loader.</li><li><strong>El loader lee la tabla de imports del <code>.exe</code></strong> y carga cada DLL que nombra. Cada DLL tiene sus propios imports, así que el proceso es recursivo hasta que no falta ninguna.</li><li><strong>Resuelve los imports</strong>: por cada función pedida, busca su dirección en los exports de la DLL correspondiente y la escribe en la <strong>IAT</strong>. A partir de acá, un <code>call [IAT]</code> llega a destino.</li><li><strong>Ajusta direcciones</strong> si alguna imagen no quedó en su base preferida (relocalizaciones, lección 1.4).</li><li><strong>Ejecuta el código de inicialización</strong>, en este orden: los <strong>TLS callbacks</strong> (lección <a href="02-tls.html">2.11</a>) y la función <strong><code>DllMain</code></strong> de cada DLL, empezando por las que no dependen de nadie.</li><li><strong>Salta al entry point del <code>.exe</code></strong> (<code>AddressOfEntryPoint</code>), que todavía no es tu <code>main</code>: es el arranque del runtime de C (ver más abajo).</li></ol>
+<p>Dos cosas de esta lista las vas a ver directamente en el debugger. Primero, cuando x64dbg abre un programa y se detiene por primera vez, está en el paso 2: dentro de <code>ntdll</code>, antes de todo (por eso en la receta de la lección 0.1 hay que apretar F9 una vez para llegar al entry point). Segundo, si mirás la pila de llamadas (<em>Call Stack</em>) estando en tu <code>main</code>, las dos funciones del fondo son siempre las mismas: <code>kernel32!BaseThreadInitThunk</code> y <code>ntdll!RtlUserThreadStart</code>. Son el arranque genérico de cualquier hilo en Windows.</p>
+<h3 id="dllmain-código-que-corre-solo"><code>DllMain</code>: código que corre solo</h3>
+<p>Una DLL puede tener su propio entry point, por convención llamado <code>DllMain</code>. El loader lo llama automáticamente, pasándole el motivo:</p>
+<pre><code class="lenguaje-c">BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved) {
+    switch (fdwReason) {
+    case DLL_PROCESS_ATTACH:  /* 1: la DLL se acaba de cargar en el proceso */ break;
+    case DLL_THREAD_ATTACH:   /* 2: el proceso creó un hilo nuevo           */ break;
+    case DLL_THREAD_DETACH:   /* 3: un hilo está terminando                 */ break;
+    case DLL_PROCESS_DETACH:  /* 0: la DLL se descarga                      */ break;
+    }
+    return TRUE;
+}</code></pre>
+<p>La consecuencia para el análisis: <strong>cargar una DLL ya es ejecutar código suyo</strong>. Si un programa hace <code>LoadLibrary</code> de una DLL desconocida, el <code>DllMain</code> de esa DLL corre en ese instante, sin que nadie llame a ninguna función exportada. Por eso el criterio de la Etapa 0 vale igual para una DLL que para un <code>.exe</code>, y por eso x64dbg tiene una opción para detenerse en el entry point de cada DLL que se carga (<em>Options → Preferences → Events → DLL Entry</em>).</p>
+<h3 id="tres-rarezas-de-los-imports-modernos">Tres rarezas de los imports modernos</h3>
+<p><strong>API sets.</strong> En la tabla de imports de un binario reciente vas a ver nombres como <code>api-ms-win-core-file-l1-1-0.dll</code>. Esos archivos <strong>no son DLLs reales</strong>: son nombres virtuales («contratos») que el loader traduce a la DLL que de verdad implementa la función, casi siempre <code>KernelBase.dll</code> o <code>ucrtbase.dll</code>. Cuando los veas, leé el nombre de la función y no te preocupes por el de la DLL.</p>
+<p><strong>Exports reenviados.</strong> Una DLL puede exportar un nombre que en realidad vive en otra. El caso más común: <code>kernel32!HeapAlloc</code> no tiene código; su entrada dice «buscá <code>NTDLL.RtlAllocateHeap</code>». El loader sigue el reenvío, así que la IAT termina apuntando directo a <code>ntdll</code>. Por eso a veces ponés un breakpoint en una API de <code>kernel32</code> y el debugger te muestra un nombre de <code>ntdll</code>.</p>
+<p><strong>Orden de búsqueda.</strong> Si el programa pide una DLL por nombre sin ruta, el loader la busca primero en el <strong>directorio de la aplicación</strong>, después en <code>System32</code>, en el directorio de Windows, en el directorio actual y en las carpetas del <code>PATH</code>. Hay una lista de DLLs del sistema (<em>KnownDLLs</em>) que se saltea la búsqueda y se carga siempre desde <code>System32</code>. Que el directorio de la aplicación vaya primero explica una clase entera de problemas de seguridad: una DLL con el nombre correcto puesta al lado del <code>.exe</code> se carga en lugar de la legítima. Desde el lado defensivo, es algo que se revisa en un análisis (rama 2D).</p>
+<h2 id="wow64-un-programa-de-32-bits-en-un-windows-de-64">WOW64: un programa de 32 bits en un Windows de 64</h2>
+<p>Casi todos los Windows actuales son de 64 bits, pero muchos programas (y casi todos los crackmes clásicos, y varias prácticas de este curso) son de 32. El kernel de 64 bits no entiende llamadas de 32 bits, así que entre los dos hay una capa de traducción llamada <strong>WOW64</strong> (<em>Windows 32-bit on Windows 64-bit</em>). Es transparente para el programa, pero deja huellas que confunden si no las conocés:</p>
+<div class="tabla"><table>
+<thead><tr>
+<th>Qué</th>
+<th>Cómo es</th>
+<th>Qué confunde</th>
+</tr></thead><tbody>
+<tr><td>Carpetas del sistema</td><td><code>C:\Windows\System32</code> contiene las DLLs de <strong>64</strong> bits; <code>C:\Windows\SysWOW64</code> contiene las de <strong>32</strong>.</td><td>Los nombres están al revés de lo que uno espera. Son históricos.</td></tr>
+<tr><td>Redirección de archivos</td><td>Si un proceso de 32 bits abre <code>C:\Windows\System32\algo.dll</code>, Windows le entrega <code>C:\Windows\SysWOW64\algo.dll</code> sin avisar.</td><td>La ruta que ves en una cadena del binario no es el archivo que realmente se abre.</td></tr>
+<tr><td>Redirección del Registro</td><td>Para un proceso de 32 bits, <code>HKLM\Software\X</code> es en realidad <code>HKLM\Software\WOW6432Node\X</code>.</td><td>Buscás una clave donde dice el código y no está.</td></tr>
+<tr><td>Programas instalados</td><td><code>C:\Program Files</code> (64 bits) y <code>C:\Program Files (x86)</code> (32 bits).</td><td>—</td></tr>
+<tr><td>Módulos del proceso</td><td>Un proceso de 32 bits tiene <strong>dos</strong> <code>ntdll.dll</code>: la de 32 que usa el programa y la de 64 que usa la capa WOW64, más <code>wow64.dll</code>, <code>wow64win.dll</code> y <code>wow64cpu.dll</code>.</td><td>x32dbg te muestra solo el lado de 32 bits.</td></tr>
+<tr><td>La syscall</td><td>El stub de la <code>ntdll</code> de 32 bits no hace <code>syscall</code>: carga el número en <code>EAX</code> y salta a la capa WOW64, que pasa el procesador a 64 bits, convierte los argumentos y recién ahí llama al kernel.</td><td>En x32dbg, al pasar por ese salto «desaparecés» y volvés con el resultado. Es normal.</td></tr>
+</tbody></table></div>
+<p>Dos reglas operativas que salen de acá: <strong>un proceso de 64 bits no puede cargar una DLL de 32, ni al revés</strong> (por eso hay dos copias de todo); y <strong>el debugger tiene que coincidir con el programa</strong>: x32dbg para 32 bits, x64dbg para 64. Ya lo viste como mensaje de error en la lección 0.1; ahora sabés por qué.</p>
+<h2 id="del-fuente-al-exe-qué-agrega-el-compilador">Del fuente al <code>.exe</code>: qué agrega el compilador</h2>
+<p>Cuando escribís <code>gcc -o hola.exe hola.c</code> pasan cuatro etapas, aunque se vea como un solo comando:</p>
+<div class="tabla"><table>
+<thead><tr>
+<th>Etapa</th>
+<th>Entrada → salida</th>
+<th>Qué hace</th>
+<th>Cómo verla sola</th>
+</tr></thead><tbody>
+<tr><td><strong>Preprocesador</strong></td><td><code>.c</code> → texto C expandido</td><td>Pega el contenido de los <code>#include</code>, reemplaza los <code>#define</code>, resuelve los <code>#if</code>.</td><td><code>gcc -E</code> · <code>cl /P</code></td></tr>
+<tr><td><strong>Compilador</strong></td><td>C → assembly</td><td>Traduce cada función a instrucciones. Acá se decide todo lo que vas a leer en el debugger, y acá actúan las optimizaciones (lección 2.8).</td><td><code>gcc -S</code> · <code>cl /FA</code></td></tr>
+<tr><td><strong>Ensamblador</strong></td><td>assembly → archivo objeto (<code>.o</code> / <code>.obj</code>)</td><td>Convierte las instrucciones en bytes. Las direcciones de lo que está en otros archivos quedan <strong>en blanco</strong>, anotadas como pendientes.</td><td><code>gcc -c</code> · <code>cl /c</code></td></tr>
+<tr><td><strong>Linker</strong> (enlazador)</td><td>objetos + bibliotecas → <code>.exe</code></td><td>Junta todos los objetos, completa las direcciones pendientes, agrega el código de las bibliotecas, arma las cabeceras PE, las secciones y la tabla de imports.</td><td><code>ld</code> · <code>link.exe</code></td></tr>
+</tbody></table></div>
+<p>Dos ideas de esta tabla cambian cómo leés un binario.</p>
+<h3 id="no-todo-el-código-del-exe-lo-escribió-el-programador">No todo el código del <code>.exe</code> lo escribió el programador</h3>
+<p>Tu <code>hola.c</code> tiene diez líneas, pero el <code>.exe</code> tiene decenas o cientos de funciones. La diferencia es código de <strong>biblioteca</strong>, sobre todo el <strong>runtime de C</strong> (CRT): <code>printf</code>, <code>scanf</code>, <code>strcmp</code>, <code>malloc</code> y todo lo que necesitan por dentro. Ese código puede llegar al programa de dos maneras:</p>
+<div class="tabla"><table>
+<thead><tr>
+<th></th>
+<th>Enlazado dinámico</th>
+<th>Enlazado estático</th>
+</tr></thead><tbody>
+<tr><td>Dónde está <code>printf</code></td><td>En una DLL aparte (<code>ucrtbase.dll</code>, <code>vcruntime140.dll</code>; <code>msvcrt.dll</code> con MinGW clásico)</td><td>Copiado <strong>dentro</strong> del <code>.exe</code></td></tr>
+<tr><td>Opción de MSVC</td><td><code>/MD</code></td><td><code>/MT</code></td></tr>
+<tr><td>Tamaño del <code>.exe</code></td><td>Chico</td><td>Bastante más grande</td></tr>
+<tr><td>Qué ves en los imports</td><td><code>printf</code>, <code>strcmp</code>… con nombre</td><td>Solo APIs de Windows (<code>WriteFile</code>, <code>HeapAlloc</code>…)</td></tr>
+<tr><td>Qué ves en el desensamblador</td><td>Un <code>call</code> a un import con nombre</td><td>Un <code>call</code> a una función interna sin nombre, que hay que identificar</td></tr>
+</tbody></table></div>
+<p>Con enlazado estático y sin símbolos, <code>strcmp</code> es una función anónima más entre cientos. Analizarlas una por una sería perder días en código que no escribió el autor. Los desensambladores lo resuelven con <strong>firmas</strong>: bases de datos con el patrón de bytes de las funciones de las bibliotecas más comunes, que se comparan contra el binario para ponerles nombre automáticamente. En IDA se llama <strong>FLIRT</strong> y en Ghidra <strong>Function ID</strong>; ambos lo aplican solos al abrir el archivo. La habilidad que importa es la inversa: <strong>cuando una función no tiene nombre, preguntate primero si es de biblioteca antes de analizarla</strong>. Las pistas son que la llaman desde muchos lugares, que no llama a nada «del programa» y que usa instrucciones muy optimizadas.</p>
+<h3 id="el-entry-point-no-es-main">El entry point no es <code>main</code></h3>
+<p>El campo <code>AddressOfEntryPoint</code> de la cabecera PE apunta a una función del CRT, no a tu código. Su nombre depende del tipo de programa:</p>
+<div class="tabla"><table>
+<thead><tr>
+<th>Tipo de programa</th>
+<th>Función de arranque (MSVC)</th>
+<th>Termina llamando a</th>
+</tr></thead><tbody>
+<tr><td>Consola</td><td><code>mainCRTStartup</code></td><td><code>main(argc, argv, envp)</code></td></tr>
+<tr><td>Consola, Unicode</td><td><code>wmainCRTStartup</code></td><td><code>wmain</code></td></tr>
+<tr><td>Ventanas (GUI)</td><td><code>WinMainCRTStartup</code></td><td><code>WinMain(hInstance, hPrev, lpCmdLine, nCmdShow)</code></td></tr>
+<tr><td>DLL</td><td><code>_DllMainCRTStartup</code></td><td><code>DllMain</code></td></tr>
+</tbody></table></div>
+<p>Que el programa sea de consola o de ventanas está en el campo <code>Subsystem</code> de la cabecera opcional (<code>3</code> = consola, <code>2</code> = GUI). Lo que hace el arranque, en orden:</p>
+<ol><li>Inicializa la <strong>cookie de seguridad</strong> del stack (el valor aleatorio que mencionamos en 1.2).</li><li>Inicializa el CRT: el heap, la entrada y salida estándar, la configuración regional.</li><li>Ejecuta los <strong>inicializadores globales</strong>. En C++, acá corren los constructores de los objetos globales: <strong>más código que se ejecuta antes de <code>main</code></strong>.</li><li>Arma <code>argc</code> y <code>argv</code> a partir de la línea de comandos.</li><li>Llama a <code>main</code>.</li><li>Pasa el valor que devolvió <code>main</code> a <code>exit</code>, que ejecuta las funciones de limpieza y termina el proceso.</li></ol>
+<p>Del paso 5 y 6 sale el método para <strong>encontrar <code>main</code> en un binario sin símbolos</strong> cuando no tenés una cadena por la cual buscar: desde el entry point, seguí hasta la función de arranque y buscá, cerca del final, un <code>call</code> que recibe tres argumentos y cuyo resultado (<code>EAX</code>) se pasa enseguida a otra función que no retorna. Ese <code>call</code> es <code>main</code> y la otra es <code>exit</code>. La lección <a href="02-ida.html">2.7</a> lo practica.</p>
+<p>Ya tenés la lista completa de <strong>todo lo que puede ejecutarse antes de la primera línea de <code>main</code></strong>, que es una pregunta de examen clásica y un punto ciego habitual:</p>
+<ol><li>TLS callbacks del <code>.exe</code> y de las DLLs.</li><li><code>DllMain</code> de cada DLL importada estáticamente.</li><li>El arranque del CRT.</li><li>Los inicializadores y constructores globales.</li></ol>
+<h3 id="símbolos-debug-release-y-nombres-decorados">Símbolos, Debug, Release y nombres decorados</h3>
+<p>Los nombres de tus funciones y variables <strong>no forman parte del código</strong>: el procesador no los necesita. Sobreviven solo si se guardan aparte como <strong>símbolos de depuración</strong>. Con MSVC van a un archivo <code>.pdb</code> separado (opción <code>/Zi</code>); con GCC quedan dentro del ejecutable (opción <code>-g</code>) y se quitan con <code>strip</code>. Un programa que se distribuye casi nunca trae símbolos: por eso en un binario ajeno las funciones se llaman <code>sub_401000</code> y las de tus prácticas tienen nombre. Lo único que siempre conserva nombre son los imports y los exports, porque el loader los necesita.</p>
+<p>«Debug» y «Release» son dos conjuntos de opciones: Debug compila sin optimizar y con comprobaciones extra; Release optimiza. Todas las prácticas hasta la lección 2.7 usan el equivalente a Debug (<code>-O0</code>, <code>/Od</code>); la 2.8 muestra qué cambia.</p>
+<p>Por último, el nombre que el linker ve no siempre es el que escribiste. En binarios de 32 bits el compilador de C lo <strong>decora</strong> según la convención de llamada (lección 2.4): <code>_suma</code> para <code>cdecl</code>, <code>_suma@8</code> para <code>stdcall</code> (el número son los bytes de argumentos), <code>@suma@8</code> para <code>fastcall</code>. En x64 hay una sola convención y los nombres de C no se decoran. C++ va mucho más lejos y codifica en el nombre los tipos de los parámetros (<code>?suma@@YAHHH@Z</code>); eso se llama <em>name mangling</em> y se ve en <a href="02-cpp-profundo.html">2.18</a>. Lo útil hoy: si ves <code>@8</code> o <code>@12</code> al final de un nombre, ya sabés la convención y cuántos argumentos tiene.</p>
+<h2 id="ejemplo-paso-a-paso-las-capas-en-un-programa-propio">Ejemplo paso a paso: las capas en un programa propio</h2>
+<p>Este programa hace tres cosas, una por cada tema de la lección: llama a una API que falla, reserva y compromete memoria, y carga una DLL a mano. Las pausas con <code>getchar()</code> son para que puedas mirar el estado del proceso entre un paso y el siguiente.</p>
+<pre><code class="lenguaje-c">#include &lt;windows.h&gt;
+#include &lt;stdio.h&gt;
+
+int main(void) {
+    /* 1. Una API que falla: el archivo no existe */
+    HANDLE h = CreateFileW(L"C:\\lab\\no_existe.txt", GENERIC_READ, FILE_SHARE_READ,
+                           NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    DWORD err = GetLastError();
+    printf("handle=%p error=%lu\n", (void *)h, err);
+
+    /* 2. Reservar 64 KB y comprometer solo la primera pagina */
+    char *p = (char *)VirtualAlloc(NULL, 0x10000, MEM_RESERVE, PAGE_NOACCESS);
+    printf("reservado en %p (Enter para comprometer)\n", (void *)p);
+    getchar();
+    VirtualAlloc(p, 0x1000, MEM_COMMIT, PAGE_READWRITE);
+    p[0] = 'A';
+    printf("primera pagina comprometida (Enter para seguir)\n");
+    getchar();
+
+    /* 3. Cargar una DLL a mano y pedir una funcion por nombre */
+    HMODULE m = LoadLibraryW(L"user32.dll");
+    FARPROC f = GetProcAddress(m, "MessageBoxW");
+    printf("user32=%p MessageBoxW=%p (Enter para salir)\n", (void *)m, (void *)f);
+    getchar();
+    return 0;
+}</code></pre>
+<p>Guardalo como <code>capas.c</code> y compilalo en 64 bits con la receta de la lección 0.1 (<code>gcc -O0 -g -o capas.exe capas.c</code> o <code>cl /Od /Zi capas.c</code>).</p>
+<p><strong>Qué tiene que imprimir.</strong> La primera línea es fija: el handle con todos los bits en 1 (<code>FFFFFFFFFFFFFFFF</code>, que es <code>INVALID_HANDLE_VALUE</code>, −1) y <code>error=2</code> (archivo no encontrado). Si la carpeta <code>C:\lab</code> no existiera, el error sería <code>3</code> (ruta no encontrada). Las direcciones de las otras líneas cambian en cada máquina, pero tienen forma previsible: la de <code>VirtualAlloc</code> termina en <code>0000</code> (granularidad de 64 KB) y las de <code>user32</code> empiezan con <code>00007FF…</code>.</p>
+<p><strong>Qué mirar en x64dbg</strong>, con el programa abierto y detenido en cada pausa:</p>
+<div class="tabla"><table>
+<thead><tr>
+<th>Momento</th>
+<th>Dónde mirar</th>
+<th>Qué tenés que encontrar</th>
+</tr></thead><tbody>
+<tr><td>Antes de ejecutar nada</td><td>Pestaña <em>Symbols</em> (lista de módulos)</td><td><code>capas.exe</code>, <code>ntdll.dll</code>, <code>kernel32.dll</code>, <code>kernelbase.dll</code> y la DLL del CRT. <code>user32.dll</code> <strong>no está</strong>.</td></tr>
+<tr><td>Primera pausa</td><td><em>Memory Map</em>, en la dirección que imprimió el programa</td><td>Una región de <code>0x10000</code> bytes, privada, <strong>reservada</strong> y sin protección útil.</td></tr>
+<tr><td>Segunda pausa</td><td>La misma dirección</td><td>La región se partió en dos: <code>0x1000</code> bytes comprometidos con lectura y escritura, y <code>0xF000</code> que siguen reservados. En el volcado de esa dirección está el byte <code>41</code>.</td></tr>
+<tr><td>Tercera pausa</td><td><em>Symbols</em> otra vez</td><td>Ahora sí aparece <code>user32.dll</code>, junto con las DLLs que ella necesita (<code>gdi32.dll</code>, <code>win32u.dll</code>…): el loader resolvió sus imports en cadena.</td></tr>
+</tbody></table></div>
+<p><strong>Las capas de la API.</strong> Reiniciá el programa (<code>Ctrl+F2</code>) y, en la barra de comandos de abajo, escribí <code>bp NtCreateFile</code> y Enter. Ejecutá con F9. El programa abre otros archivos durante el arranque, así que el breakpoint puede saltar varias veces: seguí con F9 hasta que la pila de llamadas (<em>Call Stack</em>) muestre tu <code>main</code>. En ese punto la pila, leída de arriba hacia abajo, es el diagrama de capas de esta lección: <code>ntdll.NtCreateFile</code> ← <code>kernelbase.CreateFileW</code> (pasando por alguna función interna) ← <code>capas.main</code>. Avanzá con F8 instrucción por instrucción: vas a ver el <code>mov r10, rcx</code>, el <code>mov eax, 0x55</code> y el <code>syscall</code>. Al pasar el <code>syscall</code>, <code>RAX</code> queda en <code>C0000034</code>: el <code>NTSTATUS</code> «nombre no encontrado» que, unas funciones más arriba, se convierte en el error <code>2</code> que imprime tu programa.</p>
+<aside class="callout nota"><p class="callout-titulo">Si algo no coincide</p><ul><li>El número de servicio no es <code>0x55</code>: puede pasar en otra versión de Windows. Es justamente la razón por la que nadie debería escribirlo fijo en un programa.</li><li>No ves <code>kernel32</code> en la pila entre tu programa y <code>kernelbase</code>: es lo esperado en Windows moderno. Tu <code>.exe</code> importa <code>CreateFileW</code> de <code>kernel32</code>, pero esa entrada reenvía directamente a <code>KernelBase</code>.</li><li>El debugger no reconoce <code>NtCreateFile</code>: escribilo con el módulo adelante, <code>bp ntdll.NtCreateFile</code>.</li></ul></aside>
+<h2 id="práctica">Práctica</h2>
+<p>Los ejercicios 1 a 5 son de lápiz y papel y tienen la respuesta abajo de cada uno. Los ejercicios 6 a 9 son de laboratorio.</p>
+<ol><li>Para la dirección <code>0x00007FF6A1B23C48</code>: ¿dónde empieza su página, cuál es el offset dentro de la página, y es de usuario o de kernel?</li></ol>
+<details class="qa"><summary>Ver la respuesta del ejercicio 1</summary><div class="respuesta"><p>La página empieza en <code>0x00007FF6A1B23000</code> (los tres últimos dígitos en cero) y el offset es <code>0xC48</code>. Es de usuario: empieza con <code>00007F</code>.</p></div></details>
+<ol start="2"><li>Una sección tiene <code>VirtualSize = 0x2A10</code>. ¿Cuántas páginas ocupa en memoria y cuántos bytes quedan sin usar en la última?</li></ol>
+<details class="qa"><summary>Ver la respuesta del ejercicio 2</summary><div class="respuesta"><p>Tres páginas (<code>0x3000</code> bytes), porque <code>0x2A10</code> supera <code>0x2000</code> y se redondea hacia arriba. Sobran <code>0x3000 − 0x2A10 = 0x5F0</code> bytes (1520 en decimal), que quedan en cero.</p></div></details>
+<ol start="3"><li>Un programa llama a <code>VirtualAlloc</code> con el tercer argumento en <code>0x3000</code> y el cuarto en <code>0x40</code>. ¿Qué está pidiendo, y por qué llama la atención?</li></ol>
+<details class="qa"><summary>Ver la respuesta del ejercicio 3</summary><div class="respuesta"><p><code>0x3000 = MEM_COMMIT (0x1000) | MEM_RESERVE (0x2000)</code>: reserva y compromete en una sola llamada. <code>0x40</code> es <code>PAGE_EXECUTE_READWRITE</code>. Está pidiendo memoria privada que se puede escribir y ejecutar a la vez, que es lo que necesita un programa que va a generar o descomprimir código en memoria. No prueba nada por sí solo, pero es lo primero que hay que seguir: ¿qué se escribe ahí y quién salta a esa región?</p></div></details>
+<ol start="4"><li>Después de un <code>call</code> a una función <code>Nt…</code>, <code>EAX</code> vale <code>0xC0000022</code>. Después de otro <code>call</code>, a una función de COM, vale <code>0x80070005</code>. ¿Qué pasó en cada caso?</li></ol>
+<details class="qa"><summary>Ver la respuesta del ejercicio 4</summary><div class="respuesta"><p>Los dos fallaron por lo mismo: acceso denegado. El primero es un <code>NTSTATUS</code> (empieza con <code>C</code>: error). El segundo es un <code>HRESULT</code> (bit alto en 1: fallo); sus últimos dígitos, <code>0005</code>, son justamente el código Win32 <code>5</code>, acceso denegado, envuelto en formato <code>HRESULT</code>.</p></div></details>
+<ol start="5"><li>Un binario no tiene ninguna función de red en su tabla de imports, pero entre sus cadenas aparecen <code>"ws2_32.dll"</code>, <code>"connect"</code> y <code>"send"</code>, y sí importa <code>LoadLibraryA</code> y <code>GetProcAddress</code>. ¿Qué concluís?</li></ol>
+<details class="qa"><summary>Ver la respuesta del ejercicio 5</summary><div class="respuesta"><p>Que usa la red, cargando la DLL de forma dinámica: <code>LoadLibraryA("ws2_32.dll")</code> y después <code>GetProcAddress</code> con cada nombre. La tabla de imports sola habría dado una imagen incompleta. El paso siguiente es buscar las referencias a esas cadenas para encontrar dónde se resuelven y dónde se guardan los punteros.</p></div></details>
+<ol start="6"><li>Compilá <code>capas.c</code> en 64 bits y completá la tabla de «qué mirar en x64dbg» con las direcciones y tamaños reales de tu máquina. Anotalos en la bitácora.</li><li>Seguí la llamada a <code>CreateFileW</code> hasta el <code>syscall</code> como indica el ejemplo. Anotá: el número de servicio que carga en <code>EAX</code>, el valor de <code>RAX</code> al volver, y la lista de funciones de la pila de llamadas.</li><li>Compilá <code>capas.c</code> en <strong>32 bits</strong> y abrilo con x32dbg. Compará la lista de módulos con la de 64 bits: ¿de qué carpeta sale cada DLL? Poné el breakpoint en <code>NtCreateFile</code> y mirá cómo termina el stub: ¿hay un <code>syscall</code>?</li><li>Abrí <code>capas.exe</code> en PE-bear o Detect It Easy. Buscá el campo <code>Subsystem</code>, el <code>AddressOfEntryPoint</code> y la tabla de imports. ¿Aparece <code>user32.dll</code> en los imports? ¿Aparece algún nombre que empiece con <code>api-ms-win-</code>? Explicá las dos respuestas.</li></ol>
+<details class="qa"><summary>Qué deberías encontrar en los ejercicios 8 y 9</summary><div class="respuesta"><p><strong>Ejercicio 8.</strong> En el proceso de 32 bits las DLLs salen de <code>C:\Windows\SysWOW64</code>. El stub de <code>NtCreateFile</code> carga un número en <code>EAX</code> y termina en un <code>call</code> o <code>jmp</code> hacia la capa WOW64 seguido de un <code>ret</code>; no hay <code>syscall</code> visible, porque el cambio a 64 bits ocurre fuera de lo que muestra x32dbg.</p><p><strong>Ejercicio 9.</strong> <code>user32.dll</code> <strong>no</strong> aparece en los imports, porque el programa la carga con <code>LoadLibraryW</code> en tiempo de ejecución; sí aparecen <code>LoadLibraryW</code> y <code>GetProcAddress</code>, y la cadena <code>MessageBoxW</code> está entre los datos. Que aparezcan o no nombres <code>api-ms-win-…</code> depende del compilador: con Visual Studio y CRT dinámico es habitual verlos para las funciones del runtime (por ejemplo <code>api-ms-win-crt-stdio-l1-1-0.dll</code>); con MinGW clásico vas a ver <code>msvcrt.dll</code> en su lugar. El subsistema es <code>3</code> (consola).</p></div></details>
+<h2 id="preguntas-de-repaso">Preguntas de repaso</h2>
+<details class="qa"><summary>1. ¿Por qué dos procesos pueden tener datos distintos en la misma dirección?</summary><div class="respuesta"><p>Porque las direcciones son virtuales y cada proceso tiene sus propias tablas de páginas. La misma dirección virtual se traduce a páginas físicas distintas en cada uno.</p></div></details>
+<details class="qa"><summary>2. ¿Por qué las secciones de un PE se alinean a <code>0x1000</code> en memoria?</summary><div class="respuesta"><p>Porque los permisos se asignan por página y una página mide <code>0x1000</code> bytes. Secciones con permisos distintos no pueden compartir página.</p></div></details>
+<details class="qa"><summary>3. ¿Qué diferencia hay entre reservar y comprometer memoria?</summary><div class="respuesta"><p>Reservar aparta un rango de direcciones sin darle memoria; comprometer garantiza memoria para esas páginas. Solo la memoria comprometida se puede usar. Acceder a memoria reservada da violación de acceso.</p></div></details>
+<details class="qa"><summary>4. ¿Qué hace la instrucción <code>syscall</code> y qué hay en <code>EAX</code> justo antes?</summary><div class="respuesta"><p>Cambia el procesador de modo usuario a modo kernel y salta a la rutina del kernel que atiende servicios. En <code>EAX</code> está el número de servicio, que indica qué función del kernel se pide.</p></div></details>
+<details class="qa"><summary>5. ¿Por qué un programa normal no usa el número de servicio directamente?</summary><div class="respuesta"><p>Porque no está documentado y cambia entre versiones de Windows. Las DLLs del sistema (<code>ntdll</code>) siempre tienen el número correcto para la versión en que corren.</p></div></details>
+<details class="qa"><summary>6. ¿Quién llena la IAT y cuándo?</summary><div class="respuesta"><p>El loader, que vive en <code>ntdll.dll</code>, durante el arranque del proceso y antes de saltar al entry point. Para las DLLs cargadas con <code>LoadLibrary</code>, lo hace en el momento de esa llamada.</p></div></details>
+<details class="qa"><summary>7. Nombrá cuatro cosas que pueden ejecutarse antes de la primera línea de <code>main</code>.</summary><div class="respuesta"><p>Los TLS callbacks, el <code>DllMain</code> de cada DLL importada, el código de arranque del CRT y los inicializadores o constructores globales.</p></div></details>
+<details class="qa"><summary>8. En un Windows de 64 bits, ¿qué hay en <code>System32</code> y qué en <code>SysWOW64</code>?</summary><div class="respuesta"><p><code>System32</code> tiene los binarios de 64 bits y <code>SysWOW64</code> los de 32. Un proceso de 32 bits que pide <code>System32</code> es redirigido a <code>SysWOW64</code> automáticamente.</p></div></details>
+<details class="qa"><summary>9. Un binario enlazado estáticamente tiene cientos de funciones sin nombre. ¿Por dónde empezás?</summary><div class="respuesta"><p>Por separar el código de biblioteca del código del autor: dejar que el desensamblador aplique firmas (FLIRT, Function ID), y partir de lo que sí identifica al programa (cadenas, imports, el <code>main</code> encontrado desde el arranque del CRT) en vez de leer funciones al azar.</p></div></details>
+<h2 id="antes-de-avanzar">Antes de avanzar</h2>
+<p>Tenés que poder:</p>
+<ul><li>Partir una dirección en página y offset, y decir si es de usuario o de kernel.</li><li>Explicar los tres estados de una página y leer una fila del mapa de memoria (tipo y protección).</li><li>Dibujar las capas entre un programa y el kernel para una API cualquiera, y decir en cuál de ellas está la <code>syscall</code>.</li><li>Distinguir un código de error Win32, un <code>NTSTATUS</code> y un <code>HRESULT</code> por su forma.</li><li>Contar qué hace el loader desde que arranca el proceso hasta el entry point.</li><li>Explicar por qué una DLL puede no figurar en los imports y aun así usarse.</li><li>Decir qué cambia para un programa de 32 bits en un Windows de 64.</li><li>Nombrar las cuatro etapas de la compilación y qué es el CRT.</li></ul>
+<aside class="callout nota"><p class="callout-titulo">Puerta de salida de la Etapa 1</p><p>Si podés explicar, sin mirar, el recorrido completo de <code>capas.exe</code> —quién lo carga, qué corre antes de <code>main</code>, por dónde baja <code>CreateFileW</code> y qué significa cada fila nueva del mapa de memoria—, tenés la base del sistema operativo que necesita el resto del curso. Los mismos temas vuelven con más profundidad en la rama <a href="../2d.html">2D · Windows internals</a> (en especial <a href="2d-02-memoria-loader.html">2D.2, memoria y loader</a>) y en la <a href="etapa-6.html">Etapa 6</a>; no hace falta leerlas ahora.</p></aside>
+<h2 id="fuentes-de-esta-lección">Fuentes de esta lección</h2>
+<ul><li>Microsoft Learn, <a href="https://learn.microsoft.com/en-us/windows-hardware/drivers/gettingstarted/virtual-address-spaces" rel="noopener" target="_blank">Virtual address spaces</a> y <a href="https://learn.microsoft.com/en-us/windows-hardware/drivers/gettingstarted/user-mode-and-kernel-mode" rel="noopener" target="_blank">User mode and kernel mode</a> — espacio de direcciones, rangos y modos.</li><li>Microsoft Learn, <a href="https://learn.microsoft.com/en-us/windows/win32/memory/page-state" rel="noopener" target="_blank">Page state</a>, <a href="https://learn.microsoft.com/en-us/windows/win32/memory/memory-protection-constants" rel="noopener" target="_blank">Memory protection constants</a> y <a href="https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualalloc" rel="noopener" target="_blank">VirtualAlloc</a> — estados, protecciones y flags.</li><li>Microsoft Learn, <a href="https://learn.microsoft.com/en-us/windows/win32/dlls/dllmain" rel="noopener" target="_blank">DllMain entry point</a>, <a href="https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-search-order" rel="noopener" target="_blank">Dynamic-link library search order</a> y <a href="https://learn.microsoft.com/en-us/windows/win32/apiindex/windows-apisets" rel="noopener" target="_blank">Windows API sets</a> — DLLs, orden de búsqueda y contratos.</li><li>Microsoft Learn, <a href="https://learn.microsoft.com/en-us/windows/win32/winprog64/running-32-bit-applications" rel="noopener" target="_blank">Running 32-bit applications</a> y <a href="https://learn.microsoft.com/en-us/windows/win32/winprog64/file-system-redirector" rel="noopener" target="_blank">File system redirector</a> — WOW64.</li><li>Microsoft Learn, <a href="https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes--0-499-" rel="noopener" target="_blank">System error codes (0–499)</a> — códigos de error Win32; los valores de <code>NTSTATUS</code> están en la especificación abierta MS-ERREF.</li><li>Microsoft Learn, <a href="https://learn.microsoft.com/en-us/cpp/build/reference/md-mt-ld-use-run-time-library" rel="noopener" target="_blank">/MD, /MT, /LD (Use run-time library)</a> — enlazado estático y dinámico del CRT.</li><li>Russinovich, Solomon, Ionescu y otros, <em>Windows Internals</em>, 7.ª edición, parte 1 — capítulos de arquitectura, procesos y administración de memoria (referencia de fondo, de pago).</li><li>Lecciones de este curso que profundizan: <a href="02-pe-fino.html">2.14 PE fino</a>, <a href="02-anti-analisis.html">2.15 anti-análisis</a>, <a href="02-windbg-heap.html">2.19 WinDbg y heap</a>, <a href="2d-02-memoria-loader.html">2D.2 memoria y loader</a>.</li></ul>
+<aside class="callout nota"><p class="callout-titulo">De dónde sale cada parte de esta lección</p><p><strong>Conocimiento externo (agregado por esta edición):</strong> toda la teoría de memoria virtual, modos del procesador, capas de la API, loader, WOW64 y cadena de compilación, basada en la documentación de Microsoft citada arriba. <strong>Recomendación editorial:</strong> el programa <code>capas.c</code>, el recorrido en el debugger y los ejercicios. El número de servicio <code>0x55</code> y el aspecto exacto del stub corresponden a Windows 10/11 de 64 bits y pueden variar: verificalos en tu máquina, que es justamente el ejercicio 7. El programa de ejemplo no fue compilado al redactar la lección; si algún resultado no coincide con el texto, anotalo en la bitácora y confiá en lo que ves.</p></aside>
+</main>
+<footer class="pie">
+  <p>Material educativo y defensivo. Las prácticas se limitan a programas propios, software abierto o crackmes diseñados para aprender. No se enseña a eludir licencias, DRM ni controles de acceso.</p>
+  <p><a href="../00_EMPEZAR_AQUI.html">Inicio</a> · <a href="../guia/etapa-0.html">Etapas</a> · <a href="../fuentes_y_limites.html">Fuentes y límites</a> · <a href="../registro_de_cobertura.csv">Registro de cobertura</a></p>
+</footer>
+</body>
+</html>
