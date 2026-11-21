@@ -10,10 +10,11 @@
 <body>
 <a class="salto" href="#contenido">Saltar al contenido</a>
 <header class="cabecera">
-  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5 · 27/10/2026</span></div>
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
   <nav class="principal" aria-label="Navegación principal">
     <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
     <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
     <a href="../materiales.html">Materiales</a>
     <a href="../fichas/index.html">Fichas</a>
     <a href="../glosario.html">Glosario</a>
@@ -23,6 +24,8 @@
 </header>
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 4 · Práctica guiada</span></nav><h1 id="reconstruir-formatos-y-protocolos-propios">Reconstruir formatos y protocolos propios</h1>
+<div class="meta-nivel"><span class="nivel-badge intermedio">Intermedio</span> <span><strong>Ruta 2 · Etapa 4 Ampliación</strong></span></div>
+
 <aside class="callout nota"><p class="callout-titulo">Objetivo de la lección</p><p>Dado un conjunto pequeño de archivos o mensajes generados por un programa propio, formular y comprobar una estructura: campos, offsets, longitudes, endianness, framing y estados. Distinguir checksum, hash, MAC, compresión y cifrado como hipótesis diferentes, y anotar qué evidencia sostiene cada conclusión.</p></aside>
 <p><strong>Prerrequisitos:</strong> <a href="01-numeros.html">Bits y endianness</a> (1.1), <a href="01-pe.html">formato PE</a> (1.4), <a href="04-metodo.html">método de análisis</a> (4.1), <a href="2d-10-ipc.html">IPC de Windows</a> como referencia. <strong>Duración sugerida:</strong> 6 horas.</p>
 <aside class="callout aviso"><p class="callout-titulo">Alcance y muestras</p><p>Usá archivos y programas <strong>propios</strong> o diseñados para la práctica. Para un protocolo, trabajá con dos procesos tuyos en una VM, una named pipe local o loopback. No envíes datos a servicios de terceros. <strong>Capas:</strong> conocimiento externo; ejemplo CLSF ilustrativo y sintético; laboratorio no verificado. La práctica propuesta usa programas propios y comunicación local.</p></aside>

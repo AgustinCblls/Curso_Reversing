@@ -340,3 +340,58 @@ figure img { cursor: zoom-in; }
   table { width: 100%; table-layout: auto; word-wrap: break-word; overflow-wrap: anywhere; }
   .ampliacion-ext, .nota-ed { break-inside: avoid; page-break-inside: avoid; }
 }
+
+/* --- Etiquetas de Nivel, Ruta y Progresión (Rev. 5.5) --- */
+.meta-nivel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .45rem .8rem;
+  margin: .4rem 0 1.1rem;
+  padding: .55rem .85rem;
+  background: #f5f4ef;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  font-size: .86rem;
+  color: var(--tinta-suave);
+}
+.meta-nivel a { font-weight: 600; }
+.nivel-badge {
+  display: inline-block;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  padding: .16rem .55rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+.nivel-badge.principiante { background: #dff4e6; color: #14532d; border-color: #9dd4b0; }
+.nivel-badge.intermedio   { background: #e1effa; color: #123e6b; border-color: #a3c8eb; }
+.nivel-badge.avanzado     { background: #fdf0d5; color: #7a4a00; border-color: #e4c17a; }
+.nivel-badge.especialista { background: #f2e8fb; color: #4c1d7a; border-color: #c8a8e8; }
+.formula {
+  text-align: center;
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: .95rem;
+  background: #f4f6f8;
+  border: 1px solid #d5dbe0;
+  border-radius: 6px;
+  padding: .55rem .9rem;
+  margin: .9rem 0;
+  color: #111111;
+}
+.ruta-mapa {
+  background: #f6f8fa;
+  border: 1px solid #cfd8df;
+  border-left: 5px solid var(--acento);
+  border-radius: 8px;
+  padding: .85rem 1.05rem;
+  margin: 1.2rem 0;
+  font-size: .92rem;
+}
+@media print {
+  .meta-nivel { background: #f8f8f8 !important; border: 1px solid #bbb !important; break-inside: avoid; }
+  .nivel-badge { border: 1px solid #666 !important; color: #111 !important; }
+  .formula, .ruta-mapa { break-inside: avoid; page-break-inside: avoid; }
+}

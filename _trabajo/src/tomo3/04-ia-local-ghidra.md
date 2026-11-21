@@ -1,5 +1,5 @@
 # Módulo 4 · Reversing Aumentado por IA Local: Ollama, PyGhidra y el Principio de Falsabilidad
-*(Presupuesto editorial: 26 páginas — Prerrequisito: Tomo I, Lección 2.31, págs. 240–242 y Lección 2.9, págs. 115–120)*
+*(Tomo III (52 págs. totales) · Prerrequisito: Tomo I, Lección 2.31, págs. 240–242 y Lección 2.9, págs. 115–120)*
 
 ---
 
@@ -63,7 +63,7 @@ En ingeniería inversa se busca **consistencia y determinismo**, no creatividad 
 
 ## 4.3 Desarrollo del Puente PyGhidra ↔ Modelo Local (Plantilla 21)
 
-El corazón práctico de este módulo es el script [`plantillas_codigo/plantilla_21_ghidra_ollama.py`](file:///C:/Users/agust/.gemini/antigravity/scratch/CLS_Guia/plantillas_codigo/plantilla_21_ghidra_ollama.py), el cual automatiza el enriquecimiento del proyecto de Ghidra:
+El corazón práctico de este módulo es el script [`plantillas_codigo/plantilla_21_ghidra_ollama.py`](plantillas_codigo/plantilla_21_ghidra_ollama.py), el cual automatiza el enriquecimiento del proyecto de Ghidra:
 
 ```
                    PIPELINE DEL PUENTE PYGHIDRA ↔ OLLAMA LOCAL

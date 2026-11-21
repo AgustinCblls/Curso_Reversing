@@ -1412,11 +1412,11 @@ def generar_tomos_y_separata(ctx):
     partes_t1 = [f'<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Curso de Reversing en Windows — Tomo I</title><style>{css}\n{css_print}</style></head><body><main>']
     partes_t1.append("""
 <section class="print-sec portada-pdf" id="portada">
-<p class="kicker">Ingeniería Inversa en Windows · Edición Libre y Abierta · Revisión 5.4 (Ampliada) · TOMO I DE III</p>
+<p class="kicker">Ingeniería Inversa en Windows · Edición Libre y Abierta · Revisión 5.5 (Trilogía Consolidada) · TOMO I DE III</p>
 <h1>Curso de reversing<br><span style="font-size: 20pt; font-weight: 600; color: #0b5f6b;">Tomo I · Tronco Principal (Etapas 0 a 5) y Material de Apoyo</span></h1>
-<p class="sub">De los fundamentos al análisis guiado en user-mode: arquitectura x86/x64, formato PE y DLLs (ciclo de vida y sideloading), IDA, Ghidra, x64dbg (flujo táctico y extracción masiva de strings), reversing de Go y Rust, evasión en user-mode (API hooking, direct/indirect syscalls y call stack spoofing), inyección de procesos en memoria, criptografía híbrida y APIs nativas (CryptoAPI/CNG), .NET, C++ profundo, WinDbg/TTD, malware y vulnerabilidades.</p>
-<p class="sub"><strong>Contenido de este volumen (Tomo I):</strong> Apertura y 3 Rutas de Estudio · Etapas 0, 1, 2 (2A, 2B, 2C, bloque avanzado 2E con 2.25–2.35, y optativas 2.22–2.24), 3, 4 (incluida 4.6 Protocolos de terceros) y 5 · Hilo conductor multi-nivel y Kit de 15 plantillas y laboratorios · 3 Hojas de referencia rápida (<em>Cheat Sheets</em>, con la Hoja 3.4 de desofuscación y DBI) · Glosario · Preguntas y respuestas · Fuentes y límites.</p>
-<p class="sub"><strong>En el Tomo II y Separata:</strong> La <strong>Etapa 6 (Kernel y drivers KMDF)</strong> y la <strong>Rama 2D (Windows internals y Hyper-V)</strong> se encuentran encuadernadas en el <strong>Tomo II</strong>. Para consulta rápida junto al teclado, usá la <strong>Separata de Escritorio</strong>.</p>
+<p class="sub">De los fundamentos al análisis guiado en user-mode: arquitectura x86/x64, formato PE y DLLs (ciclo de vida y sideloading), IDA, Ghidra, x64dbg (flujo táctico y extracción masiva de strings), reversing de Go y Rust, evasión en user-mode (API hooking, direct/indirect syscalls y call stack spoofing), inyección de procesos en memoria, criptografía híbrida y APIs nativas (CryptoAPI/CNG), .NET, C++ profundo, WinDbg/TTD, desvirtualización con Triton/Z3/SLEIGH, ARM64EC/WinRT/LPAC, malware y vulnerabilidades.</p>
+<p class="sub"><strong>Contenido de este volumen (Tomo I):</strong> Apertura y 4 Rutas Progresivas de Estudio · Etapas 0, 1, 2 (2A, 2B, 2C, optativas 2.22–2.24 y bloque especialista 2E con 2.25–2.35), 3, 4 (4.1–4.6) y 5 · Hilo conductor multi-nivel y Kit de 20 plantillas y laboratorios (15 troncales/avanzadas + índice de 5 del Tomo III) · Hojas de referencia rápida · Glosario · Preguntas y respuestas (Etapas 0–6, 2E, 2D y Tomo III) · Fuentes y límites.</p>
+<p class="sub"><strong>En los Tomos II, III y Separata:</strong> La <strong>Etapa 6 (6.1–6.10)</strong> y la <strong>Rama 2D (2D.1–2D.17)</strong> se encuentran en el <strong>Tomo II</strong>; los módulos de frontera moderna (LLVM/Clang CFI, Rust stripped, LPAC/WSL2, Intel CET e IA Local) en el <strong>Tomo III</strong>. Para consulta rápida junto al teclado, usá la <strong>Separata de Escritorio</strong>.</p>
 <div class="aviso"><strong>Material educativo y defensivo.</strong> Las prácticas usan programas propios, software abierto o crackmes diseñados para aprender. No se enseña a eludir licencias, DRM ni controles de acceso.</div>
 </section>
 """)
@@ -1449,9 +1449,10 @@ def generar_tomos_y_separata(ctx):
     toc_t1.append(t1_row("preguntas", "Preguntas y respuestas"))
     toc_t1.append(t1_row("fuentes", "Fuentes y límites"))
     toc_t1.append('</ol>')
-    toc_t1.append('<div class="etapa" style="margin-top:10pt; color:#555;">En el Tomo II (Ramas Especializadas)</div><ol>')
+    toc_t1.append('<div class="etapa" style="margin-top:10pt; color:#555;">En los Tomos II y III (Especialización y Frontera Moderna)</div><ol>')
     toc_t1.append('<li><span>Etapa 6 · Kernel y drivers en Windows (6.1 a 6.10)</span><span class="toc-pag">ver Tomo II</span></li>')
-    toc_t1.append('<li><span>Rama 2D · Windows internals y Hyper-V (2D.1 a 2D.17)</span><span class="toc-pag">ver Tomo II</span></li>')
+    toc_t1.append('<li><span>Rama 2D · Windows internals y Virtualización (2D.1 a 2D.17)</span><span class="toc-pag">ver Tomo II</span></li>')
+    toc_t1.append('<li><span>Tomo III · LLVM/Clang CFI, Rust, LPAC, Intel CET e IA Local</span><span class="toc-pag">ver Tomo III</span></li>')
     toc_t1.append('</ol></div></section>')
     partes_t1.append("".join(toc_t1))
 
@@ -1481,7 +1482,7 @@ def generar_tomos_y_separata(ctx):
 <h2 style="font-size: 15pt; color: #2b5797; font-weight: 600; margin: 0 0 16pt; border: none;">Reversing Avanzado, Ecosistemas y Material de Apoyo</h2>
 <hr style="width: 60px; height: 3px; background: #2b5797; border: none; margin: 0 auto 16pt;">
 <p style="font-size: 9.8pt; color: #333; line-height: 1.6; max-width: 480px; margin: 0 auto 12pt; text-align: left;">
-Este volumen continúa el <strong>Bloque 2C (Windows Avanzado)</strong> a partir del análisis profundo de C++ y sus estructuras en memoria (RTTI, vtables, STL y excepciones), cubriendo además las <strong>Etapas 3 (.NET), 4 (Método y Criptografía) y 5 (Malware y Automatización)</strong>, culminando con el <strong>Kit de 7 Plantillas C/C++</strong>, las <strong>Hojas de Referencia Rápida</strong>, el <strong>Glosario A–Z unificado</strong> y las <strong>Preguntas de Repaso</strong>.
+Este volumen continúa el <strong>Bloque 2C (Windows Avanzado)</strong> a partir del análisis profundo de C++ y sus estructuras en memoria (RTTI, vtables, STL y excepciones), el <strong>Bloque 2E (Desofuscación, DBI, Go/Rust, SLEIGH y ARM64EC/WinRT)</strong>, y las <strong>Etapas 3 (.NET), 4 (Método y Criptografía) y 5 (Malware y Automatización)</strong>, culminando con el <strong>Hilo conductor y Kit de 20 Plantillas</strong>, las <strong>Hojas de Referencia Rápida</strong>, el <strong>Glosario A–Z unificado</strong> y las <strong>Preguntas de Repaso</strong>.
 </p>
 <div style="margin-top: 20pt; padding: 10pt 14pt; background: #eef3f8; border-left: 4px solid #2b5797; font-size: 8.8pt; color: #2d3748; text-align: left;">
 <strong>Entorno activo de laboratorio para la Parte B:</strong><br>
@@ -1667,22 +1668,22 @@ VM con Windows x64 aislada, Visual Studio Developer Command Prompt (<code>cl.exe
 
     # Página 1 de la Separata: Portada compacta + Índice de la Separata + Mapa Cruzado de los Tomos
     toc_sep_items = [
-        sep_row("rutas-estudio", "1. Tres perfiles o rutas de estudio (Principiante, Intermedio y Avanzado)"),
+        sep_row("rutas-estudio", "1. Cuatro rutas progresivas de estudio (Principiante, Intermedio, Avanzado y Especialista)"),
         sep_row("arbol-triage", "2. Árbol de decisión de triage inicial («¿Por dónde empiezo?») y 10 señales"),
         sep_row("resumen-hilo", "3. Mapa del Hilo Conductor (check_v1 → BlocLab) y comandos del Kit C/C++"),
         sep_row("hoja-1", "4. Hoja de Referencia 1 · Nivel Principiante (Registros, saltos, VA/RVA, ABIs)"),
         sep_row("hoja-2", "5. Hoja de Referencia 2 · Nivel Intermedio (Offsets PEB/LDR, cripto, x64dbg, Frida)"),
         sep_row("hoja-3", "6. Hoja de Referencia 3 · Nivel Avanzado (C++ RTTI/SSO, CTL_CODE, IRQL, WinDbg/TTD)"),
-        sep_row("hoja-4", "7. Hoja de Referencia 4 · Evasión User-Mode, Inyección, Go/Rust y x64dbg (Rev. 5.4)"),
-        sep_row("hoja-5", "8. Hoja de Referencia 5 · Criptografía Nativa (CryptoAPI/CNG) y Drivers .sys (Rev. 5.4)"),
+        sep_row("hoja-4", "7. Hoja de Referencia 4 · Evasión User-Mode, Inyección, Go/Rust y x64dbg (Rev. 5.5)"),
+        sep_row("hoja-5", "8. Hoja de Referencia 5 · Criptografía Nativa (CryptoAPI/CNG) y Drivers .sys (Rev. 5.5)"),
         sep_row("hoja-6", "9. Hoja de Referencia 6 – Offsets Críticos del Kernel (_EPROCESS, _KPROCESS, _TOKEN)"),
     ]
 
     partes_sep.append(f"""
 <section class="print-sec" id="portada-separata">
-<p style="color: #0b5f6b; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: 8.5pt; margin: 0;">Ingeniería Inversa en Windows · Edición Libre y Abierta · Revisión 5.4 · Cuadernillo de Consulta Rápida</p>
+<p style="color: #0b5f6b; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; font-size: 8.5pt; margin: 0;">Ingeniería Inversa en Windows · Edición Libre y Abierta · Revisión 5.5 · Cuadernillo de Consulta Rápida</p>
 <h1 style="font-size: 22pt; margin: 2pt 0 6pt;">Separata de Escritorio y Referencia Rápida</h1>
-<p style="margin: 0 0 8pt; font-size: 9.8pt; color: #333;">Cuadernillo diseñado para permanecer abierto junto al teclado (abrochado a caballete o anillado fino) mientras trabajás con IDA, Ghidra, x64dbg, ILSpy o WinDbg y leés el <strong>Tomo I</strong> o el <strong>Tomo II</strong>.</p>
+<p style="margin: 0 0 8pt; font-size: 9.8pt; color: #333;">Cuadernillo diseñado para permanecer abierto junto al teclado (abrochado a caballete o anillado fino) mientras trabajás con IDA, Ghidra, x64dbg, ILSpy o WinDbg y leés los <strong>Tomos I, II y III</strong>.</p>
 
 <h2 style="font-size: 11.5pt; margin: 8pt 0 4pt; border-bottom: 1px solid #999;">Contenido de esta Separata de Escritorio</h2>
 <div class="toc" style="columns: 1; margin-top: 4pt; font-size: 9.5pt;">
@@ -1710,8 +1711,9 @@ VM con Windows x64 aislada, Visual Studio Developer Command Prompt (<code>cl.exe
 <tr><td><strong>Etapa 3 · Reversing en .NET e IL</strong> (<code>3.1–3.2</code>)</td><td>Principiante</td><td><strong>Tomo I</strong></td><td>{rango_en(info_t1, ancla("guia/etapa-3.html"), ancla("guia/etapa-4.html"))}</td><td>{rango_en(ctx, ancla("guia/etapa-3.html"), ancla("guia/etapa-4.html"))}</td></tr>
 <tr><td><strong>Etapa 4 · Método de 5 pasos, protocolos, cripto e informe</strong> (<code>4.1–4.6</code>)</td><td>Princ. / Intermedio</td><td><strong>Tomo I</strong></td><td>{rango_en(info_t1, ancla("guia/etapa-4.html"), ancla("guia/etapa-5.html"))}</td><td>{rango_en(ctx, ancla("guia/etapa-4.html"), ancla("guia/etapa-5.html"))}</td></tr>
 <tr><td><strong>Etapa 5 · Malware estático, vulnerabilidades, automatización</strong> (<code>5.1–5.4</code>)</td><td>Interm. / Avanzado</td><td><strong>Tomo I</strong></td><td>{rango_en(info_t1, ancla("guia/etapa-5.html"), "hilo-plantillas")}</td><td>{rango_en(ctx, ancla("guia/etapa-5.html"), ancla("guia/etapa-6.html"))}</td></tr>
-<tr><td><strong>Etapa 6 · Kernel y drivers KMDF/WDM en Windows</strong> (<code>6.1–6.7</code>)</td><td>Avanzado</td><td><strong>Tomo II</strong></td><td>{rango_en(info_t2, ancla("guia/etapa-6.html"), ancla("2d.html"))}</td><td>{rango_en(ctx, ancla("guia/etapa-6.html"), ancla("2d.html"))}</td></tr>
-<tr><td><strong>Rama 2D · Windows internals y Hyper-V</strong> (<code>2D.1–2D.15</code> + Hyper-V)</td><td>Interm. / Avanzado</td><td><strong>Tomo II</strong></td><td>{rango_en(info_t2, ancla("2d.html"), None)}</td><td>{rango_en(ctx, ancla("2d.html"), "hilo-plantillas")}</td></tr>
+<tr><td><strong>Etapa 6 · Kernel y drivers KMDF/WDM en Windows</strong> (<code>6.1–6.10</code>)</td><td>Avanz. / Espec.</td><td><strong>Tomo II</strong></td><td>ver Tomo II (200 págs.)</td><td>ver Maestro</td></tr>
+<tr><td><strong>Rama 2D · Windows internals y Virtualización</strong> (<code>2D.1–2D.17</code>)</td><td>Interm. / Espec.</td><td><strong>Tomo II</strong></td><td>ver Tomo II (200 págs.)</td><td>ver Maestro</td></tr>
+<tr><td><strong>Tomo III · LLVM/Clang CFI, Rust, LPAC, Intel CET e IA Local</strong></td><td>Especialista</td><td><strong>Tomo III</strong></td><td>p. 1–52</td><td>ver Maestro</td></tr>
 <tr><td><strong>Hilo conductor multi-nivel y Kit de 15 plantillas y laboratorios</strong></td><td>Todos</td><td><strong>Tomo I</strong></td><td>{rango_en(info_t1, "hilo-plantillas", "hojas-referencia")}</td><td>{rango_en(ctx, "hilo-plantillas", "hojas-referencia")}</td></tr>
 <tr><td><strong>Hojas de referencia rápida (Cheat Sheets 1 a 6)</strong></td><td>Todos</td><td><strong>Separata y Tomo I</strong></td><td>{rango_en(info_t1, "hojas-referencia", "glosario")}</td><td>{rango_en(ctx, "hojas-referencia", "glosario")}</td></tr>
 <tr><td><strong>Glosario, Preguntas frecuentes y Fuentes/límites</strong></td><td>Todos</td><td><strong>Tomo I</strong></td><td>{rango_en(info_t1, "glosario", None)}</td><td>{rango_en(ctx, "glosario", None)}</td></tr>
@@ -1815,15 +1817,15 @@ VM con Windows x64 aislada, Visual Studio Developer Command Prompt (<code>cl.exe
     partes_sep.append("</main></body></html>")
 
     arbol_sep = [
-        ("1. Tres perfiles o rutas de estudio", "rutas-estudio", []),
+        ("1. Cuatro rutas progresivas de estudio (Principiante a Especialista)", "rutas-estudio", []),
         ("2. Arbol de decision de triage inicial y 10 senales", "arbol-triage", []),
-        ("3. Mapa del Hilo Conductor y Kit de 15 plantillas y laboratorios", "resumen-hilo", []),
+        ("3. Mapa del Hilo Conductor y Kit de 20 plantillas y laboratorios", "resumen-hilo", []),
         ("4. Hoja 1 - Nivel Principiante (Registros, saltos, VA/RVA, ABIs)", "hoja-1", []),
         ("5. Hoja 2 - Nivel Intermedio (PEB/LDR, cripto, x64dbg, Frida)", "hoja-2", []),
         ("6. Hoja 3 - Nivel Avanzado (C++ RTTI/SSO, CTL_CODE, IRQL, WinDbg)", "hoja-3", []),
-        ("7. Hoja 4 - Evasion User-Mode, Inyeccion, Go/Rust y x64dbg (Rev. 5.4)", "hoja-4", []),
-        ("8. Hoja 5 - Criptografia Nativa (CryptoAPI/CNG) y Drivers .sys (Rev. 5.4)", "hoja-5", []),
-        ("9. Hoja 6 - Offsets Criticos del Kernel (_EPROCESS, _KPROCESS, _TOKEN) (Rev. 5.4)", "hoja-6", []),
+        ("7. Hoja 4 - Evasion User-Mode, Inyeccion, Go/Rust y x64dbg (Rev. 5.5)", "hoja-4", []),
+        ("8. Hoja 5 - Criptografia Nativa (CryptoAPI/CNG) y Drivers .sys (Rev. 5.5)", "hoja-5", []),
+        ("9. Hoja 6 - Offsets Criticos del Kernel (_EPROCESS, _KPROCESS, _TOKEN) (Rev. 5.5)", "hoja-6", []),
     ]
 
     info_sep = compilar_volumen_pdf(

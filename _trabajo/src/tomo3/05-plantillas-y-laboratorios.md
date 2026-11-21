@@ -1,6 +1,6 @@
 # Módulo 5 · Catálogo de Plantillas y Guía de Laboratorio
 
-*(Presupuesto editorial: 12 páginas — Referencia de laboratorio de las Plantillas 17 a 21)*
+*(Tomo III (52 págs. totales) · Referencia de laboratorio de las Plantillas 17 a 21)*
 
 ---
 
@@ -29,7 +29,7 @@ Cada una de las plantillas que componen el Tomo III ha sido diseñada para aisla
 
 ## 5.2 Plantilla 17a: Clang Forward-Edge CFI Puro (`ud2`)
 
-* **Ubicación:** [`plantillas_codigo/plantilla_17a_clang_cfi.cpp`](file:///C:/Users/agust/.gemini/antigravity/scratch/CLS_Guia/plantillas_codigo/plantilla_17a_clang_cfi.cpp)
+* **Ubicación:** [`plantillas_codigo/plantilla_17a_clang_cfi.cpp`](plantillas_codigo/plantilla_17a_clang_cfi.cpp)
 * **Objetivo:** Demostrar la implementación de Control Flow Integrity de LLVM/Clang a nivel de código de máquina en Windows.
 * **Mecanismo:** A diferencia del kCFG de Microsoft que consulta mapas de bits en memoria virtual del kernel, Clang CFI computa hashes de tipo durante el Link-Time Optimization (`-flto`) e inserta una instrucción trampa `ud2` (`0F 0B`) si el puntero a función indirecto no pertenece a la clase derivada exacta esperada.
 
@@ -123,7 +123,7 @@ clang-cl.exe /O2 /EHsc -fsanitize=cfi -flto plantilla_17a_clang_cfi.cpp -o plant
 
 ## 5.3 Plantilla 17b: Microsoft Control Flow Guard (`/guard:cf`)
 
-* **Ubicación:** [`plantillas_codigo/plantilla_17b_msvc_cfg.c`](file:///C:/Users/agust/.gemini/antigravity/scratch/CLS_Guia/plantillas_codigo/plantilla_17b_msvc_cfg.c)
+* **Ubicación:** [`plantillas_codigo/plantilla_17b_msvc_cfg.c`](plantillas_codigo/plantilla_17b_msvc_cfg.c)
 * **Binario Compilado y Verificado:** `plantilla_17b.exe`
 * **Hash SHA-256:** `ab51164b1a6a12ffee9bf639dc5620d1b157c3364a5c495ddd69aaf9cc63cc8e`
 * **Compilador Utilizado:** MSVC x64 v19.51.35334 (Visual Studio BuildTools).
@@ -219,7 +219,7 @@ Load Configuration Directory:
 
 ## 5.4 Plantilla 18: Binario Rust Endurecido y Recuperación de Slices
 
-* **Ubicación:** Directorio [`plantillas_codigo/plantilla_18_rust_lto/`](file:///C:/Users/agust/.gemini/antigravity/scratch/CLS_Guia/plantillas_codigo/plantilla_18_rust_lto/)
+* **Ubicación:** Directorio [`plantillas_codigo/plantilla_18_rust_lto/`](plantillas_codigo/plantilla_18_rust_lto/)
 * **Configuración Cargo:** `Cargo.toml`
   ```toml
   [profile.release]
@@ -303,7 +303,7 @@ Offset VA            | Longitud   | Contenido del Slice
 
 ## 5.5 Plantilla 19: Auditoría Automatizada de Contenedores LPAC
 
-* **Ubicación:** [`plantillas_codigo/plantilla_19_auditar_lpac.ps1`](file:///C:/Users/agust/.gemini/antigravity/scratch/CLS_Guia/plantillas_codigo/plantilla_19_auditar_lpac.ps1)
+* **Ubicación:** [`plantillas_codigo/plantilla_19_auditar_lpac.ps1`](plantillas_codigo/plantilla_19_auditar_lpac.ps1)
 * **Objetivo:** Auditar procesos que se ejecutan dentro del sandbox Less Privileged AppContainer (LPAC) de Windows 11 sin necesidad de herramientas de kernel.
 
 ### Ejemplo de Ejecución en Host
@@ -338,7 +338,7 @@ AUDITORIA DE TOKENS APPCONTAINER / LPAC EN WINDOWS 11
 
 ## 5.6 Plantilla 20: Detección y Monitoreo de Intel CET Shadow Stack
 
-* **Ubicación:** [`plantillas_codigo/plantilla_20_cet_shadow_stack.c`](file:///C:/Users/agust/.gemini/antigravity/scratch/CLS_Guia/plantillas_codigo/plantilla_20_cet_shadow_stack.c)
+* **Ubicación:** [`plantillas_codigo/plantilla_20_cet_shadow_stack.c`](plantillas_codigo/plantilla_20_cet_shadow_stack.c)
 * **Binario Compilado y Verificado:** `plantilla_20.exe` (142.336 bytes).
 * **Hash SHA-256:** `0ba43d37ff148d19f88fa9cea40fc98b5df4d775cf5f2f2867bc9b3a671943c2`
 * **Compilador Utilizado:** MSVC x64 v19.51.35334 con `/O2` y `/link /CETCOMPAT`.
@@ -372,7 +372,7 @@ PLANTILLA 20: INSPECCION DE INTEL CET SHADOW STACK (HARDWARE ISA)
 
 ## 5.7 Plantilla 21: Puente PyGhidra ↔ Ollama Local con Fallback Regex
 
-* **Ubicación:** [`plantillas_codigo/plantilla_21_ghidra_ollama.py`](file:///C:/Users/agust/.gemini/antigravity/scratch/CLS_Guia/plantillas_codigo/plantilla_21_ghidra_ollama.py)
+* **Ubicación:** [`plantillas_codigo/plantilla_21_ghidra_ollama.py`](plantillas_codigo/plantilla_21_ghidra_ollama.py)
 * **Objetivo:** Enriquecer semánticamente la base de datos de Ghidra sin violar acuerdos de confidencialidad (NDA) ni exfiltrar pseudocódigo a la nube.
 * **Modelo Local Recomendado:** `qwen2.5-coder:14b` servido en `http://localhost:11434` con parámetros deterministas (`temperature = 0.0`, `seed = 42`).
 

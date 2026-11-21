@@ -10,10 +10,11 @@
 <body>
 <a class="salto" href="#contenido">Saltar al contenido</a>
 <header class="cabecera">
-  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5 · 27/10/2026</span></div>
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
   <nav class="principal" aria-label="Navegación principal">
     <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
     <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
     <a href="../materiales.html">Materiales</a>
     <a href="../fichas/index.html">Fichas</a>
     <a href="../glosario.html">Glosario</a>
@@ -23,6 +24,8 @@
 </header>
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 2 · 2D · Windows internals (optativa)</span></nav><h1 id="reversing-de-arranque-temprano-uefi-y-cadena-de-carga">Reversing de Arranque Temprano, UEFI y Cadena de Carga</h1>
+<div class="meta-nivel"><span class="nivel-badge avanzado">Avanzado</span> <span><strong>Ruta 3 · Rama 2D</strong></span></div>
+
 <aside class="callout nota"><p class="callout-titulo">Propósito y Alcance</p><p>El análisis del sistema operativo no comienza cuando el kernel ya está en ejecución. Para comprender las amenazas más persistentes (Bootkits UEFI, técnicas de desactivación temprana de DSE, y el despliegue del hipervisor VBS antes de <code>ntoskrnl.exe</code>), el analista de ingeniería inversa debe dominar el proceso de arranque temprano de Windows en plataformas de 64 bits con firmware <strong>UEFI</strong>. Esta lección disecciona la cadena de cargadores EFI, el layout de estructuras del firmware, el formato de los módulos DXE y la estructura de transición fundamental: el bloque <strong><code>LOADER_PARAMETER_BLOCK</code></strong>.</p></aside>
 <hr>
 <h2 id="1-el-formato-pe32-de-las-aplicaciones-efi">1. El Formato PE32+ de las Aplicaciones EFI</h2>
@@ -59,7 +62,7 @@
 </tbody></table></div>
 <h3 id="el-porqué-del-padding-de-4-bytes-0x24-y-desensamblado-en-x64">El porqué del Padding de 4 bytes (<code>+0x24</code>) y Desensamblado en x64</h3>
 <p>En la especificación UEFI y en la ABI x64 de Microsoft, los punteros de 64 bits (<code>CHAR16*</code>, <code>EFI_HANDLE</code>, punteros a tablas de servicios) exigen <strong>alineación natural obligatoria a 8 bytes</strong> (<code>offset % 8 == 0</code>):</p>
-<ol><li><code>Hdr</code> mide 24 bytes (<code>0x18</code>), ocupando <code>+0x00</code> a <code>+0x18</code>.</li><li><code>FirmwareVendor</code> es un puntero (8 bytes), ocupando <code>+0x18</code> a <code>+0x20</code>.</li><li><code>FirmwareRevision</code> es un entero de 32 bits <code>UINT32</code> (4 bytes), ocupando <code>+0x20</code> a <code>+0x24</code>.</li><li>El siguiente miembro declarado es <code>EFI_HANDLE ConsoleInHandle</code> (un puntero de 8 bytes). Si el compilador lo ubicara inmediatamente en <code>+0x24</code>, rompería la alineación de 8 bytes (ya que <code>0x24</code> no es múltiplo de 8).</li><li>Por lo tanto, el compilador C inserta automáticamente <strong>4 bytes de relleno inactivo</strong> (<code>_Padding</code> en <code>+0x24</code> a <code>+0x28</code>).</li><li>A partir de <code>ConsoleInHandle</code> en <code>+0x28</code>, se suceden 7 punteros de 64 bits consecutivos ($7 \times 8 = 56 = \text{0x38}$ bytes): <code>0x28 + 0x38 = 0x60</code>.</li><li>Gracias a este padding riguroso, el puntero crítico <strong><code>BootServices</code></strong> se ubica indefectiblemente en el offset <strong><code>+0x60</code></strong>.</li></ol>
+<ol><li><code>Hdr</code> mide 24 bytes (<code>0x18</code>), ocupando <code>+0x00</code> a <code>+0x18</code>.</li><li><code>FirmwareVendor</code> es un puntero (8 bytes), ocupando <code>+0x18</code> a <code>+0x20</code>.</li><li><code>FirmwareRevision</code> es un entero de 32 bits <code>UINT32</code> (4 bytes), ocupando <code>+0x20</code> a <code>+0x24</code>.</li><li>El siguiente miembro declarado es <code>EFI_HANDLE ConsoleInHandle</code> (un puntero de 8 bytes). Si el compilador lo ubicara inmediatamente en <code>+0x24</code>, rompería la alineación de 8 bytes (ya que <code>0x24</code> no es múltiplo de 8).</li><li>Por lo tanto, el compilador C inserta automáticamente <strong>4 bytes de relleno inactivo</strong> (<code>_Padding</code> en <code>+0x24</code> a <code>+0x28</code>).</li><li>A partir de <code>ConsoleInHandle</code> en <code>+0x28</code>, se suceden 7 punteros de 64 bits consecutivos (<code>7 × 8 = 56 = 0x38</code> bytes): <code>0x28 + 0x38 = 0x60</code>.</li><li>Gracias a este padding riguroso, el puntero crítico <strong><code>BootServices</code></strong> se ubica indefectiblemente en el offset <strong><code>+0x60</code></strong>.</li></ol>
 <h4 id="desensamblado-en-x64-cómo-el-firmware-o-bootkit-recupera-bootservices">Desensamblado en x64: Cómo el Firmware o Bootkit Recupera <code>BootServices</code></h4>
 <pre><code class="lenguaje-asm">; =========================================================================
 ; Prólogo estándar de una aplicación EFI (bootmgfw.efi / winload.efi / malware UEFI)

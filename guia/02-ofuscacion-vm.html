@@ -10,10 +10,11 @@
 <body>
 <a class="salto" href="#contenido">Saltar al contenido</a>
 <header class="cabecera">
-  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5 · 27/10/2026</span></div>
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
   <nav class="principal" aria-label="Navegación principal">
     <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
     <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
     <a href="../materiales.html">Materiales</a>
     <a href="../fichas/index.html">Fichas</a>
     <a href="../glosario.html">Glosario</a>
@@ -23,6 +24,8 @@
 </header>
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 2 · Desofuscación avanzada (2E)</span></nav><h1 id="ofuscación-por-máquina-virtual-dispatcher-bytecode-y-handlers">Ofuscación por máquina virtual: dispatcher, bytecode y handlers</h1>
+<div class="meta-nivel"><span class="nivel-badge especialista">Especialista</span> <span><strong>Ruta 4 · Bloque 2E</strong></span></div>
+
 <aside class="callout nota"><p class="callout-titulo">Objetivo de la lección</p><p><strong>Reconocer</strong> un binario protegido por virtualización de código e identificar sus piezas (<em>dispatcher</em>, puntero de instrucción virtual, tabla de <em>handlers</em> y región de <em>bytecode</em>), y entender a alto nivel cómo se <strong>devirtualiza</strong>. La práctica es sobre una <strong>mini-VM propia</strong>. <strong>Prerrequisitos:</strong> ofuscación nativa (<a href="02-ofuscacion.html">2.10</a>) y ejecución simbólica (<a href="02-simbolico-desofuscacion.html">2.25</a>).</p></aside>
 <aside class="callout peligro"><p class="callout-titulo">Límite declarado</p><p>Esta lección enseña a <strong>reconocer y entender</strong> la virtualización. <strong>No</strong> se desvirtualizan protectores comerciales (VMProtect, Themida/WinLicense) ni se practica sobre software ajeno: eso queda <a href="05-fuera-de-alcance.html">fuera de alcance</a>. Se practica sobre una VM didáctica que vos mismo escribís.</p></aside>
 <h2 id="qué-es-virtualizar-código">Qué es virtualizar código</h2>

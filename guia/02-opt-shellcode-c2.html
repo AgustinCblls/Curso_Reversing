@@ -10,10 +10,11 @@
 <body>
 <a class="salto" href="#contenido">Saltar al contenido</a>
 <header class="cabecera">
-  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5 · 27/10/2026</span></div>
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
   <nav class="principal" aria-label="Navegación principal">
     <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
     <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
     <a href="../materiales.html">Materiales</a>
     <a href="../fichas/index.html">Fichas</a>
     <a href="../glosario.html">Glosario</a>
@@ -23,6 +24,8 @@
 </header>
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 2 · Windows avanzado (2C) · ruta optativa</span></nav><h1 id="shellcode-red-y-c2-reconocer-y-describir">Shellcode, red y C2: reconocer y describir</h1>
+<div class="meta-nivel"><span class="nivel-badge intermedio">Intermedio · Optativa</span> <span><strong>Ruta 2 · Optativa</strong></span> <span class="meta-sep">·</span> <span>Cursar después de <a href="04-cripto.html">4.2</a> y <a href="05-malware.html">5.1</a>.</span></div>
+
 <aside class="callout aviso"><p class="callout-titulo">Ruta optativa · solo análisis y clasificación</p><p>Especialización, no requisito de 2C. Acá se <strong>reconoce y describe</strong> —a alto nivel— shellcode y tráfico de C2 en un entorno controlado. <strong>No</strong> se explica cómo escribir shellcode ni cómo montar un C2: esta guía es defensiva y se queda en identificar y clasificar. <strong>Prerrequisitos:</strong> PE e imports (1.4), malware dinámico defensivo (<a href="02-opt-malware-dinamico.html">2.22</a>), criptografía/encoding (4.2).</p></aside>
 <h2 id="cómo-se-reconoce-que-algo-es-shellcode">Cómo se reconoce que algo es shellcode</h2>
 <p>Shellcode es <strong>código máquina suelto</strong>, sin envoltura PE: no tiene cabecera, secciones ni tabla de imports. Para el análisis alcanza con <strong>reconocerlo</strong> por sus rasgos, sin entrar en cómo está hecho por dentro (<strong>conocimiento externo</strong>):</p>

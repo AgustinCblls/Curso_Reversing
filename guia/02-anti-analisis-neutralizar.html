@@ -10,10 +10,11 @@
 <body>
 <a class="salto" href="#contenido">Saltar al contenido</a>
 <header class="cabecera">
-  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5 · 27/10/2026</span></div>
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
   <nav class="principal" aria-label="Navegación principal">
     <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
     <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
     <a href="../materiales.html">Materiales</a>
     <a href="../fichas/index.html">Fichas</a>
     <a href="../glosario.html">Glosario</a>
@@ -23,6 +24,8 @@
 </header>
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 2 · Desofuscación avanzada (2E)</span></nav><h1 id="neutralizar-anti-análisis-en-laboratorio">Neutralizar anti-análisis en laboratorio</h1>
+<div class="meta-nivel"><span class="nivel-badge especialista">Especialista</span> <span><strong>Ruta 4 · Bloque 2E</strong></span></div>
+
 <aside class="callout nota"><p class="callout-titulo">Objetivo de la lección</p><p>Pasar de <strong>reconocer</strong> un chequeo anti-análisis (lo que viste en 2.15) a <strong>neutralizarlo de forma controlada</strong> para poder analizar: parches, plugins de ocultación y <em>hooks</em>, sobre <strong>binarios propios</strong> o malware en <strong>VM descartable</strong>. <strong>Prerrequisitos:</strong> taxonomía anti-análisis (<a href="02-anti-analisis.html">2.15</a>), scripting de debugger (<a href="02-scripting-debugger.html">2.21</a>), debugger (<a href="02-debugger.html">2.6</a>) y el laboratorio de <a href="02-opt-malware-dinamico.html">malware dinámico defensivo (2.22)</a>.</p></aside>
 <aside class="callout peligro"><p class="callout-titulo">Riesgo: neutralizar un chequeo puede ejecutar el payload</p><p>Muchos binarios maliciosos <strong>esconden su comportamiento detrás del anti-análisis</strong>: si hacés que crean que nadie los observa, <strong>corren su carga real</strong>. Hacé esto solo en una <strong>VM descartable con snapshot</strong>, sin red o con red controlada, tal como se define en <a href="04-dinamico-seguro.html">4.4 Dinámico seguro</a>. Para <strong>aprender la técnica</strong>, usá binarios propios con chequeos que escribís vos.</p></aside>
 <h2 id="por-qué-a-veces-hay-que-neutralizar">Por qué, a veces, hay que neutralizar</h2>

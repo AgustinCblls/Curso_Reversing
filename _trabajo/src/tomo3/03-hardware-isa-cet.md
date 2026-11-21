@@ -1,5 +1,5 @@
 # Módulo 3 · ISA de Hardware para Reversing: Intel CET, Stack Spoofing y ARM64EC
-*(Presupuesto editorial: 24 páginas — Prerrequisito: Tomo I, Lección 5.2.b, págs. 332–335; Tomo I, Lección 2.35.b, págs. 263–264; Tomo II, Lección 2D.11, págs. 131–138)*
+*(Tomo III (52 págs. totales) · Prerrequisito: Tomo I, Lección 5.2.b, págs. 332–335; Tomo I, Lección 2.35.b, págs. 263–264; Tomo II, Lección 2D.11, págs. 131–138)*
 
 ---
 
@@ -74,7 +74,7 @@ Uno de los errores más frecuentes en la literatura de seguridad consiste en con
 ### 1. La Excepción de Hardware Pura de la CPU (`#CP` - Vector 21)
 * Cuando la instrucción `RET` detecta `[RSP] != [SSP]`, la CPU genera la interrupción de hardware número 21 (**`#CP` — Control Protection Exception**).
 * El despachador de trampas del kernel de Windows (`nt!KiControlProtectionFault`) captura la interrupción del procesador y la mapea a la excepción de NTSTATUS formal:
-  $$\mathbf{STATUS\_CONTROL\_PROTECTION\_EXCEPTION = 0xC00006A6}$$
+  **`STATUS_CONTROL_PROTECTION_EXCEPTION = 0xC00006A6`**
 * En un depurador conectado al proceso, si la excepción es despachada hacia el manejador de excepciones del proceso, se observará:
   ```text
   (1a4c.1b20): Control protection violation - code c00006a6 (first chance)
@@ -91,7 +91,7 @@ Uno de los errores más frecuentes en la literatura de seguridad consiste en con
   int     29h                     ; Fast-Fail directo al kernel (nt!KiRaiseSecurityCheckFailure)
   ```
 * En WinDbg, una terminación por `int 0x29` se reporta invariablemente como:
-  $$\mathbf{STATUS\_STACK\_BUFFER\_OVERRUN = 0xC0000409}$$
+  **`STATUS_STACK_BUFFER_OVERRUN = 0xC0000409`**
   con el subcódigo `0x2A` (*Subcode: FAST_FAIL_CONTROL_PROTECTION_USER*) registrado en el parámetro de fallo del volcado.
 
 **Resumen Operativo para el Analista:**
@@ -185,5 +185,5 @@ En el archivo binario PE, un ejecutable ARM64EC posee un encabezado `IMAGE_FILE_
 ## 3.5 Resumen de Prácticas del Módulo 3
 
 Para afianzar los conceptos desarrollados en este módulo:
-* [`plantillas_codigo/plantilla_20_cet_shadow_stack.c`](file:///C:/Users/agust/.gemini/antigravity/scratch/CLS_Guia/plantillas_codigo/plantilla_20_cet_shadow_stack.c): Binario en C para lectura de `SSP` con `_rdsspq()` y verificación de hardware CET en modo usuario.
+* [`plantillas_codigo/plantilla_20_cet_shadow_stack.c`](plantillas_codigo/plantilla_20_cet_shadow_stack.c): Binario en C para lectura de `SSP` con `_rdsspq()` y verificación de hardware CET en modo usuario.
 * Análisis en depurador de la trampa de hardware `#CP` (`0xC00006A6`) frente al fast-fail `int 0x29` (`0xC0000409`).

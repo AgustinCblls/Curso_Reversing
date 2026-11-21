@@ -8,7 +8,7 @@ Guía profesional y exhaustiva de ingeniería inversa, reversing de binarios, se
 
 La obra se organiza en **tres tomos complementarios**, una **separata de referencia rápida** para el escritorio y un **volumen maestro digital consolidado**:
 
-1. **Tomo I · Tronco y Apoyo (Fundamentos a Especialización — 458 págs.):**
+1. **Tomo I · Tronco y Apoyo (Fundamentos a Especialización — 468 págs.):**
    - **Etapa 0:** Entorno de laboratorio aislado, herramientas y metodología segura.
    - **Etapa 1:** Fundamentos de bajo nivel, representación numérica, memoria, stack, ciclo de vida de procesos, formato PE y funcionamiento de Windows por debajo del programa (memoria virtual, syscalls, loader y WOW64).
    - **Etapa 2:** Dominio del desensamblado y depuración (IDA Pro, Ghidra, x64dbg, WinDbg), flujo de control, llamadas, optimizaciones del compilador, TLS callbacks, MFC, packers didácticos y taxonomía anti-análisis.
@@ -18,7 +18,7 @@ La obra se organiza en **tres tomos complementarios**, una **separata de referen
    - **Etapa 5:** Ramas profesionales: ingeniería inversa de malware, análisis de vulnerabilidades y automatización.
    - **Material de Apoyo:** Kit de 15 plantillas de código C/C++, 6 hojas de referencia rápida, glosario técnico y fuentes verificables.
 
-2. **Tomo II · Kernel, Drivers e Internals (Modo Núcleo y Arquitectura Windows — 198 págs.):**
+2. **Tomo II · Kernel, Drivers e Internals (Modo Núcleo y Arquitectura Windows — 200 págs.):**
    - **Etapa 6 (Kernel y Drivers):** Arquitectura del kernel NT, modelo de paquetes I/O (IRP), driver propio KMDF con IOCTL inocuo, depuración con WinDbg (KDNET, bugchecks, Special Pool a nivel PTE), análisis defensivo de drivers, minifiltros del sistema de archivos (`FLTMGR`), mitigaciones del kernel, seguridad profunda (VBS, HVCI, trustlets IUM, callbacks `PspCreateProcessNotifyRoutine` y `ObRegisterCallbacks`, telemetría `ETWti`, *Double Fetch* en MDLs y mecánicas BYOVD con `PiDDBCacheTable`).
    - **Nuevas Lecciones de Modo Núcleo (Fase 2):**
      - **6.8:** *Windows Filtering Platform (WFP)*: capas ALE, arbitraje de red y callouts de inspección profunda (`FWPS_CALLOUT`, `classifyFn`, `netsh wfp`).
@@ -49,19 +49,19 @@ Para evitar sobrecargar los lomos y asegurar un paso de hoja completamente fluid
 
 | Volumen | Archivo PDF en el Repositorio / Pendrive | Páginas | Hojas (Doble Faz) | Encuadernación Recomendada |
 | :--- | :--- | :---: | :---: | :--- |
-| **1. Tomo I — Parte A** | `Tomo_1_Parte_A_pags_1-224.pdf` | **224 págs.** | **112 hojas** | Anillado metálico Ring Wire con tapa dura/polipropileno |
-| **2. Tomo I — Parte B** | `Tomo_1_Parte_B_pags_225-458.pdf` | **234 págs.** | **117 hojas** | Anillado metálico Ring Wire con tapa dura/polipropileno |
-| **3. Tomo II** | `Tomo_2_Kernel_e_Internals.pdf` | **198 págs.** | **99 hojas** | Anillado metálico Ring Wire con tapa dura/polipropileno |
+| **1. Tomo I — Parte A** | `Tomo_1_Parte_A_pags_1-226.pdf` | **226 págs.** | **113 hojas** | Anillado metálico Ring Wire con tapa dura/polipropileno |
+| **2. Tomo I — Parte B** | `Tomo_1_Parte_B_pags_227-468.pdf` | **242 págs.** | **121 hojas** | Anillado metálico Ring Wire con tapa dura/polipropileno |
+| **3. Tomo II** | `Tomo_2_Kernel_e_Internals.pdf` | **200 págs.** | **100 hojas** | Anillado metálico Ring Wire con tapa dura/polipropileno |
 | **4. Tomo III** | `Tomo_3_LLVM_Rust_Contenedores_IA.pdf` | **52 págs.** | **26 hojas** | Anillado metálico Ring Wire con tapa dura/polipropileno |
 | **5. Separata de Escritorio** | `Separata_Escritorio.pdf` | **18 págs.** | **9 hojas** | Anillado fino o cuadernillo abrochado a caballete |
-| **TOTAL FÍSICO** | **5 volúmenes encuadernados** | **726 págs.** | **363 hojas** | **100 % Paridad Par (Doble Faz)** |
+| **TOTAL FÍSICO** | **5 volúmenes encuadernados** | **738 págs.** | **369 hojas** | **100 % Paridad Par (Doble Faz)** |
 
 ### 📑 Volumen Maestro Digital Unificado (Lectura en Pantalla / Tablet)
 
 | Archivo PDF | Páginas | Hojas equiv. | Propósito |
 | :--- | :---: | :---: | :--- |
-| **`CLS_Curso_Reversing.pdf`** | **708 págs.** | **354 hojas** | **Trilogía Maestra Consolidada:** Unifica los tres tomos en un solo archivo con navegación jerárquica por marcadores (*bookmarks*). Ideal para lectura en tablet, búsqueda global de texto y archivo bibliotecario. **(No requiere impresión física si se imprimen los 5 tomos desglosados)**. |
-| **`Tomo_1_Tronco_y_Apoyo.pdf`** | **458 págs.** | **229 hojas** | Tomo I completo continuo de consulta técnica. |
+| **`CLS_Curso_Reversing.pdf`** | **720 págs.** | **360 hojas** | **Trilogía Maestra Consolidada:** Unifica los tres tomos en un solo archivo con navegación jerárquica por marcadores (*bookmarks*). Ideal para lectura en tablet, búsqueda global de texto y archivo bibliotecario. **(No requiere impresión física si se imprimen los 5 tomos desglosados)**. |
+| **`Tomo_1_Tronco_y_Apoyo.pdf`** | **468 págs.** | **234 hojas** | Tomo I completo continuo de consulta técnica. |
 
 ### 📄 Parámetros Técnicos para el Taller de Imprenta
 - **Papel:** Papel obra blanco de **80 g/m²** (estándar óptimo de lectura).
@@ -97,9 +97,9 @@ El repositorio incluye un conjunto exhaustivo de plantillas educativas en C, C++
 
 El proyecto cuenta con scripts en Python para la regeneración y verificación de la suite:
 
-- `construir_tomo2.py`: Compila y pagina el Tomo II (198 págs.) a partir de sus fuentes HTML con tipografía canónica y alto contraste.
+- `construir_tomo2.py`: Compila y pagina el Tomo II (200 págs.) a partir de sus fuentes HTML con tipografía canónica y alto contraste.
 - `construir_tomo3.py`: Compila y valida el Tomo III (52 págs.) a partir de sus especificaciones técnicas y módulos Markdown.
-- `generar_cls_curso_reversing.py`: Genera el archivo maestro unificado `CLS_Curso_Reversing.pdf` (708 págs.) concatenando los tomos con árboles de marcadores sincronizados.
+- `generar_cls_curso_reversing.py`: Genera el archivo maestro unificado `CLS_Curso_Reversing.pdf` (720 págs.) concatenando los tomos con árboles de marcadores sincronizados.
 - `generar_orden_impresion.py`: Renderiza `orden_impresion.html` a PDF y PNG mediante Chrome Headless.
 - `sincronizar_y_limpiar.py`: Distribuye los binarios finales hacia el pendrive (`E:\`), el espejo local (`D:\Guia\CLS_Guia_Gemini`) y el directorio de artefactos, depurando copias obsoletas.
 
@@ -110,6 +110,6 @@ El proyecto cuenta con scripts en Python para la regeneración y verificación d
 - **Edición:** Trilogía Completa (Tomos I, II y III)
 - **Revisión:** 5.5 (Estándar Industrial y Editorial Consolidado)
 - **Fecha:** Noviembre de 2026
-- **Total Físico de Imprenta:** 726 páginas (363 hojas doble faz en 5 volúmenes)
-- **Total Digital Maestro:** 708 páginas (354 hojas unificadas)
-- **Estado de Auditoría:** 100 % aprobado (0 destinos rotos, 0 errores de maquetación, paridad par garantizada, alto contraste verificado).
+- **Total Físico de Imprenta:** 738 páginas (369 hojas doble faz en 5 volúmenes)
+- **Total Digital Maestro:** 720 páginas (360 hojas unificadas)
+- **Estado de Auditoría:** 100 % aprobado (0 destinos rotos, 0 LaTeX crudo, 0 enlaces locales rotos, 4 rutas progresivas con etiquetas de nivel en todas las lecciones, paridad par garantizada, alto contraste verificado en los 3 tomos).

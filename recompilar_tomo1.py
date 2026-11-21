@@ -47,14 +47,14 @@ try:
         cs.RELLENO_ANTES_PARTE_B = cs.BLOQUE_NOTAS_PARTE_A
         cs.generar_tomos_y_separata(ctx)
 finally:
-    # Restaurar volúmenes que NO deben cambiar
-    for f in ["Tomo_2_Kernel_e_Internals.pdf", "Separata_Escritorio.pdf", "Tomo_3_LLVM_Rust_Contenedores_IA.pdf"]:
+    # Restaurar volúmenes que NO deben cambiar (Tomo II y Tomo III; la Separata se mantiene recién compilada con las 4 rutas)
+    for f in ["Tomo_2_Kernel_e_Internals.pdf", "Tomo_3_LLVM_Rust_Contenedores_IA.pdf"]:
         b = os.path.join(BACKUP, f)
         if os.path.exists(b):
             shutil.copy2(b, os.path.join(BASE, f))
             if cs.ARTIFACT_DIR and os.path.isdir(cs.ARTIFACT_DIR):
                 shutil.copy2(b, os.path.join(cs.ARTIFACT_DIR, f))
-    print("Tomo II, Tomo III y Separata restaurados desde el respaldo.")
+    print("Tomo II y Tomo III restaurados desde el respaldo (Separata conservada actualizada).")
 
 import pypdf
 r = pypdf.PdfReader(os.path.join(BASE, "Tomo_1_Tronco_y_Apoyo.pdf"))

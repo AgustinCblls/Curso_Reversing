@@ -10,10 +10,11 @@
 <body>
 <a class="salto" href="#contenido">Saltar al contenido</a>
 <header class="cabecera">
-  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5 · 27/10/2026</span></div>
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
   <nav class="principal" aria-label="Navegación principal">
     <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
     <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
     <a href="../materiales.html">Materiales</a>
     <a href="../fichas/index.html">Fichas</a>
     <a href="../glosario.html">Glosario</a>
@@ -23,12 +24,14 @@
 </header>
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 6 · Kernel y drivers (rama optativa)</span></nav><h1 id="arquitectura-del-kernel-y-modelo-de-e-s">Arquitectura del kernel y modelo de E/S</h1>
+<div class="meta-nivel"><span class="nivel-badge avanzado">Avanzado · Ring 0</span> <span><strong>Ruta 3 · Etapa 6 (Tomo II)</strong></span> <span class="meta-sep">·</span> <span>Antes de empezar Kernel asegurate de haber leído <a href="2d-01-objetos.html">2D.1</a>, <a href="2d-02-memoria-loader.html">2D.2</a> y <a href="2d-11-excepciones.html">2D.11</a>.</span></div>
+
 <aside class="callout peligro"><p class="callout-titulo">Rama optativa de alto impacto</p><p>Todo el bloque requiere VM descartable con snapshot. Un error en kernel puede colgar o detener el invitado; nunca pruebes un driver en el host ni en un equipo de uso diario.</p></aside>
 <aside class="callout nota"><p class="callout-titulo">Propósito</p><p>Construir el mapa mental de la ruta de una solicitud desde user mode al driver y reconocer qué estado/memoria es válido según IRQL. Al terminar deberías poder mirar una rutina de un driver y decir <strong>a qué IRQL</strong> corre, <strong>en el contexto de qué hilo</strong>, <strong>qué memoria</strong> puede tocar y <strong>qué</strong> podría hacer que el sistema se detenga.</p></aside>
 <p><strong>Prerrequisitos</strong></p>
 <ul><li><em>Obligatorios para Etapa 6:</em> C básico, assembly, memoria/stack, sincronización elemental, WinDbg y <a href="2d-01-objetos.html">2D.1 objetos/tokens</a>, <a href="2d-02-memoria-loader.html">2D.2 memoria/loader</a>, <a href="2d-11-excepciones.html">2D.11 excepciones/debugging</a>.</li><li><em>Recomendados:</em> <a href="02-windbg-heap.html">2C WinDbg/heap</a> y fundamentos de kernel; no exige COM, Scheduler ni toda 2D.</li></ul>
 <hr>
-<h2 id="puente-pedagógico-de-modo-usuario-a-modo-kernel-transición-etapa-5-to-etapa-6">Puente Pedagógico: De Modo Usuario a Modo Kernel (Transición Etapa 5 $\to$ Etapa 6)</h2>
+<h2 id="puente-pedagógico-de-modo-usuario-a-modo-kernel-transición-etapa-5-to-etapa-6">Puente Pedagógico: De Modo Usuario a Modo Kernel (Transición Etapa 5 → Etapa 6)</h2>
 <p>Al culminar la Etapa 5, el analista domina la disección de malware, el análisis estático y dinámico de ejecutables y la auditoría de vulnerabilidades en <strong>espacio de usuario (Ring 3)</strong>. Al ingresar a la Etapa 6 y a la rama de controladores de dispositivo (<strong>Modo Kernel / Ring 0</strong>), las reglas del juego cambian drásticamente. Esta transición exige reconectar los modelos mentales aprendidos previamente:</p>
 <div class="tabla"><table>
 <thead><tr>

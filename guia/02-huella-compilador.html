@@ -10,10 +10,11 @@
 <body>
 <a class="salto" href="#contenido">Saltar al contenido</a>
 <header class="cabecera">
-  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5 · 27/10/2026</span></div>
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
   <nav class="principal" aria-label="Navegación principal">
     <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
     <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
     <a href="../materiales.html">Materiales</a>
     <a href="../fichas/index.html">Fichas</a>
     <a href="../glosario.html">Glosario</a>
@@ -23,6 +24,8 @@
 </header>
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 2 · Windows intermedio</span></nav><h1 id="huella-de-compilador-saber-con-qué-se-hizo">Huella de compilador: saber con qué se hizo</h1>
+<div class="meta-nivel"><span class="nivel-badge intermedio">Intermedio</span> <span><strong>Ruta 2 · Bloque 2B</strong></span></div>
+
 <aside class="callout nota"><p class="callout-titulo">Objetivo de la lección</p><p>Antes de leer una sola instrucción, saber <strong>con qué compilador/runtime</strong> se armó el binario, porque eso cambia todo: dónde está la lógica, cómo se ven las llamadas, qué estructuras esperar. <strong>Prerrequisitos:</strong> PE e imports (1.4), IDA (2.7), MFC (2.12).</p></aside>
 <h2 id="por-qué-mirar-esto-primero">Por qué mirar esto primero</h2>
 <p>El mismo programa en C se ve <strong>distinto</strong> según el compilador, y un programa de Delphi o Visual Basic no se parece en nada a uno de C. Identificar la huella te ahorra horas: te dice si vas a encontrar un <code>main</code> clásico, un runtime que rutea todo, p-code en vez de nativo, o una maraña de clases. Es lo primero que hace un analista con experiencia (<strong>recomendación editorial</strong>).</p>

@@ -10,10 +10,11 @@
 <body>
 <a class="salto" href="#contenido">Saltar al contenido</a>
 <header class="cabecera">
-  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5 · 27/10/2026</span></div>
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
   <nav class="principal" aria-label="Navegación principal">
     <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
     <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
     <a href="../materiales.html">Materiales</a>
     <a href="../fichas/index.html">Fichas</a>
     <a href="../glosario.html">Glosario</a>
@@ -23,6 +24,8 @@
 </header>
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 2 · Windows intermedio</span></nav><h1 id="mfc-llegar-al-handler-cuando-todo-pasa-por-clases">MFC: llegar al handler cuando todo pasa por clases</h1>
+<div class="meta-nivel"><span class="nivel-badge intermedio">Intermedio</span> <span><strong>Ruta 2 · Bloque 2B</strong></span></div>
+
 <aside class="callout nota"><p class="callout-titulo">Objetivo de la lección</p><p>Reconocer un ejecutable hecho con <strong>MFC</strong> y llegar al <strong>handler</strong> de un control (el botón de un diálogo) aunque el <code>WinProc</code> clásico no esté a la vista. <strong>Prerrequisitos:</strong> mensajes de Windows y debugger (2.6), estructuras y vtables (2.7).</p></aside>
 <h2 id="por-qué-mfc-complica-la-lectura">Por qué MFC complica la lectura</h2>
 <p>En los ejercicios anteriores la ventana se hacía <strong>con la API de Windows directa</strong>: el programa llamaba a <code>RegisterClassA</code> (que registra la clase y apunta al <code>WinProc</code>) y luego a <code>CreateWindow</code>; desde el <code>WinProc</code> se llegaba fácil a la comparación con los números de mensaje (<code>WM_COMMAND</code>, etc.) y de ahí al código que maneja cada evento. Era sencillo.</p>

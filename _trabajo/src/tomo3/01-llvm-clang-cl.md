@@ -1,5 +1,5 @@
 # Módulo 1 · Compiladores No-MSVC en Windows: LLVM, Clang CFI y Rust Endurecido
-*(Presupuesto editorial: 50 páginas — Prerrequisito: Tomo I, Lección 2.18, págs. 180–188 y Lección 2.32, págs. 243–247)*
+*(Tomo III (52 págs. totales) · Prerrequisito: Tomo I, Lección 2.18, págs. 180–188 y Lección 2.32, págs. 243–247)*
 
 ---
 
@@ -547,11 +547,11 @@ En el binario compilado:
    ```
 
 ### Script de Laboratorio: Reconstrucción Automatizada de Slices
-Para resolver este problema de forma desatendida en Ghidra, la **Plantilla 18** incluye el script en Python [`reconstruct_slices.py`](file:///C:/Users/agust/.gemini/antigravity/scratch/CLS_Guia/plantillas_codigo/plantilla_18_rust_lto/reconstruct_slices.py), el cual automatiza el desempaquetado de cadenas:
+Para resolver este problema de forma desatendida en Ghidra, la **Plantilla 18** incluye el script en Python [`reconstruct_slices.py`](plantillas_codigo/plantilla_18_rust_lto/reconstruct_slices.py), el cual automatiza el desempaquetado de cadenas:
 
 1. **Algoritmo del Script:**
    * Escanea las instrucciones `lea reg1, [mem_rdata]` que apunten a secciones de solo lectura.
-   * Verifica si la instrucción subsiguiente o adyacente es un `mov reg2, imm_val` donde `imm_val` sea un valor entero razonable de longitud ($1 \le \text{len} \le 1024$).
+   * Verifica si la instrucción subsiguiente o adyacente es un `mov reg2, imm_val` donde `imm_val` sea un valor entero razonable de longitud (`1 ≤ len ≤ 1024`).
    * Extrae los bytes en el rango `[mem_rdata, mem_rdata + imm_val]`.
    * Si los bytes corresponden a texto ASCII/UTF-8 válido, invoca la API de Ghidra (`createAsciiString`) forzando la longitud exacta sin requerir terminador nulo, y asigna un comentario en el desensamblado con el texto recuperado.
 
@@ -560,6 +560,6 @@ Para resolver este problema de forma desatendida en Ghidra, la **Plantilla 18** 
 ## 1.7 Resumen de Prácticas del Módulo 1
 
 Para afianzar los conceptos desarrollados en este módulo, el repositorio incluye los códigos fuentes de validación:
-* [`plantillas_codigo/plantilla_17a_clang_cfi.cpp`](file:///C:/Users/agust/.gemini/antigravity/scratch/CLS_Guia/plantillas_codigo/plantilla_17a_clang_cfi.cpp): Demostración de Clang CFI con compilación modular en LLVM 17+ y captura de la instrucción `ud2`.
-* [`plantillas_codigo/plantilla_17b_msvc_cfg.c`](file:///C:/Users/agust/.gemini/antigravity/scratch/CLS_Guia/plantillas_codigo/plantilla_17b_msvc_cfg.c): Demostración del modelo Control Flow Guard nativo de Microsoft con `cl.exe /guard:cf` y `guard_dispatch_icall`.
-* [`plantillas_codigo/plantilla_18_rust_lto/`](file:///C:/Users/agust/.gemini/antigravity/scratch/CLS_Guia/plantillas_codigo/plantilla_18_rust_lto/): Proyecto Cargo con configuración release monolítica (`lto = "fat"`, `panic = "abort"`, `strip = true`) y el script Python de reconstrucción de slices para Ghidra.
+* [`plantillas_codigo/plantilla_17a_clang_cfi.cpp`](plantillas_codigo/plantilla_17a_clang_cfi.cpp): Demostración de Clang CFI con compilación modular en LLVM 17+ y captura de la instrucción `ud2`.
+* [`plantillas_codigo/plantilla_17b_msvc_cfg.c`](plantillas_codigo/plantilla_17b_msvc_cfg.c): Demostración del modelo Control Flow Guard nativo de Microsoft con `cl.exe /guard:cf` y `guard_dispatch_icall`.
+* [`plantillas_codigo/plantilla_18_rust_lto/`](plantillas_codigo/plantilla_18_rust_lto/): Proyecto Cargo con configuración release monolítica (`lto = "fat"`, `panic = "abort"`, `strip = true`) y el script Python de reconstrucción de slices para Ghidra.

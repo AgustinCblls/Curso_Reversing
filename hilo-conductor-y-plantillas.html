@@ -10,7 +10,7 @@
 <body>
 <a class="salto" href="#contenido">Saltar al contenido</a>
 <header class="cabecera">
-  <div class="marca"><a href="00_EMPEZAR_AQUI.html">Curso de Reversing en Windows</a> <span class="edicion">edición 5 · rev. 5.4</span></div>
+  <div class="marca"><a href="00_EMPEZAR_AQUI.html">Curso de Reversing en Windows</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
   <nav class="principal" aria-label="Navegación principal">
     <a href="00_EMPEZAR_AQUI.html">Inicio</a>
     <a href="guia/index.html">Curso</a>
@@ -23,7 +23,7 @@
 </header>
 <main id="contenido">
 <h1 id="hilo-conductor-multi-nivel-y-kit-de-plantillas-c-c">Hilo conductor multi-nivel y kit de plantillas C/C++</h1>
-<aside class="callout nota"><p class="callout-titulo">Propósito de esta sección transversal</p><p>Conectar de forma práctica los tres niveles del curso (Principiante, Intermedio y Avanzado). En la <strong>Parte I</strong> vemos cómo un único programa de validación (desde el <code>check.c</code> básico de la Etapa 1 hasta el componente <code>BlocLab</code> de las Etapas 2C, 2D y 6) cambia en el desensamblador y en el debugger a medida que evoluciona. En la <strong>Parte II</strong> tenés <strong>7 plantillas mínimas en C y C++</strong> listas para copiar y compilar en tu VM para practicar todas las lecciones intermedias y avanzadas sin depender de muestras externas.</p></aside>
+<aside class="callout nota"><p class="callout-titulo">Propósito de esta sección transversal</p><p>Conectar de forma práctica todos los niveles del curso (Principiante, Intermedio, Avanzado y Especialista). En la <strong>Parte I</strong> vemos cómo un único programa de validación (desde el <code>check.c</code> básico de la Etapa 1 hasta el componente <code>BlocLab</code> de las Etapas 2C, 2D y 6) cambia en el desensamblador y en el debugger a medida que evoluciona. En la <strong>Parte II</strong> tenés el <strong>kit completo de 20 plantillas y laboratorios</strong> en <code>plantillas_codigo/</code> (15 plantillas troncales y avanzadas del Tomo I/II + 5 laboratorios de frontera moderna del <a href="tomo3.html">Tomo III</a>) listos para compilar y analizar en tu VM.</p></aside>
 
 <h2 id="parte-i-el-hilo-conductor-un-mismo-binario-a-través-de-los-tres-niveles">Parte I · El hilo conductor: un mismo binario a través de los tres niveles</h2>
 <p>Una de las dificultades más comunes al estudiar reversing es sentir que cada tema nuevo (optimizaciones, TLS callbacks, packers, C++ con vtables, named pipes o drivers KMDF) pertenece a un mundo desconectado del anterior. Para unirlos, sigamos <strong>la misma regla de negocio</strong> en sus tres estadios de evolución:</p>
@@ -100,8 +100,8 @@ fallo:
 
 <hr>
 
-<h2 id="parte-ii-kit-de-5-plantillas-de-código-mínimo-boilerplates-listos-para-compilar">Parte II · Kit Completo de 15 Plantillas y Laboratorios Prácticos (Troncal y Avanzado)</h2>
-<p>Todas las prácticas del curso están pensadas para ejecutarse sobre <strong>programas propios en tu VM aislada</strong> (Etapa 0). Para que no tengas que escribir desde cero cada escenario técnico, acá tenés siete esqueletos autocontenidos de ~35 líneas en C y C++ estándar (también guardados como archivos sueltos en la carpeta <code>plantillas_codigo/</code> del paquete HTML). Compilalos en la VM con <strong>Visual Studio Developer Command Prompt (<code>cl.exe</code>)</strong> o con <strong>MinGW-w64 (<code>gcc</code> / <code>g++</code>)</strong>.</p>
+<h2 id="parte-ii-kit-de-5-plantillas-de-código-mínimo-boilerplates-listos-para-compilar">Parte II · Kit Completo de 20 Plantillas y Laboratorios Prácticos (Tomos I, II y III)</h2>
+<p>Todas las prácticas del curso están pensadas para ejecutarse sobre <strong>programas propios en tu VM aislada</strong> (Etapa 0). A continuación se documentan las <strong>15 plantillas base y avanzadas</strong> de los Tomos I y II, seguidas por el índice de las <strong>5 plantillas de frontera moderna del Tomo III</strong> (Plantillas 17a/17b a 21), todas guardadas en la carpeta <code>plantillas_codigo/</code> del paquete. Compilalas en la VM con <strong>Visual Studio Developer Command Prompt (<code>cl.exe</code>)</strong>, <strong><code>clang-cl.exe</code></strong>, <strong><code>cargo</code></strong> o <strong>MinGW-w64</strong>.</p>
 
 <h3 id="plantilla-1-check-evolucion-c-práctica-para-1-5-2-4-2-8-2-10-2-11-2-15-2-17-y-4-1">Plantilla 1 · <code>check_evolucion.c</code> (Práctica para 1.5, 2.3, 2.8, 2.10, 2.11, 2.15, 2.17 y 4.1)</h3>
 <p>Un único archivo en C que podés compilar en modo Principiante (por defecto) o en modo Intermedio (pasando <code>/DMODO_INTERMEDIO</code> o <code>-DMODO_INTERMEDIO</code>), lo que activa un <strong>TLS Callback</strong> que comprueba <code>IsDebuggerPresent()</code> y una rutina de descifrado <strong>XOR</strong> sobre el mensaje de éxito:</p>
@@ -601,10 +601,10 @@ OB_PREOP_CALLBACK_STATUS PreOpenProcess(PVOID RegistrationContext, POB_PRE_OPERA
 </code></pre>
 
 <h3 id="plantilla-12-solve-vm-triton-py-y-solve-minivm-z3-py-practica-para-2-25-2-26-y-2-34">Plantilla 12 · <code>solve_vm_triton.py</code> y <code>solve_minivm_z3.py</code> (Práctica para 2.25, 2.26 y 2.34)</h3>
-<p>Pipeline dinámico de desvirtualización: <code>solve_vm_triton.py</code> instrumenta con <strong>Frida Stalker</strong> el bucle de despacho de la máquina virtual (<code>vm_mba_crackme.c</code>), propaga *taint* sobre la memoria con <strong>Triton</strong>, levanta el AST simbólico y delega la resolución a <strong>Z3</strong> (<code>solve_minivm_z3.py</code>) para colapsar expresiones de aritmética mixta (MBA).</p>
+<p>Pipeline dinámico de desvirtualización: <code>solve_vm_triton.py</code> instrumenta con <strong>Frida Stalker</strong> el bucle de despacho de la máquina virtual (<code>vm_mba_crackme.c</code>), propaga <em>taint</em> sobre la memoria con <strong>Triton</strong>, levanta el AST simbólico y delega la resolución a <strong>Z3</strong> (<code>solve_minivm_z3.py</code>) para colapsar expresiones de aritmética mixta (MBA).</p>
 
 <h3 id="plantilla-13-vm-mba-crackme-c-practica-para-2-26-y-2-34">Plantilla 13 · <code>vm_mba_crackme.c</code> (Práctica para 2.26 y 2.34)</h3>
-<p>Crackme con arquitectura de máquina virtual basada en registros e intérprete con *Indirect Threading*, que evalúa la clave mediante identidades MBA como <code>(x ^ y) + 2 * (x &amp; y) == x + y</code>. Compilar con <code>cl /Zi /O2 vm_mba_crackme.c /Fe:vm_mba_crackme.exe</code>.</p>
+<p>Crackme con arquitectura de máquina virtual basada en registros e intérprete con <em>Indirect Threading</em>, que evalúa la clave mediante identidades MBA como <code>(x ^ y) + 2 * (x &amp; y) == x + y</code>. Compilar con <code>cl /Zi /O2 vm_mba_crackme.c /Fe:vm_mba_crackme.exe</code>.</p>
 
 <h3 id="plantilla-14-dump-cil-jit-js-practica-para-2-35-y-3-1">Plantilla 14 · <code>dump_cil_jit.js</code> (Práctica para 2.35 y 3.1)</h3>
 <p>Script de Frida que intercepta el compilador JIT de .NET (<code>clrjit.dll!CILJit::compileMethod</code>), volcando el bytecode CIL de cada método en claro en el momento exacto en que es descifrado en memoria viva antes de compilarse a x64.</p>
@@ -670,7 +670,21 @@ r $t6 = poi(nt!EtwThreatIntProvRegHandle)
 .printf "
 [+] Fin de la auditoria de vectores de kernel.
 "</code></pre>
-<aside class="callout nota"><p class="callout-titulo">Volver</p><p><a href="guia/index.html">Mapa del curso</a> · <a href="00_EMPEZAR_AQUI.html">Inicio</a></p></aside>
+
+<hr>
+<h2 id="parte-iii-plantillas-del-tomo-iii">Parte III · Laboratorios del Tomo III (Plantillas 17 a 21 · Ruta 4)</h2>
+<p>Las 5 plantillas adicionales de frontera moderna residen también en <code>plantillas_codigo/</code> y están documentadas paso a paso con hashes y evidencia verificada en el <a href="guia/t3-05-plantillas-y-laboratorios.html">Módulo 5 del Tomo III</a>:</p>
+<div class="tabla"><table>
+<thead><tr><th>Plantilla</th><th>Archivo en <code>plantillas_codigo/</code></th><th>Módulo del Tomo III</th><th>Qué verifica</th></tr></thead>
+<tbody>
+<tr><td><strong>17a</strong></td><td><code>plantilla_17a_clang_cfi.cpp</code></td><td><a href="guia/t3-01-llvm-clang-cl.html">Módulo 1</a></td><td>Clang Forward-Edge CFI (<code>-fsanitize=cfi -flto</code>) y trampa <code>ud2</code> (<code>0xC000001D</code>) ante vtable hijacking.</td></tr>
+<tr><td><strong>17b</strong></td><td><code>plantilla_17b_msvc_cfg.c</code></td><td><a href="guia/t3-01-llvm-clang-cl.html">Módulo 1</a></td><td>Microsoft Control Flow Guard (<code>/guard:cf</code>) y despacho por <code>guard_dispatch_icall</code> / fast-fail <code>0xC0000409</code>.</td></tr>
+<tr><td><strong>18</strong></td><td><code>plantilla_18_rust_lto/</code></td><td><a href="guia/t3-01-llvm-clang-cl.html">Módulo 1</a></td><td>Binario Rust endurecido (<code>lto="fat"</code>, <code>panic="abort"</code>, <code>strip=true</code>) + <code>reconstruct_slices.py</code> para Ghidra.</td></tr>
+<tr><td><strong>19</strong></td><td><code>plantilla_19_auditar_lpac.ps1</code></td><td><a href="guia/t3-02-contenedores-lpac.html">Módulo 2</a></td><td>Auditoría user-mode de tokens AppContainer/LPAC (bit <code>0x20</code> en <code>TokenFlags</code> y SIDs <code>S-1-15-3-*</code>).</td></tr>
+<tr><td><strong>20</strong></td><td><code>plantilla_20_cet_shadow_stack.c</code></td><td><a href="guia/t3-03-hardware-isa-cet.html">Módulo 3</a></td><td>Detección y prueba de Intel CET Shadow Stack (<code>/CETCOMPAT</code>, <code>RDSSP</code>/<code>INCSSP</code> y <code>#CP</code> <code>0xC00006A6</code>).</td></tr>
+<tr><td><strong>21</strong></td><td><code>plantilla_21_ghidra_ollama.py</code></td><td><a href="guia/t3-04-ia-local-ghidra.html">Módulo 4</a></td><td>Puente PyGhidra ↔ Ollama 100 % offline con fallback regex y validación por falsabilidad.</td></tr>
+</tbody></table></div>
+<aside class="callout nota"><p class="callout-titulo">Volver</p><p><a href="guia/index.html">Mapa del curso</a> · <a href="tomo3.html">Tomo III</a> · <a href="00_EMPEZAR_AQUI.html">Inicio</a></p></aside>
 </main>
 <footer class="pie">
   <p>Material educativo y defensivo. Las prácticas se limitan a programas propios, software abierto o crackmes diseñados para aprender. No se enseña a eludir licencias, DRM ni controles de acceso.</p>

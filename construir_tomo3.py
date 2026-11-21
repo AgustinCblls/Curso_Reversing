@@ -231,8 +231,10 @@ main { max-width: none; padding: 0; }
 .print-sec h1 { font-size: 20pt; margin-top: 0; color: #0b5f6b; border-bottom: 2px solid #0b5f6b; padding-bottom: 4pt; }
 .print-sec h2 { font-size: 13pt; margin-top: 1.4em; color: #1f2428; border-bottom: 1px solid #d9d5cc; padding-bottom: 2pt; }
 .print-sec h3 { font-size: 11.5pt; color: #333; }
-.print-sec pre { font-size: 8.3pt; white-space: pre-wrap; break-inside: avoid; page-break-inside: avoid; background: #23282d; color: #eef2f5; padding: 10px; border-radius: 6px; }
-.print-sec code { font-family: "JetBrains Mono", Consolas, monospace; }
+.print-sec pre, .print-sec code, .print-sec pre code { color: #111111 !important; -webkit-text-fill-color: #111111 !important; }
+.print-sec pre { font-size: 8.3pt; white-space: pre-wrap; break-inside: avoid; page-break-inside: avoid; background-color: #f6f8fa !important; border: 1px solid #d0d7de !important; color: #111111 !important; padding: 8px 10px; border-radius: 4px; }
+.print-sec code { font-family: "Cascadia Code", "JetBrains Mono", Consolas, monospace !important; }
+.print-sec :not(pre) > code { background-color: #f0f2f5 !important; padding: 1px 4px; border-radius: 3px; border: 1px solid #e1e4e8; }
 .print-sec table { font-size: 8.6pt; width: 100%; border-collapse: collapse; margin: 12px 0; table-layout: auto; }
 .print-sec th, .print-sec td { border: 1px solid #d9d5cc; padding: 6px 8px; text-align: left; }
 .print-sec th { background: #f3f0fa; font-weight: 700; }

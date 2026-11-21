@@ -10,10 +10,11 @@
 <body>
 <a class="salto" href="#contenido">Saltar al contenido</a>
 <header class="cabecera">
-  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5 · 27/10/2026</span></div>
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
   <nav class="principal" aria-label="Navegación principal">
     <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
     <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
     <a href="../materiales.html">Materiales</a>
     <a href="../fichas/index.html">Fichas</a>
     <a href="../glosario.html">Glosario</a>
@@ -23,6 +24,8 @@
 </header>
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 6 · Kernel y drivers (rama optativa)</span></nav><h1 id="kmdf-driver-propio-con-ioctl-inocuo">KMDF: driver propio con IOCTL inocuo</h1>
+<div class="meta-nivel"><span class="nivel-badge avanzado">Avanzado · Ring 0</span> <span><strong>Ruta 3 · Etapa 6 (Tomo II)</strong></span></div>
+
 <aside class="callout peligro"><p class="callout-titulo">Solo en VM de pruebas</p><p>La carga de drivers altera el kernel. Necesitás VM descartable, snapshot conocido, consola de recuperación y un paquete propio. No cambies Secure Boot, firmas ni protecciones del equipo principal. Si la VM no puede probar un driver firmado según la documentación vigente del WDK, no cargues uno sin firma: completá el análisis estático.</p></aside>
 <aside class="callout nota"><p class="callout-titulo">Propósito</p><p>Entender cómo WDF traduce solicitudes a callbacks y practicar un canal mínimo con límites estrictos: un IOCTL consulta una estructura fija, sin lectura/escritura arbitraria de memoria. Al terminar deberías poder seguir una solicitud desde la aplicación hasta el driver, decir <strong>en qué puntos</strong> se controla el acceso y <strong>dónde</strong> se puede observar cada paso.</p></aside>
 <p><strong>Prerrequisitos</strong></p>

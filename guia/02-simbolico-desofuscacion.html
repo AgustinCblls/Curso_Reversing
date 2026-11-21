@@ -10,10 +10,11 @@
 <body>
 <a class="salto" href="#contenido">Saltar al contenido</a>
 <header class="cabecera">
-  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5 · 27/10/2026</span></div>
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
   <nav class="principal" aria-label="Navegación principal">
     <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
     <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
     <a href="../materiales.html">Materiales</a>
     <a href="../fichas/index.html">Fichas</a>
     <a href="../glosario.html">Glosario</a>
@@ -23,6 +24,8 @@
 </header>
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 2 · Desofuscación avanzada (2E)</span></nav><h1 id="ejecución-simbólica-y-concólica-desofuscar-con-un-solver">Ejecución simbólica y concólica: desofuscar con un solver</h1>
+<div class="meta-nivel"><span class="nivel-badge especialista">Especialista</span> <span><strong>Ruta 4 · Bloque 2E</strong></span> <span class="meta-sep">·</span> <span>Cursar tras completar Etapas 0–4 y Bloque 2B/2C.</span></div>
+
 <aside class="callout nota"><p class="callout-titulo">Objetivo de la lección</p><p>Entender qué es la <strong>ejecución simbólica</strong> y la <strong>concólica</strong>, y usarlas para recuperar las condiciones de un binario propio ofuscado (qué entrada lo lleva a una rama) y para <strong>simplificar</strong> expresiones enredadas. Saber <strong>cuándo no sirve</strong> y por qué. <strong>Prerrequisitos:</strong> fundamentos de simbólico (<a href="02-opt-fuzzing.html">2.24</a>), ofuscación nativa (<a href="02-ofuscacion.html">2.10</a>), instrucciones (<a href="02-instrucciones.html">2.2</a>) y scripting (<a href="02-scripting-debugger.html">2.21</a>). <em>Contexto recomendado:</em> método de análisis (4.1).</p></aside>
 <p>Esto es <strong>análisis</strong>, no evasión: se usa el solver sobre <strong>binarios propios o crackmes didácticos</strong> para entender su lógica. No se producen cracks, keygens ni parches de software comercial.</p>
 <h2 id="qué-es-la-ejecución-simbólica">Qué es la ejecución simbólica</h2>

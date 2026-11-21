@@ -4,16 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Etapa 2 · Introducción al reversing</title>
-<meta name="description" content="Leer assembly x86/x64, seguir el flujo y usar debugger y desensamblador con criterio. Se divide en 2A (base, 2.1–2.9), 2B (Windows intermedio, 2.10–2.16: ofuscación, TLS, MFC, huella, PE fino, anti-análisis, Ghidra) y 2C (Windows avanzado, 2.17+: packers didácticos, C++ profundo, WinDbg/heap, patch diffing, scripting) y 2E (desofuscación y análisis dinámico avanzado, 2.25+: ejecución simbólica, ofuscación por VM, protectores multicapa, neutralizar anti-análisis, DBI con DynamoRIO/Pin y Frida Stalker, extensiones de Ghidra/SLEIGH, y ampliaciones de Go/Rust y VB6). Las rutas de malware dinámico, shellcode/C2 y fuzzing quedan como optativas, fuera de la puerta obligatoria.">
+<meta name="description" content="Leer assembly x86/x64, seguir el flujo y usar debugger y desensamblador con criterio. Se divide en 2A (base, 2.1–2.9), 2B (Windows intermedio, 2.10–2.16: ofuscación, TLS, MFC, huella, PE fino, anti-análisis, Ghidra) y 2C (Windows avanzado, 2.17+: packers didácticos, C++ profundo, WinDbg/heap, patch diffing, scripting) y 2E (desofuscación y análisis dinámico avanzado, 2.25+: ejecución simbólica, ofuscación por VM, protectores multicapa, neutralizar anti-análisis, DBI con DynamoRIO/Pin y Frida Stalker, extensiones de Ghidra/SLEIGH, Go/Rust, VB6, desvirtualización práctica con Triton/Z3/SLEIGH y ecosistemas Windows 11 ARM64EC/WinRT/.NET AOT). Las rutas de malware dinámico, shellcode/C2 y fuzzing quedan como optativas, fuera de la puerta obligatoria.">
 <link rel="stylesheet" href="../guia/estilo.css">
 </head>
 <body>
 <a class="salto" href="#contenido">Saltar al contenido</a>
 <header class="cabecera">
-  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5 · 27/10/2026</span></div>
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
   <nav class="principal" aria-label="Navegación principal">
     <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
     <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
     <a href="../materiales.html">Materiales</a>
     <a href="../fichas/index.html">Fichas</a>
     <a href="../glosario.html">Glosario</a>
@@ -23,7 +24,7 @@
 </header>
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 2 · Introducción al reversing</span></nav><h1 id="etapa-2-introducción-al-reversing">Etapa 2 · Introducción al reversing</h1>
-<aside class="callout nota"><p class="callout-titulo">Objetivo medible</p><p>Leer assembly x86/x64, seguir el flujo y usar debugger y desensamblador con criterio. Se divide en 2A (base, 2.1–2.9), 2B (Windows intermedio, 2.10–2.16: ofuscación, TLS, MFC, huella, PE fino, anti-análisis, Ghidra) y 2C (Windows avanzado, 2.17+: packers didácticos, C++ profundo, WinDbg/heap, patch diffing, scripting) y 2E (desofuscación y análisis dinámico avanzado, 2.25+: ejecución simbólica, ofuscación por VM, protectores multicapa, neutralizar anti-análisis, DBI con DynamoRIO/Pin y Frida Stalker, extensiones de Ghidra/SLEIGH, y ampliaciones de Go/Rust y VB6). Las rutas de malware dinámico, shellcode/C2 y fuzzing quedan como optativas, fuera de la puerta obligatoria.</p></aside>
+<aside class="callout nota"><p class="callout-titulo">Objetivo medible</p><p>Leer assembly x86/x64, seguir el flujo y usar debugger y desensamblador con criterio. Se divide en 2A (base, 2.1–2.9), 2B (Windows intermedio, 2.10–2.16: ofuscación, TLS, MFC, huella, PE fino, anti-análisis, Ghidra) y 2C (Windows avanzado, 2.17+: packers didácticos, C++ profundo, WinDbg/heap, patch diffing, scripting) y 2E (desofuscación y análisis dinámico avanzado, 2.25+: ejecución simbólica, ofuscación por VM, protectores multicapa, neutralizar anti-análisis, DBI con DynamoRIO/Pin y Frida Stalker, extensiones de Ghidra/SLEIGH, Go/Rust, VB6, desvirtualización práctica con Triton/Z3/SLEIGH y ecosistemas Windows 11 ARM64EC/WinRT/.NET AOT). Las rutas de malware dinámico, shellcode/C2 y fuzzing quedan como optativas, fuera de la puerta obligatoria.</p></aside>
 <p><strong>Prerrequisitos:</strong> Etapa 1. <strong>Duración estimada:</strong> 35 a 44 h (2A) + ~25 h (2B) + ~30–40 h (2C) + ~25–30 h (2E). Es una estimación de esta guía, derivada de la suma de las lecciones; no es una duración rígida de laboratorio.</p>
 <h2 id="lecciones">Lecciones</h2>
 <div class="tabla"><table>
@@ -65,6 +66,8 @@
 <tr><td>2.31</td><td><a href="02-ghidra-sleigh.html">Extensiones de Ghidra y SLEIGH</a></td><td>Scripts (Jython/PyGhidra), headless, P-Code y SLEIGH para modelar bytecode propio.</td></tr>
 <tr><td>2.32</td><td><a href="02-go-rust.html">Go y Rust en profundidad (amplía 2.13)</a></td><td>pclntab/itab en Go; manglado v0, monomorfización y trait objects en Rust.</td></tr>
 <tr><td>2.33</td><td><a href="02-vb6-pcode.html">VB6 y p-code (amplía 2.13)</a></td><td>Nativo vs p-code, VBHeader y MSVBVM60; VB Decompiler/WKTVBDE (legado).</td></tr>
+<tr><td>2.34</td><td><a href="02-desvirtualizacion-sleigh.html">Desvirtualización práctica, Triton/Z3 y SLEIGH completo</a></td><td>Indirect threading x64, tracing con Frida Stalker, lifting a Triton/Z3 para MBA y módulo SLEIGH completo para Ghidra.</td></tr>
+<tr><td>2.35</td><td><a href="02-arm64ec-winrt-aot.html">Ecosistemas Windows 11: ARM64EC, WinRT/LPAC y .NET Native AOT</a></td><td>Thunks ARM64EC (<code>xtajit64.dll</code>), <code>IInspectable</code>/<code>HSTRING</code>, tokens AppContainer/LPAC, <code>MethodTable</code> en Native AOT y JIT hooking en <code>clrjit.dll</code>.</td></tr>
 </tbody></table></div>
 <h2 id="recursos-y-lecturas-de-referencia">Recursos y lecturas de referencia</h2>
 <ul><li><a href="../2d.html">Etapa 2 · Rama optativa 2D — Windows internals (después de 2C)</a></li><li><a href="../fichas/reversing-desde-cero.html">Reversing desde cero (tronco principal)</a></li><li><a href="../fichas/ida-desde-cero.html">Curso IDA desde cero (69 documentos)</a></li><li><a href="../fichas/ollydbg-cayetano.html">Curso de OllyDbg (Videos 23–40)</a></li><li><a href="../fichas/ida-pro-docx.html">Introducción al reversing con IDA Pro (docx)</a></li></ul>

@@ -10,10 +10,11 @@
 <body>
 <a class="salto" href="#contenido">Saltar al contenido</a>
 <header class="cabecera">
-  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5 · 27/10/2026</span></div>
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
   <nav class="principal" aria-label="Navegación principal">
     <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
     <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
     <a href="../materiales.html">Materiales</a>
     <a href="../fichas/index.html">Fichas</a>
     <a href="../glosario.html">Glosario</a>
@@ -23,6 +24,8 @@
 </header>
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 6 · Kernel y drivers (rama optativa)</span></nav><h1 id="debugging-de-kernel-y-bugchecks">Debugging de kernel y bugchecks</h1>
+<div class="meta-nivel"><span class="nivel-badge avanzado">Avanzado · Ring 0</span> <span><strong>Ruta 3 · Etapa 6 (Tomo II)</strong></span></div>
+
 <aside class="callout peligro"><p class="callout-titulo">Driver Verifier puede detener la VM</p><p>Microsoft advierte que Driver Verifier puede generar bugchecks. Usalo solo sobre el driver didáctico propio en una VM descartable, con snapshot previo y método de recuperación probado. No verifiques todos los drivers del host.</p></aside>
 <aside class="callout nota"><p class="callout-titulo">Propósito</p><p>Separar depuración user-mode de kernel, obtener un stack reproducible de un driver propio y explicar qué evidencia aporta un dump. Al terminar deberías poder recorrer un bugcheck con un método fijo —código, parámetros, contexto, stack, módulo, memoria— y escribir una conclusión que diga qué está probado y qué no.</p></aside>
 <p><strong>Prerrequisitos</strong></p>

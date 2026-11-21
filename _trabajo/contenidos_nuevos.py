@@ -2,8 +2,8 @@
 """Contenidos nuevos para las 6 mejoras de alto impacto (Edición 5 · Revisión 5.2)."""
 
 BLOQUE_RUTAS_ESTUDIO = """
-<h2 id="tres-perfiles-o-rutas-de-estudio-principiante-intermedio-y-avanzado">Tres perfiles o rutas de estudio (Principiante, Intermedio y Avanzado)</h2>
-<p>Aunque el curso completo supera las 400 páginas al sumar el tronco obligatorio (Etapas 0–4), los bloques intermedio y avanzado de la Etapa 2 (2B y 2C), la rama de Windows internals (2D) y la de Kernel y drivers (Etapa 6), <strong>no hace falta leerlo de corrido de principio a fin en una sola sentada</strong>. Podés recorrerlo en tres hitos progresivos claramente delimitados según tu nivel actual y tu objetivo:</p>
+<h2 id="cuatro-rutas-de-estudio">Cuatro rutas progresivas de estudio (de Principiante a Especialista)</h2>
+<p>La obra completa supera las 700 páginas al sumar el tronco obligatorio (Etapas 0–4), los bloques intermedio/avanzado/especialista de la Etapa 2 (2B, 2C, 2E), Windows Internals (2D), Kernel (Etapa 6) y el Tomo III. <strong>No la leas de corrido por orden numérico de página</strong>: seguí estas <strong>4 rutas progresivas</strong> según tu nivel y objetivo:</p>
 <div class="tabla"><table>
 <thead><tr>
 <th>Perfil y nivel</th>
@@ -14,28 +14,35 @@ BLOQUE_RUTAS_ESTUDIO = """
 </tr></thead><tbody>
 <tr>
 <td><strong>Ruta 1 · Fundamentos Firmes</strong><br><em>(Nivel Principiante)</em></td>
-<td>~65 a 75 h</td>
-<td><a href="etapa-0.html">Etapa 0</a> (0.1) &rarr; <a href="etapa-1.html">Etapa 1</a> (1.1–1.5) &rarr; <a href="etapa-2.html">Etapa 2A</a> (2.1–2.9) &rarr; <a href="etapa-3.html">Etapa 3</a> (3.1–3.2) &rarr; <a href="etapa-4.html">Etapa 4 base</a> (4.1, 4.2, 4.3 y 4.4)</td>
+<td>~75 a 85 h</td>
+<td><a href="etapa-0.html">Etapa 0</a> (0.1) &rarr; <a href="etapa-1.html">Etapa 1</a> (1.1–1.6) &rarr; <a href="etapa-2.html">Etapa 2A</a> (2.1–2.9) &rarr; <a href="etapa-3.html">Etapa 3</a> (3.1–3.2) &rarr; <a href="etapa-4.html">Etapa 4 base</a> (4.1–4.4)</td>
 <td>Visor PE (PE-bear / DIE), editor hex, IDA Free, x64dbg, ILSpy / dnSpyEx, compilador C y Python</td>
 <td>Analizar un binario propio en C y uno en .NET de punta a punta sin ver el fuente, confirmar hipótesis con breakpoints y redactar un informe reproducible.</td>
 </tr>
 <tr>
 <td><strong>Ruta 2 · Analista de Binarios y Malware Defensivo</strong><br><em>(Nivel Intermedio)</em></td>
-<td>+45 a 55 h<br><em>(acumulado ~115–130 h)</em></td>
-<td>Bloque <strong>2B</strong> (<a href="02-ofuscacion.html">2.10</a>–<a href="02-ghidra.html">2.16</a>) &rarr; <a href="02-packers.html">2.17</a> (Packers) &rarr; <a href="02-scripting-debugger.html">2.21</a> (Scripting y Frida) &rarr; <a href="04-formatos-protocolos.html">4.5</a> (Formatos y protocolos) &rarr; <a href="05-malware.html">5.1</a> (Malware estático) y <a href="05-automatizacion.html">5.3</a> (Automatización) &rarr; Optativas <a href="02-opt-malware-dinamico.html">2.22</a>, <a href="02-opt-shellcode-c2.html">2.23</a> y <a href="2d-01-objetos.html">2D.1</a>–<a href="2d-05-task-scheduler.html">2D.5</a></td>
+<td>+50 a 65 h<br><em>(acum. ~130–150 h)</em></td>
+<td>Bloque <strong>2B</strong> (<a href="02-ofuscacion.html">2.10</a>–<a href="02-ghidra.html">2.16</a>) &rarr; <a href="02-packers.html">2.17</a> &rarr; <a href="02-scripting-debugger.html">2.21</a> &rarr; <a href="04-formatos-protocolos.html">4.5</a>–<a href="04-protocolos-terceros.html">4.6</a> &rarr; <a href="05-malware.html">5.1</a> y <a href="05-automatizacion.html">5.3</a> &rarr; Optativas <a href="02-opt-malware-dinamico.html">2.22</a>–<a href="02-opt-shellcode-c2.html">2.23</a> &rarr; <a href="2d-01-objetos.html">2D.1</a>–<a href="2d-05-task-scheduler.html">2D.5</a></td>
 <td>Ghidra, Scylla, trazas condicionales de x64dbg, Frida, IDAPython (<code>ida_typeinf</code>), <code>pefile</code>, <code>capstone</code>, YARA y Sysinternals / WinDbg básico</td>
-<td>Desempaquetar un binario UPX propio (x86/x64) hasta el OEP, recuperar strings ocultas y APIs por PEB/hash, reconstruir un formato binario propio (<code>CLSF</code>) y escribir reglas YARA e informes de persistencia.</td>
+<td>Desempaquetar un binario UPX propio (x86/x64) hasta el OEP, recuperar strings ocultas y APIs por PEB/hash, reconstruir un protocolo binario (<code>CLSF</code>) y auditar persistencia y tokens básicos.</td>
 </tr>
 <tr>
-<td><strong>Ruta 3 · Investigador de Vulnerabilidades, Internals y Kernel</strong><br><em>(Nivel Avanzado)</em></td>
-<td>+80 a 110 h<br><em>(curso completo)</em></td>
-<td>Núcleo duro de <strong>2C</strong> (<a href="02-cpp-profundo.html">2.18</a> C++ profundo, <a href="02-windbg-heap.html">2.19</a> WinDbg/TTD/Heap, <a href="02-patch-diffing.html">2.20</a> Patch diffing) &rarr; <a href="05-vulnerabilidades.html">5.2</a> (Vulnerabilidades) &rarr; <a href="02-opt-fuzzing.html">2.24</a> (Fuzzing y simbólico) &rarr; <a href="2d-06-com-interfaces.html">2D.6</a>–<a href="2d-13-integrador.html">2D.13</a> (COM/RPC/WMI/IPC/Excepciones/ETW) &rarr; <a href="etapa-6.html">Etapa 6</a> (6.1–6.6, Kernel y drivers)</td>
-<td>WinDbg Preview + Time-Travel Debugging (TTD), GFlags / Page Heap, BinDiff / Diaphora / Version Tracking, OleViewDotNet, WDK / KMDF y Driver Verifier en VM descartable</td>
-<td>Reconstruir clases C++ (vtable, RTTI, SSO, excepciones x64), diagnosticar corrupciones de heap con Page Heap/TTD, aislar un parche de seguridad con diffing, auditar canales IPC/COM y revisar un driver <code>.sys</code> estática y dinámicamente.</td>
+<td><strong>Ruta 3 · Vulnerabilidades, Internals y Kernel</strong><br><em>(Nivel Avanzado)</em></td>
+<td>+90 a 120 h</td>
+<td>Núcleo duro de <strong>2C</strong> (<a href="02-cpp-profundo.html">2.18</a>, <a href="02-windbg-heap.html">2.19</a>, <a href="02-patch-diffing.html">2.20</a>) &rarr; <a href="05-vulnerabilidades.html">5.2</a> &rarr; <a href="02-opt-fuzzing.html">2.24</a> &rarr; <strong>Rama 2D</strong> (<a href="2d-06-com-interfaces.html">2D.6</a>–<a href="2d-15-uefi-boot-chain.html">2D.15</a>, asegurando 2D.1, 2D.2 y 2D.11 <strong>antes</strong> de Kernel) &rarr; <strong>Etapa 6 base</strong> (<a href="6-01-arquitectura-kernel.html">6.1</a>–<a href="6-06-mitigaciones.html">6.6</a>)</td>
+<td>WinDbg Preview + TTD, GFlags / Page Heap, BinDiff / Diaphora, OleViewDotNet, WDK / KMDF, KDNET y Driver Verifier en VM descartable</td>
+<td>Reconstruir clases C++ (vtable, RTTI, SSO, FH4), diagnosticar corrupciones de heap, aislar parches CVE, auditar COM/RPC/ALPC y revisar un driver <code>.sys</code> estática y dinámicamente.</td>
+</tr>
+<tr>
+<td><strong>Ruta 4 · Especialista y Frontera Moderna</strong><br><em>(Nivel Especialista)</em></td>
+<td>+95 a 130 h<br><em>(trilogía completa)</em></td>
+<td><strong>Bloque 2E</strong> (<a href="02-simbolico-desofuscacion.html">2.25</a>–<a href="02-arm64ec-winrt-aot.html">2.35</a>) &rarr; <strong>Etapa 6 avanzada</strong> (<a href="6-07-vbs-hvci-callbacks.html">6.7</a>–<a href="6-10-kernel-fuzzing.html">6.10</a>) &rarr; <a href="2d-16-hyper-v.html">2D.16</a>–<a href="2d-17-vbs-profundo.html">2D.17</a> &rarr; <strong><a href="../tomo3.html">Tomo III</a></strong> (Módulos 1–5: LLVM/Clang CFI, Rust stripped, LPAC/WSL2, Intel CET e IA Local)</td>
+<td>angr, Triton, Z3, DynamoRIO/Pin, Frida Stalker, Ghidra SLEIGH, PyGhidra, WTF/kAFL, <code>clang-cl</code>, Rust/Cargo y Ollama offline</td>
+<td>Desvirtualizar una mini-VM con Triton/Z3 y SLEIGH, auditar drivers con WFP/kCFG/fuzzing, inspeccionar binarios Clang CFI/Rust/ARM64EC/LPAC/CET y operar PyGhidra ↔ Ollama falsable.</td>
 </tr>
 </tbody></table></div>
 
-<aside class="callout nota"><p class="callout-titulo">Consejo para elegir tu punto de entrada</p><p>Si empezás desde cero, completá primero la <strong>Ruta 1</strong> sin desviarte a 2B ni a 2C cuando llegues al final de 2.9: saltar de 2.9 directo a la Etapa 3 (.NET) y a la Etapa 4 base te da una victoria real y consolida el método en la mitad de tiempo. Una vez aprobada la puerta de salida de la Etapa 4, volvé para cursar la <strong>Ruta 2</strong> y luego la <strong>Ruta 3</strong>. En cualquier nivel, acompañate con el <a href="../hilo-conductor-y-plantillas.html">Hilo conductor multi-nivel y kit de plantillas C/C++</a> y las <a href="../hojas-referencia-rapida.html">Hojas de referencia rápida (Cheat Sheets)</a>.</p></aside>
+<aside class="callout nota"><p class="callout-titulo">Consejo para elegir tu punto de entrada</p><p>Si empezás desde cero, completá primero la <strong>Ruta 1</strong> sin desviarte a 2B ni a 2C cuando llegues al final de 2.9: saltar de 2.9 directo a la Etapa 3 (.NET) y a la Etapa 4 base te da una victoria real y consolida el método en la mitad de tiempo. Al pasar al <strong>Tomo II</strong>, leé primero <code>2D.1</code>, <code>2D.2</code> y <code>2D.11</code> antes de empezar <code>6.1</code>. En cualquier nivel, acompañate con el <a href="../hilo-conductor-y-plantillas.html">Hilo conductor y kit de 20 plantillas</a> y las <a href="../hojas-referencia-rapida.html">Hojas de referencia rápida (Cheat Sheets)</a>.</p></aside>
 """
 
 

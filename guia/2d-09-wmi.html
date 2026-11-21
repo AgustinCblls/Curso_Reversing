@@ -10,10 +10,11 @@
 <body>
 <a class="salto" href="#contenido">Saltar al contenido</a>
 <header class="cabecera">
-  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5 · 27/10/2026</span></div>
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
   <nav class="principal" aria-label="Navegación principal">
     <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
     <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
     <a href="../materiales.html">Materiales</a>
     <a href="../fichas/index.html">Fichas</a>
     <a href="../glosario.html">Glosario</a>
@@ -23,6 +24,8 @@
 </header>
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 2 · 2D · Windows internals (optativa)</span></nav><h1 id="wmi-proveedores-filtros-y-consumidores">WMI: proveedores, filtros y consumidores</h1>
+<div class="meta-nivel"><span class="nivel-badge avanzado">Avanzado</span> <span><strong>Ruta 3 · Rama 2D</strong></span></div>
+
 <aside class="callout aviso"><p class="callout-titulo">Alcance de la práctica</p><p>La práctica principal inspecciona WMI y usa consultas temporales. No crea suscripciones permanentes, no ejecuta las acciones que encuentre y no borra ni “repara” objetos durante el triage. Si un docente prepara una demostración permanente, debe usar solo una VM aislada y un consumidor benigno, con inventario previo y limpieza verificada.</p></aside>
 <aside class="callout nota"><p class="callout-titulo">Propósito</p><p>Reconocer el modelo WMI/CIM y entender por qué un filtro unido a un consumidor permanente merece revisión, sin concluir malware solo por encontrar una suscripción. Al terminar deberías poder reconstruir una suscripción completa —qué evento la dispara, qué hace, quién la creó y con qué permisos— y dejar constancia de lo que <strong>no</strong> pudiste determinar.</p></aside>
 <p><strong>Prerrequisitos</strong></p>

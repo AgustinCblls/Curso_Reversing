@@ -10,10 +10,11 @@
 <body>
 <a class="salto" href="#contenido">Saltar al contenido</a>
 <header class="cabecera">
-  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5 · 27/10/2026</span></div>
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
   <nav class="principal" aria-label="Navegación principal">
     <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
     <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
     <a href="../materiales.html">Materiales</a>
     <a href="../fichas/index.html">Fichas</a>
     <a href="../glosario.html">Glosario</a>
@@ -23,6 +24,8 @@
 </header>
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 2 · 2D · Windows internals (optativa)</span></nav><h1 id="el-subsistema-gráfico-en-modo-kernel-win32k-y-la-tabla-de-servicios-sombra">El Subsistema Gráfico en Modo Kernel (win32k) y la Tabla de Servicios Sombra</h1>
+<div class="meta-nivel"><span class="nivel-badge avanzado">Avanzado</span> <span><strong>Ruta 3 · Rama 2D</strong></span></div>
+
 <aside class="callout nota"><p class="callout-titulo">Propósito y Relevancia</p><p>En la arquitectura de Windows, el modo kernel no solo alberga los servicios de sistema estándar del ejecutivo y del gestor de memoria (<code>ntoskrnl.exe</code>). También aloja el subsistema de ventanas, interfaz gráfica y gestión de dispositivos de entrada (<strong>GDI y USER</strong>). Este subsistema está implementado en controladores de sistema especiales (<code>win32kbase.sys</code>, <code>win32kfull.sys</code> y el driver legado <code>win32k.sys</code>). Con más de 1.200 llamadas al sistema que históricamente han constituido la mayor superficie de ataques de escalada local de privilegios (LPE) en Windows, su análisis es obligatorio para cualquier investigador de seguridad.</p></aside>
 <hr>
 <h2 id="1-descomposición-de-win32k-y-arquitectura-modular">1. Descomposición de Win32k y Arquitectura Modular</h2>

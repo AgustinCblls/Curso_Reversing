@@ -25,7 +25,7 @@ La culminación técnica del **Tomo III** de *«Reversing en Windows — Edició
    La ingeniería inversa de código compilado con `clang-cl` exige reconocer que las protecciones indirectas no siempre dependen del kernel de Windows ni de la tabla `GuardCFFunctionTable`. Clang CFI embebe comprobaciones inline basadas en firmas hash que terminan en trampas `ud2` (`0F 0B`), eludiendo por completo la maquinaria tradicional de `guard_dispatch_icall`.
 
 2. **La Desaparición del Byte Nulo en Binarios Rust Stripped:**  
-   La combinación de `panic = "abort"` y `strip = true` impone un cambio radical en la fase de reconocimiento de cadenas. Sin metadatos `.pdata` ni delimitadores `0x00`, el analista debe rastrear fat pointers `(ptr, len)` pasados en pares de registros o aplicar algoritmos heurísticos sobre la sección `.rdata` (como el implementado en [`reconstruct_slices.py`](file:///C:/Users/agust/.gemini/antigravity/scratch/CLS_Guia/plantillas_codigo/plantilla_18_rust_lto/reconstruct_slices.py)).
+   La combinación de `panic = "abort"` y `strip = true` impone un cambio radical en la fase de reconocimiento de cadenas. Sin metadatos `.pdata` ni delimitadores `0x00`, el analista debe rastrear fat pointers `(ptr, len)` pasados en pares de registros o aplicar algoritmos heurísticos sobre la sección `.rdata` (como el implementado en [`reconstruct_slices.py`](plantillas_codigo/plantilla_18_rust_lto/reconstruct_slices.py)).
 
 3. **La Eficacia de la Auditoría User-Mode sobre Contenedores LPAC:**  
    No es obligatorio contar con un depurador de kernel conectado por KDNET para diagnosticar el confinamiento de un proceso moderno. Mediante la API de Win32 (`OpenProcessToken` y `GetTokenInformation`), el reverser puede extraer el bit `0x20` de `TokenFlags` y mapear los SIDs de capacidad `S-1-15-3-*`, determinando con certeza matemática el perímetro defensivo de una aplicación.
@@ -44,10 +44,10 @@ Con la entrega de este volumen, la trilogía completa de *«Reversing en Windows
 
 | Volumen | Denominación y Enfoque | Páginas Base | Estado Editorial |
 |---|---|---|---|
-| **Tomo I** | *Fundamentos, Arquitectura PE, Flujo, Criptografía y Práctica Instrumental (Etapas 0 a 5)* | **410 págs.** | Aprobado / En Imprenta (Dividido en Partes A y B) |
-| **Tomo II** | *Kernel de Windows, Subsistemas Internos, RPC/COM, Hyper-V y Mitigaciones VBS (Etapa 6 y Rama 2D)* | **160 págs.** | Aprobado / En Imprenta |
+| **Tomo I** | *Fundamentos, Arquitectura PE, Flujo, Criptografía y Práctica Instrumental (Etapas 0 a 5)* | **468 págs.** | Aprobado / En Imprenta (Partes A y B) |
+| **Tomo II** | *Kernel de Windows, Subsistemas Internos, RPC/COM, Hyper-V y Mitigaciones VBS (Etapa 6 y Rama 2D)* | **200 págs.** | Aprobado / En Imprenta |
 | **Tomo III**| *LLVM, Rust, Contenedores LPAC, Hardware ISA (CET) y Reversing Aumentado por IA Local* | **52 págs.** | Cerrado / Fases 1, 2 y 3 Verificadas |
-| **TOTAL** | **Trilogía Consolidada de Ingeniería Inversa en Windows** | **704 págs.** | **Obra Completa y Reproducible** |
+| **TOTAL** | **Trilogía Consolidada de Ingeniería Inversa en Windows** | **720 págs.** | **Obra Completa y Reproducible** |
 
 > *Nota de Mantenimiento Metodológico:* Conforme a lo declarado en la pág. 9 del Tomo I y ratificado en la especificación del Tomo III, los pendientes históricos relativos a tutoriales complementarios de IDA y laboratorios de explotación avanzada en ring-3 permanecen abiertos para futuras revisiones monográficas, manteniendo la integridad y coherencia documental de toda la colección.
 

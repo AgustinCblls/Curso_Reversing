@@ -10,10 +10,11 @@
 <body>
 <a class="salto" href="#contenido">Saltar al contenido</a>
 <header class="cabecera">
-  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5 · 27/10/2026</span></div>
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
   <nav class="principal" aria-label="Navegación principal">
     <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
     <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
     <a href="../materiales.html">Materiales</a>
     <a href="../fichas/index.html">Fichas</a>
     <a href="../glosario.html">Glosario</a>
@@ -23,7 +24,10 @@
 </header>
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 2 · Reversing (Bloque 2E: Técnicas avanzadas e industriales)</span></nav><h1 id="desvirtualización-práctica-lifting-simbólico-y-arquitecturas-completas-en-sleigh">Desvirtualización Práctica, Lifting Simbólico y Arquitecturas Completas en SLEIGH</h1>
-<aside class="callout nota"><p class="callout-titulo">Propósito y Alcance</p><p>Esta lección profundiza operativamente los conceptos introducidos en las lecciones 2.25 y 2.26. Mientras que los cursos introductorios se limitan a mostrar bucles <code>switch-case</code> elementales, los protectores y máquinas virtuales reales en arquitecturas x64 evitan el bucle central mediante técnicas de <strong>Indirect Threading</strong> (despacho directo por tabla de punteros). Aprenderás a identificar esta firma en desensamblado, extraer la secuencia de handlers, levantar el bytecode a restricciones simbólicas con <strong>Z3 / Triton</strong> para simplificar expresiones MBA y compilar una especificación de arquitectura completa en <strong>SLEIGH</strong> (<code>.ldefs</code>, <code>.pspec</code>, <code>.cspec</code>, <code>.slaspec</code>) para que Ghidra descompile el bytecode a código C limpio.</p></aside>
+<div class="meta-nivel"><span class="nivel-badge especialista">Especialista</span> <span><strong>Ruta 4 · Bloque 2E</strong></span></div>
+
+<aside class="callout nota"><p class="callout-titulo">Propósito y Alcance</p><p>Esta lección profundiza operativamente los conceptos introducidos en las lecciones <a href="02-simbolico-desofuscacion.html">2.25</a>, <a href="02-ofuscacion-vm.html">2.26</a> y <a href="02-ghidra-sleigh.html">2.31</a>. Mientras que los cursos introductorios se limitan a mostrar bucles <code>switch-case</code> elementales, los protectores y máquinas virtuales reales en arquitecturas x64 evitan el bucle central mediante técnicas de <strong>Indirect Threading</strong> (despacho directo por tabla de punteros). Aprenderás a identificar esta firma en desensamblado, extraer la secuencia de handlers, levantar el bytecode a restricciones simbólicas con <strong>Z3 / Triton</strong> para simplificar expresiones MBA y compilar una especificación de arquitectura completa en <strong>SLEIGH</strong> (<code>.ldefs</code>, <code>.pspec</code>, <code>.cspec</code>, <code>.slaspec</code>) para que Ghidra descompile el bytecode a código C limpio.</p></aside>
+<p><strong>Prerrequisitos:</strong> ejecución simbólica (<a href="02-simbolico-desofuscacion.html">2.25</a>), ofuscación por máquina virtual (<a href="02-ofuscacion-vm.html">2.26</a>), Frida Stalker (<a href="02-frida-stalker.html">2.30</a>) y fundamentos de Ghidra/SLEIGH (<a href="02-ghidra-sleigh.html">2.31</a>). <strong>Duración sugerida:</strong> 6 a 8 horas (teoría + pipeline completo en VM aislada).</p>
 <h2 id="1-arquitectura-de-despacho-switch-central-vs-indirect-threading">1. Arquitectura de Despacho: Switch Central vs. Indirect Threading</h2>
 <p>En un ofuscador elemental por VM, el grafo de flujo de control (CFG) exhibe un nodo dominante central con decenas de aristas salientes (un <code>switch</code> tradicional). En contraste, los virtualizadores industriales (como VMProtect, CodeVirtualizer o implementaciones propietarias) eliminan el bucle central utilizando <strong>Indirect Threading</strong> o <strong>Direct Call Threading</strong>.</p>
 <h3 id="firma-en-desensamblado-x64-indirect-threading">Firma en Desensamblado x64 (Indirect Threading)</h3>
@@ -99,8 +103,8 @@ condicion_exito = (acc_ast == ctx.getAstContext().bv(0x87, 8))
 modelo = ctx.getModel(condicion_exito)</code></pre>
 <h3 id="etapa-3-lifting-directo-a-z3-para-resolver-expresiones-mba">Etapa 3: Lifting Directo a Z3 para Resolver Expresiones MBA</h3>
 <p>Cuando la máquina virtual ejecuta operaciones aritmético-lógicas entrelazadas con identidades <strong>Mixed Boolean-Arithmetic (MBA)</strong>, el análisis estático se vuelve intratable manualmente. Por ejemplo, la identidad:</p>
-<p>$$\text{acc} = (\text{acc} \oplus y) + 2 \cdot (\text{acc} \land y)$$</p>
-<p>equivale matemáticamente a la suma estándar $\text{acc} + y$.</p>
+<p class="formula"><code>acc = (acc ⊕ y) + 2 · (acc ∧ y)</code></p>
+<p>equivale matemáticamente a la suma estándar <code>acc + y</code>.</p>
 <h3 id="script-operativo-de-lifting-simbólico-solve-minivm-z3-py">Script Operativo de Lifting Simbólico (<code>solve_minivm_z3.py</code>)</h3>
 <p>A partir del volcado del bytecode extraído del binario de laboratorio (<code>plantillas_codigo/vm_mba_crackme.c</code>), el siguiente script en Python utiliza el motor SMT <strong>Z3</strong> para interpretar la semántica de los handlers de forma simbólica, colapsar las identidades MBA y despejar la preimagen exacta de entrada que satisface el flag de éxito:</p>
 <pre><code class="lenguaje-python"># solve_minivm_z3.py — Lifting simbólico directo del bytecode de la VM
@@ -219,7 +223,14 @@ macro update_flags(result) {
 }</code></pre>
 <hr>
 <h2 id="4-laboratorio-verificado">4. Laboratorio Verificado</h2>
-<ol><li>Compilá <code>plantillas_codigo/vm_mba_crackme.c</code> con <code>cl /W4 /Ox /GS- vm_mba_crackme.c</code>.</li><li>Abrí el binario en x64dbg y localizá la función <code>ejecutar_vm_indirect_threading</code>.</li><li>Verificá que el grafo no presenta un switch central, sino que cada handler concluye con <code>jmp qword ptr [r12 + rax*8]</code>.</li><li>Ejecutá <code>python plantillas_codigo/solve_minivm_z3.py</code> y comprobá que el carácter obtenido supera la validación del binario.</li></ol>
+<ol><li>Compilá <code>plantillas_codigo/vm_mba_crackme.c</code> con <code>cl /W4 /Ox /GS- vm_mba_crackme.c</code> en tu VM aislada.</li><li>Abrí el binario en x64dbg y localizá la función <code>ejecutar_vm_indirect_threading</code>.</li><li>Verificá que el grafo no presenta un switch central, sino que cada handler concluye con <code>jmp qword ptr [r12 + rax*8]</code>.</li><li>Ejecutá <code>python plantillas_codigo/solve_minivm_z3.py</code> y comprobá que el carácter obtenido supera la validación del binario.</li><li>Copiá la carpeta <code>plantillas_codigo/sleigh_minivm/</code> en <code>Ghidra/Processors/MiniVM/data/languages/</code>, cargá el volcado del bytecode como binario crudo con el lenguaje <code>MiniVM:LE:32:default</code> y comprobá el P-Code generado.</li></ol>
+<h2 id="preguntas-de-repaso">Preguntas de repaso</h2>
+<details class="qa"><summary>¿Cómo distinguís en el grafo de IDA/Ghidra una VM con <em>Indirect Threading</em> frente a una con <code>switch</code> central?</summary><div class="respuesta"><p>En un <code>switch</code> central existe un único nodo dominante al que regresan todos los handlers (grafo en «estrella»). En <em>Indirect Threading</em> no existe ese nodo central: cada handler avanza el <code>VIP</code> y finaliza con su propio salto indirecto indexado en la tabla de despacho (<code>jmp qword ptr [base + reg*8]</code>).</p></div></details>
+<details class="qa"><summary>¿Qué problema resuelve el <em>Dynamic Taint Analysis</em> de Triton antes de invocar a Z3?</summary><div class="respuesta"><p>Separa las instrucciones que dependen realmente de la entrada del usuario (la semántica de la VM) del ruido estructural del intérprete (búsqueda de opcodes, incremento del <code>VIP</code>, código muerto y despacho), generando un AST simbólico compacto y resoluble.</p></div></details>
+<details class="qa"><summary>¿Para qué sirven los cuatro archivos de un módulo de procesador SLEIGH (<code>.ldefs</code>, <code>.pspec</code>, <code>.cspec</code> y <code>.slaspec</code>)?</summary><div class="respuesta"><p><code>.ldefs</code> registra el identificador, endianness y archivos del procesador; <code>.pspec</code> define el contador de programa (<code>VIP</code>) y propiedades del CPU; <code>.cspec</code> declara la convención de llamada (registros de entrada/salida y preservados); y <code>.slaspec</code> describe la decodificación binaria y la semántica P-Code de cada instrucción.</p></div></details>
+<aside class="callout nota"><p class="callout-titulo">Puerta de salida</p><p>Podés: (1) identificar una VM con <em>Indirect Threading</em> por el registro base de tabla y el <code>VIP</code>; (2) trazar handlers con Frida Stalker y modelar una identidad MBA en Z3; y (3) explicar el rol de cada archivo SLEIGH para descompilar bytecode propietario en Ghidra.</p></aside>
+<h2 id="fuentes-de-esta-lección">Fuentes de esta lección</h2>
+<ul><li>Plantillas de laboratorio del repositorio: <code>plantillas_codigo/vm_mba_crackme.c</code>, <code>plantillas_codigo/solve_vm_triton.py</code>, <code>plantillas_codigo/solve_minivm_z3.py</code> y <code>plantillas_codigo/sleigh_minivm/</code>.</li><li>Documentación oficial de <a href="https://ghidra.re/courses/languages/html/sleigh.html" rel="noopener" target="_blank">Ghidra SLEIGH Language Specification</a>, <a href="https://triton-library.github.io/" rel="noopener" target="_blank">Triton Dynamic Binary Analysis</a> y <a href="https://github.com/Z3Prover/z3" rel="noopener" target="_blank">Z3 Theorem Prover</a>.</li></ul>
 </main>
 <footer class="pie">
   <p>Material educativo y defensivo. Las prácticas se limitan a programas propios, software abierto o crackmes diseñados para aprender. No se enseña a eludir licencias, DRM ni controles de acceso.</p>

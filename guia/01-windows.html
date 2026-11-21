@@ -10,10 +10,11 @@
 <body>
 <a class="salto" href="#contenido">Saltar al contenido</a>
 <header class="cabecera">
-  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5 · 27/10/2026</span></div>
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
   <nav class="principal" aria-label="Navegación principal">
     <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
     <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
     <a href="../materiales.html">Materiales</a>
     <a href="../fichas/index.html">Fichas</a>
     <a href="../glosario.html">Glosario</a>
@@ -23,6 +24,8 @@
 </header>
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 1 · Fundamentos</span></nav><h1 id="windows-por-debajo-del-programa">Windows por debajo del programa</h1>
+<div class="meta-nivel"><span class="nivel-badge principiante">Principiante</span> <span><strong>Ruta 1 · Fundamentos (Obligatoria)</strong></span> <span class="meta-sep">·</span> <span>Siguiente paso: <a href="02-registros.html">2.1 Registros (Etapa 2A)</a></span></div>
+
 <aside class="callout aviso"><p class="callout-titulo">De dónde sale esta lección</p><p>Este tema no viene del curso clásico: lo agrega esta edición. Los videos usan páginas, permisos, DLLs y APIs desde el primer capítulo, pero dan por sabido qué hay debajo. Esta lección junta en un solo lugar la teoría del sistema operativo que el resto del curso usa sin explicar. Es una lección de <strong>base teórica</strong>: tiene menos debugger y más modelo mental que las anteriores.</p></aside>
 <aside class="callout nota"><p class="callout-titulo">Objetivo de la lección</p><p>Al terminar vas a poder explicar por qué cada proceso tiene su propio espacio de direcciones y qué es una página; seguir una llamada a una API desde tu programa hasta la instrucción <code>syscall</code>; describir qué hace el loader entre el doble clic y tu <code>main</code>; decir qué cambia cuando un programa de 32 bits corre en un Windows de 64; y nombrar los pasos que convierten un <code>.c</code> en un <code>.exe</code>.</p></aside>
 <p><strong>Prerrequisitos:</strong> lecciones 1.1 a 1.5 (en especial <a href="01-procesos.html">procesos y mapa de memoria</a> y <a href="01-pe.html">formato PE</a>). <strong>Duración sugerida:</strong> 4 a 5 horas. Estimación aproximada.</p>

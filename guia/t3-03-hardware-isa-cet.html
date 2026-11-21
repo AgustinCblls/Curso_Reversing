@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tomo III · Módulo 3: Hardware ISA — Intel CET, Shadow Stack y ARM64EC</title>
+<meta name="description" content="Intel CET a nivel de opcodes (RDSSP/INCSSP), #CP vs 0xC0000409, Call Stack Spoofing y ARM64EC.">
+<link rel="stylesheet" href="../guia/estilo.css">
+</head>
+<body>
+<a class="salto" href="#contenido">Saltar al contenido</a>
+<header class="cabecera">
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
+  <nav class="principal" aria-label="Navegación principal">
+    <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
+    <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
+    <a href="../materiales.html">Materiales</a>
+    <a href="../fichas/index.html">Fichas</a>
+    <a href="../glosario.html">Glosario</a>
+    <a href="../preguntas_y_respuestas.html">Repaso</a>
+    <a href="../buscar.html">Buscar</a>
+  </nav>
+</header>
+<main id="contenido">
+<nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../tomo3.html">Tomo III · Frontera Moderna</a><span aria-hidden="true">›</span><span>Tomo III · Módulo 3: Hardware ISA — Intel CET, Shadow Stack y ARM64EC</span></nav>
+<h1 id="t3m3-módulo-3-isa-de-hardware-para-reversing-intel-cet-stack-spoofing-y-arm64ec">Módulo 3 · ISA de Hardware para Reversing: Intel CET, Stack Spoofing y ARM64EC</h1>
+<div class="meta-nivel"><span class="nivel-badge especialista">Especialista</span> <span><strong>Ruta 4 · Tomo III (Frontera Moderna)</strong></span> <span class="meta-sep">·</span> <span>Requiere Etapas 0–4, Bloque 2E y Tomo II</span></div>
+<p><em>(Tomo III (52 págs. totales) · Prerrequisito: Tomo I, Lección 5.2.b, págs. 332–335; Tomo I, Lección 2.35.b, págs. 263–264; Tomo II, Lección 2D.11, págs. 131–138)</em></p>
+<hr>
+<h2 id="t3m3-3-1-intel-cet-control-flow-enforcement-technology-a-nivel-de-opcode">3.1 Intel CET (Control-flow Enforcement Technology) a Nivel de Opcode</h2>
+<p>En la Lección 5.2.b de Tomo I (págs. 332–335) se abordaron las defensas clásicas contra la Programación Orientada a Retornos (ROP) basadas en software: los canarios de pila (<em>GS Cookies</em> / <code>__security_check_cookie</code>) y SafeSEH. Sin embargo, estas mitigaciones no impiden la manipulación de direcciones de retorno cuando un atacante cuenta con primitivas de lectura/escritura arbitraria de memoria.</p>
+<p>La respuesta de la microarquitectura moderna (Intel Core de 11.ª generación en adelante y AMD Zen 3+) es <strong>Intel CET</strong>, una tecnología de blindaje respaldada por silicio que introduce una segunda pila aislada: la <strong>Pila Sombra (Shadow Stack)</strong>.</p>
+<pre><code>                  MECÁNICA ATÓMICA DE INTEL CET SHADOW STACK
+                  
+          Flujo de Ejecución (CALL Target)
+                     │
+         ┌───────────┴───────────┐
+         ▼                       ▼
+  [ Pila Convencional ]   [ Pila Sombra (Hardware) ]
+  RSP ──&gt; [ Return Addr ] SSP ──&gt; [ Return Addr ]
+  (Escribible por código) (SOLO modificable por CPU)
+         │                       │
+         └───────────┬───────────┘
+                     │
+           Retorno de Función (RET)
+                     │
+             ¿ [RSP] == [SSP] ?
+                     ├─── (SÍ: Coinciden) ──&gt; Ejecución Continúa
+                     │
+                     └─── (NO: Manipulado) ─&gt; DISPARO DE EXCEPCIÓN #CP (Hardware Fault)</code></pre>
+<h3 id="t3m3-operación-en-el-conjunto-de-instrucciones-isa">Operación en el Conjunto de Instrucciones (ISA)</h3>
+<p>La pila sombra reside en memoria física mapeada con permisos especiales de procesador (accesible solo en lectura para el código de usuario, modificable exclusivamente por la unidad de ejecución de la CPU):</p>
+<ol><li><strong>Instrucción <code>CALL</code>:</strong> La CPU decrementa <code>RSP</code> y guarda la dirección de retorno en <code>[RSP]</code>. Simultáneamente, decrementa el <strong>Puntero de Pila Sombra (<code>SSP</code>)</strong> y guarda una copia idéntica en <code>[SSP]</code>.</li><li><strong>Instrucción <code>RET</code>:</strong> La CPU desapila la dirección de <code>[RSP]</code> y la de <code>[SSP]</code>. Compara ambos valores de manera atómica antes de actualizar <code>RIP</code>. Si difieren (indicativo de que un desbordamiento o exploit sobreescribió la pila ordinaria), la CPU aborta la instrucción e interrumpe la ejecución mediante una falla de hardware.</li></ol>
+<h3 id="t3m3-nuevos-opcodes-de-cet-en-el-desensamblador">Nuevos Opcodes de CET en el Desensamblador</h3>
+<p>Al analizar binarios compilados con soporte CET en Windows 11 (<code>/CETCOMPAT</code> en el enlazador de MSVC), el reverser se encontrará con instrucciones de máquina dedicadas:</p>
+<h4 id="t3m3-a-rdssp-reg64-read-shadow-stack-pointer">A. <code>RDSSP reg64</code> (<em>Read Shadow Stack Pointer</em>)</h4>
+<p>Lee el valor actual del registro de control <code>SSP</code> y lo deposita en un registro de propósito general (ej. <code>RDSSPQ RAX</code>). Se utiliza en rutinas de inspección de integridad y telemetría de depuración.</p>
+<pre><code class="lenguaje-assembly">; Opcode: F3 0F 1E C8 (con prefijo REX.W)
+rdsspq  rax                     ; RAX = Dirección virtual actual de la Pila Sombra</code></pre>
+<h4 id="t3m3-b-incssp-reg64-increment-shadow-stack-pointer">B. <code>INCSSP reg64</code> (<em>Increment Shadow Stack Pointer</em>)</h4>
+<p>Avanza el puntero <code>SSP</code> un número determinado de marcos (en múltiplos de 8 bytes).</p>
+<ul><li><strong>Por qué existe:</strong> Cuando el sistema operativo desenrolla la pila por una excepción estructurada (SEH) o una llamada a <code>longjmp</code>, la pila convencional <code>RSP</code> es liberada de golpe saltando varios marcos de llamada. Para mantener la coherencia, el gestor de excepciones de Windows (<code>ntdll!RtlUnwindEx</code>) debe avanzar la pila sombra mediante <code>INCSSP</code> para descartar los punteros de retorno correspondientes a los marcos abandonados.</li></ul>
+<pre><code class="lenguaje-assembly">; Opcode: F3 0F 01 EA (con prefijo REX.W)
+incsspq r10                     ; R10 = número de frames de 8 bytes a saltar en SSP</code></pre>
+<h4 id="t3m3-c-saveprevssp-y-rstorssp-save-and-restore-shadow-stack">C. <code>SAVEPREVSSP</code> y <code>RSTORSSP</code> (<em>Save and Restore Shadow Stack</em>)</h4>
+<p>Utilizadas durante la conmutación de hilos o fibras (<em>User-Mode Scheduling / Fibers</em>):</p>
+<ul><li><code>SAVEPREVSSP</code>: Guarda el puntero previo en el registro de sombra antes de un cambio de contexto.</li><li><code>RSTORSSP</code>: Restaura la pila sombra del hilo entrante verificando una marca de sincronización (<em>shadow stack restore token</em>).</li></ul>
+<pre><code class="lenguaje-assembly">; Opcodes dedicados para cambio de contexto seguro
+saveprevssp                     ; Opcode: F3 0F 01 EA (sin operandos de registro)
+rstorssp qword ptr [rcx]        ; Opcode: F3 0F 01 29 (RCX = token de restauración)</code></pre>
+<hr>
+<h2 id="t3m3-3-2-el-desglose-quirúrgico-de-excepciones-cp-vs-fast-fail-control-protection-user">3.2 El Desglose Quirúrgico de Excepciones: <code>#CP</code> vs. <code>FAST_FAIL_CONTROL_PROTECTION_USER</code></h2>
+<p>Uno de los errores más frecuentes en la literatura de seguridad consiste en confundir la interrupción pura de hardware de la CPU con la rutina de terminación rápida por software de Windows.</p>
+<h3 id="t3m3-1-la-excepción-de-hardware-pura-de-la-cpu-cp-vector-21">1. La Excepción de Hardware Pura de la CPU (<code>#CP</code> - Vector 21)</h3>
+<ul><li>Cuando la instrucción <code>RET</code> detecta <code>[RSP] != [SSP]</code>, la CPU genera la interrupción de hardware número 21 (<strong><code>#CP</code> — Control Protection Exception</strong>).</li><li>El despachador de trampas del kernel de Windows (<code>nt!KiControlProtectionFault</code>) captura la interrupción del procesador y la mapea a la excepción de NTSTATUS formal:</li></ul>
+<p><strong><code>STATUS_CONTROL_PROTECTION_EXCEPTION = 0xC00006A6</code></strong></p>
+<ul><li>En un depurador conectado al proceso, si la excepción es despachada hacia el manejador de excepciones del proceso, se observará:</li></ul>
+<pre><code class="lenguaje-text">  (1a4c.1b20): Control protection violation - code c00006a6 (first chance)
+  First chance exceptions are reported before any exception handling.
+  This exception may be expected and handled.
+  ntdll!KiUserExceptionDispatch:
+  00007ff8`9a123b40 4883ec50        sub     rsp,50h</code></pre>
+<h3 id="t3m3-2-el-mecanismo-de-fast-fail-por-software-int-0x29">2. El Mecanismo de Fast-Fail por Software (<code>int 0x29</code>)</h3>
+<ul><li>Si el compilador (CRT de MSVC) o el cargador de Windows determinan que la anomalía representa una corrupción crítica que no debe permitir la ejecución de ningún bloque <code>__except</code> (para evitar que el atacante secuestre el propio manejador de excepciones), el runtime invoca directamente la instrucción:</li></ul>
+<pre><code class="lenguaje-assembly">  mov     ecx, 2Ah                ; 0x2A = FAST_FAIL_CONTROL_PROTECTION_USER (42 decimal)
+  int     29h                     ; Fast-Fail directo al kernel (nt!KiRaiseSecurityCheckFailure)</code></pre>
+<ul><li>En WinDbg, una terminación por <code>int 0x29</code> se reporta invariablemente como:</li></ul>
+<p><strong><code>STATUS_STACK_BUFFER_OVERRUN = 0xC0000409</code></strong> con el subcódigo <code>0x2A</code> (<em>Subcode: FAST_FAIL_CONTROL_PROTECTION_USER</em>) registrado en el parámetro de fallo del volcado.</p>
+<p><strong>Resumen Operativo para el Analista:</strong></p>
+<ul><li>Si en el volcado de memoria observa <strong><code>0xC00006A6</code></strong>, la violación fue capturada directamente por la trampa de hardware <code>#CP</code> de la CPU.</li><li>Si observa <strong><code>0xC0000409</code> con subcódigo <code>0x2A</code></strong>, el código de usuario o el subsistema de mitigaciones despachó una terminación preventiva rápida antes de permitir que la CPU o el unwinder procesaran el fallo.</li></ul>
+<hr>
+<h2 id="t3m3-3-3-detección-práctica-y-análisis-forense-de-call-stack-spoofing">3.3 Detección Práctica y Análisis Forense de <em>Call Stack Spoofing</em></h2>
+<p>En la Lección 2.15 (Tomo I, págs. 156–165) se analizaron técnicas de evasión de telemetría de antivirus y EDRs. Uno de los métodos ofensivos más sofisticados es el <strong>Falseo de la Pila de Llamadas (<em>Call Stack Spoofing</em>)</strong>:</p>
+<ul><li>Cuando un implante o malware desea invocar una API sospechosa (como <code>VirtualAlloc</code> con permisos <code>PAGE_EXECUTE_READWRITE</code> o <code>WriteProcessMemory</code>), sabe que los sensores EDR inspeccionan la pila de llamadas (<em>call stack</em>) para verificar desde dónde provino la invocación.</li><li>Para evadir la detección, el malware sobreescribe sintéticamente la dirección de retorno en <code>[RSP]</code> para que apunte al interior de una DLL legítima del sistema (como <code>kernelbase.dll</code> o <code>ntdll.dll</code>), simulando ser una función inofensiva de Windows.</li></ul>
+<h3 id="t3m3-cómo-audita-la-pila-un-sensor-defensivo-moderno">Cómo Audita la Pila un Sensor Defensivo Moderno</h3>
+<p>Un motor de detección robusto o un analista en WinDbg valida la autenticidad del call stack mediante tres pruebas concurrentes:</p>
+<pre><code>                  TRIPLE VALIDACIÓN DE INTEGRIDAD DE STACK
+                  
+  [ Dirección de Retorno en Stack: ReturnAddress ]
+             │
+             ├──&gt; 1. Verificación de Código Previo: ¿La instrucción antes de ReturnAddress es CALL?
+             │       (Opcode E8 xx xx xx xx  o  FF /2)
+             │
+             ├──&gt; 2. Desenredo Coherente (UNWIND_INFO):
+             │       ¿RtlVirtualUnwind logra retroceder hasta RtlUserThreadStart sin marcos truncados?
+             │
+             └──&gt; 3. Coherencia Hardware CET:
+                     ¿La dirección en [RSP] coincide exactamente con [SSP]?</code></pre>
+<h4 id="t3m3-1-verificación-de-opcode-invocador-call-vs-jmp">1. Verificación de Opcode Invocador (<code>CALL</code> vs <code>JMP</code>)</h4>
+<p>Cuando una función retorna, el valor previo a <code>ReturnAddress</code> en memoria ejecutable DEBE ser una instrucción <code>CALL</code>. Si un atacante forjó un frame apuntando a una instrucción cualquiera después de un <code>JMP</code> o una instrucción no relacionada, el analizador detecta la anomalía:</p>
+<pre><code class="lenguaje-c">// Lógica defensiva para validar el caller
+uint8_t* caller_site = (uint8_t*)return_address;
+if (caller_site[-5] == 0xE8) {
+    // Invocación válida mediante CALL relativo (5 bytes)
+} else if (caller_site[-2] == 0xFF || caller_site[-3] == 0xFF) {
+    // Invocación válida mediante CALL indirecto (FF /2)
+} else {
+    // ¡ALERTA! El call site previo NO es una llamada -&gt; Stack Spoofing Detectado
+}</code></pre>
+<h4 id="t3m3-2-desenredo-seh-con-unwind-info">2. Desenredo SEH con <code>UNWIND_INFO</code></h4>
+<p>Como se estudió en la Lección 2D.11 (Tomo II, págs. 131–138), cada función en x64 posee una entrada en la tabla <code>.pdata</code>. El sensor ejecuta <code>RtlVirtualUnwind</code> paso a paso: si en algún punto el tamaño del marco de pila no coincide con los códigos de desenredo (<code>UWOP_ALLOC_SMALL</code>, <code>UWOP_PUSH_NONVOL</code>), el stack se clasifica como sintético.</p>
+<h4 id="t3m3-3-el-fin-del-call-stack-spoofing-con-intel-cet">3. El Fin del Call Stack Spoofing con Intel CET</h4>
+<p>Bajo un entorno con CET activo, <strong>el Call Stack Spoofing tradicional es matemáticamente inviable</strong>:</p>
+<ul><li>El atacante puede modificar <code>[RSP]</code> a voluntad en modo usuario.</li><li>Pero <strong>no puede modificar <code>[SSP]</code></strong>, porque la pila sombra es de solo lectura y solo la CPU puede escribir en ella mediante <code>CALL</code>.</li><li>Al retornar de la API inyectada, la discrepancia entre el <code>[RSP]</code> falso y el <code>[SSP]</code> genuino dispara instantáneamente la excepción <code>#CP</code> (<code>0xC00006A6</code>), anulando la evasión.</li></ul>
+<hr>
+<h2 id="t3m3-3-4-arm64ec-en-el-desensamblador-híbrido">3.4 ARM64EC en el Desensamblador Híbrido</h2>
+<p>En la Lección 2.35.b de Tomo I (págs. 263–264) se introdujo el concepto de binarios <strong>ARM64EC</strong> (<em>Emulation Compatible</em>), la tecnología de Microsoft para permitir que código x64 nativo y código ARM64 convivan dentro del mismo espacio de proceso en dispositivos Windows 11 con procesadores Qualcomm Snapdragon X Elite / ARM64.</p>
+<h3 id="t3m3-la-anatomía-de-los-trampolines-h-entry-thunks">La Anatomía de los Trampolines <code>$$h</code> (<em>Entry Thunks</em>)</h3>
+<p>Cuando una función ARM64EC es invocada desde un módulo x64, la CPU no puede ejecutar directamente las instrucciones ARM64 porque las convenciones de llamada y los registros son distintos:</p>
+<ul><li><strong>x64:</strong> Pasa argumentos en <code>RCX</code>, <code>RDX</code>, <code>R8</code>, <code>R9</code>.</li><li><strong>ARM64:</strong> Pasa argumentos en <code>X0</code>, <code>X1</code>, <code>X2</code>, <code>X3</code>, <code>X4</code>, <code>X5</code>, <code>X6</code>, <code>X7</code>.</li></ul>
+<p>Para resolver este cruce sin penalización perceptible, el compilador emite un <strong>Entry Thunk</strong> con el sufijo <code>$$h</code>:</p>
+<pre><code class="lenguaje-assembly">; ==============================================================================
+; Desensamblado de Trampolín ARM64EC en IDA Pro / Ghidra
+; Símbolo: #FuncionSegura$$h (Entry Thunk para llamadas desde x64)
+; ==============================================================================
+FuncionSegura$$h:
+    ; Mapeo de registros x64 a registros ARM64
+    mov     x0, x1                  ; x1 contiene el RCX mapeado por xtajit64
+    mov     x1, x2                  ; x2 contiene el RDX mapeado
+    mov     x2, x3                  ; x3 contiene el R8 mapeado
+    mov     x3, x4                  ; x4 contiene el R9 mapeado
+    b       #FuncionSegura          ; Salto a la implementación ARM64 nativa</code></pre>
+<h3 id="t3m3-el-directorio-de-metadatos-chpe-en-el-pe-load-config">El Directorio de Metadatos CHPE en el PE Load Config</h3>
+<p>En el archivo binario PE, un ejecutable ARM64EC posee un encabezado <code>IMAGE_FILE_MACHINE_ARM64</code> (0xAA64), pero su tabla de configuración de carga (<code>IMAGE_LOAD_CONFIG_DIRECTORY64</code>) incluye punteros hacia estructuras CHPE:</p>
+<ul><li><code>CHPEMetadataPointer</code>: Apunta a la tabla <code>IMAGE_ARM64EC_METADATA</code>.</li><li><code>ExtraRFETable</code>: Tabla extendida de excepciones para código emulado.</li><li><code>xtajit64.dll</code>: El motor JIT en modo usuario que intercepta las llamadas indirectas y conmuta entre el emulador x64 y la ejecución nativa en silicio ARM64.</li></ul>
+<hr>
+<h2 id="t3m3-3-5-resumen-de-prácticas-del-módulo-3">3.5 Resumen de Prácticas del Módulo 3</h2>
+<p>Para afianzar los conceptos desarrollados en este módulo:</p>
+<ul><li><a href="../plantillas_codigo/plantilla_20_cet_shadow_stack.c"><code>plantillas_codigo/plantilla_20_cet_shadow_stack.c</code></a>: Binario en C para lectura de <code>SSP</code> con <code>_rdsspq()</code> y verificación de hardware CET en modo usuario.</li><li>Análisis en depurador de la trampa de hardware <code>#CP</code> (<code>0xC00006A6</code>) frente al fast-fail <code>int 0x29</code> (<code>0xC0000409</code>).</li></ul>
+<div class="pager"><a href="t3-02-contenedores-lpac.html">← Anterior: Tomo III · Módulo 2</a><a href="t3-04-ia-local-ghidra.html">Siguiente: Tomo III · Módulo 4 →</a></div>
+</main>
+<footer class="pie">
+  <p>Material educativo y defensivo. Las prácticas se limitan a programas propios, software abierto o crackmes diseñados para aprender. No se enseña a eludir licencias, DRM ni controles de acceso.</p>
+  <p><a href="../00_EMPEZAR_AQUI.html">Inicio</a> · <a href="../guia/index.html">Mapa del curso</a> · <a href="../tomo3.html">Tomo III</a> · <a href="../fuentes_y_limites.html">Fuentes y límites</a> · <a href="../registro_de_cobertura.csv">Registro de cobertura</a></p>
+</footer>
+</body>
+</html>

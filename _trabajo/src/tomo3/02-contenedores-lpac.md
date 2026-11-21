@@ -1,5 +1,5 @@
 # Módulo 2 · Contenedores, Aislamiento Moderno (LPAC, MSIX) y la Frontera WSL2
-*(Presupuesto editorial: 20 páginas — Prerrequisito: Tomo I, Lección 2.35, págs. 259–260 y Tomo II, Anexo Hyper-V, págs. 158–159)*
+*(Tomo III (52 págs. totales) · Prerrequisito: Tomo I, Lección 2.35, págs. 259–260 y Tomo II, Anexo Hyper-V, págs. 158–159)*
 
 ---
 
@@ -32,12 +32,12 @@ A diferencia de los SIDs convencionales de Windows (donde las subautoridades se 
 1. **Package SID (`S-1-15-2-*`):**
    * Se calcula aplicando `SHA-256` sobre el *Package Family Name* (ej. `Microsoft.Windows.Search_cw5n1h2txyewy`).
    * Los primeros 128 bits del hash SHA-256 se dividen en 4 bloques de 32 bits (little-endian), los cuales componen las 4 subautoridades del SID:
-     $$S\text{-}1\text{-}15\text{-}2\text{-}A\text{-}B\text{-}C\text{-}D$$
+     `S-1-15-2-A-B-C-D`
    * Esto garantiza que cualquier proceso que se ejecute bajo el mismo paquete comparta exactamente el mismo Package SID en cualquier instalación de Windows 11 en el mundo.
 
 2. **Capability SID (`S-1-15-3-*`):**
    * Se deriva de forma análoga mediante `SHA-256` sobre el nombre canónico de la capacidad declarada en el manifiesto (o sobre un identificador de GUID para capacidades personalizadas):
-     $$S\text{-}1\text{-}15\text{-}3\text{-}1024\text{-}A\text{-}B\text{-}C\text{-}D$$
+     `S-1-15-3-1024-A-B-C-D`
 
 ---
 
@@ -156,7 +156,7 @@ Si la salida de `accesschk` revela que un proceso LPAC tiene acceso `FILE_ALL_AC
 
 ### C. La Plantilla 19 (`plantilla_19_auditar_lpac.ps1`)
 
-El repositorio incluye el script reproducible [`plantillas_codigo/plantilla_19_auditar_lpac.ps1`](file:///C:/Users/agust/.gemini/antigravity/scratch/CLS_Guia/plantillas_codigo/plantilla_19_auditar_lpac.ps1), el cual automatiza este análisis:
+El repositorio incluye el script reproducible [`plantillas_codigo/plantilla_19_auditar_lpac.ps1`](plantillas_codigo/plantilla_19_auditar_lpac.ps1), el cual automatiza este análisis:
 1. Enumera todos los procesos en ejecución y consulta sus tokens mediante P/Invoke a `OpenProcessToken` y `GetTokenInformation`.
 2. Evalúa si `TokenIsAppContainer` es verdadero.
 3. Decodifica los SIDs de paquete y lista todas las capacidades `S-1-15-3-*` activas.
@@ -165,7 +165,7 @@ El repositorio incluye el script reproducible [`plantillas_codigo/plantilla_19_a
 
 ---
 
-## 2.3 WSL2 como Frontera Híbrida de Interoperabilidad (Windows $\leftrightarrow$ Linux)
+## 2.3 WSL2 como Frontera Híbrida de Interoperabilidad (Windows ↔ Linux)
 
 ### Aclaración de Alcance Metodológico
 Siguiendo las restricciones de límites declaradas en la Sección 1.A del Tomo III:
@@ -226,5 +226,5 @@ WSLg ejecuta un compositor Wayland (Weston) en una partición de sistema aislada
 ## 2.4 Resumen de Prácticas del Módulo 2
 
 Para afianzar los conceptos desarrollados en este módulo:
-* [`plantillas_codigo/plantilla_19_auditar_lpac.ps1`](file:///C:/Users/agust/.gemini/antigravity/scratch/CLS_Guia/plantillas_codigo/plantilla_19_auditar_lpac.ps1): Script de auditoría de tokens AppContainer / LPAC sobre procesos en vivo en Windows 11.
+* [`plantillas_codigo/plantilla_19_auditar_lpac.ps1`](plantillas_codigo/plantilla_19_auditar_lpac.ps1): Script de auditoría de tokens AppContainer / LPAC sobre procesos en vivo en Windows 11.
 * Práctica con `accesschk.exe`: Auditoría de Named Pipes contra procesos en sandbox LPAC para detección de posibles vectores de escape.

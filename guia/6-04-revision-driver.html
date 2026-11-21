@@ -10,10 +10,11 @@
 <body>
 <a class="salto" href="#contenido">Saltar al contenido</a>
 <header class="cabecera">
-  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5 · 27/10/2026</span></div>
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
   <nav class="principal" aria-label="Navegación principal">
     <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
     <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
     <a href="../materiales.html">Materiales</a>
     <a href="../fichas/index.html">Fichas</a>
     <a href="../glosario.html">Glosario</a>
@@ -23,6 +24,8 @@
 </header>
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 6 · Kernel y drivers (rama optativa)</span></nav><h1 id="revisión-defensiva-de-un-driver">Revisión defensiva de un driver</h1>
+<div class="meta-nivel"><span class="nivel-badge avanzado">Avanzado · Ring 0</span> <span><strong>Ruta 3 · Etapa 6 (Tomo II)</strong></span></div>
+
 <aside class="callout aviso"><p class="callout-titulo">Sin explotación</p><p>Esta revisión busca defectos de diseño y evidencia para corregirlos. No pruebes IOCTLs contra drivers de terceros ni intentes conseguir acceso privilegiado. Los patrones de riesgo de esta lección se usan para <strong>leer</strong> código y binarios propios o didácticos, no para construir pruebas contra un kernel cargado.</p></aside>
 <aside class="callout nota"><p class="callout-titulo">Propósito</p><p>Reconstruir la superficie de acceso de un driver desde nombre/interfaz y permisos hasta cada IOCTL y su validación, y leer el ciclo de vida de una solicitud (colas, propiedad, cancelación) para encontrar rutas donde la validación o la finalización fallan.</p></aside>
 <p><strong>Prerrequisitos</strong></p>

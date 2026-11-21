@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tomo III · Bitácora de Laboratorio, Conclusiones y Colofón</title>
+<meta name="description" content="Síntesis técnica de la trilogía consolidada, hitos verificados y colofón editorial.">
+<link rel="stylesheet" href="../guia/estilo.css">
+</head>
+<body>
+<a class="salto" href="#contenido">Saltar al contenido</a>
+<header class="cabecera">
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
+  <nav class="principal" aria-label="Navegación principal">
+    <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
+    <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
+    <a href="../materiales.html">Materiales</a>
+    <a href="../fichas/index.html">Fichas</a>
+    <a href="../glosario.html">Glosario</a>
+    <a href="../preguntas_y_respuestas.html">Repaso</a>
+    <a href="../buscar.html">Buscar</a>
+  </nav>
+</header>
+<main id="contenido">
+<nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../tomo3.html">Tomo III · Frontera Moderna</a><span aria-hidden="true">›</span><span>Tomo III · Bitácora de Laboratorio, Conclusiones y Colofón</span></nav>
+<h1 id="t3m6-bitácora-de-laboratorio-conclusiones-y-colofón">Bitácora de Laboratorio, Conclusiones y Colofón</h1>
+<div class="meta-nivel"><span class="nivel-badge especialista">Especialista</span> <span><strong>Ruta 4 · Tomo III (Frontera Moderna)</strong></span> <span class="meta-sep">·</span> <span>Requiere Etapas 0–4, Bloque 2E y Tomo II</span></div>
+<hr>
+<h2 id="t3m6-6-1-bitácora-de-cierre-y-lecciones-de-laboratorio">6.1 Bitácora de Cierre y Lecciones de Laboratorio</h2>
+<p>La culminación técnica del <strong>Tomo III</strong> de <em>«Reversing en Windows — Edición Libre y Abierta»</em> consolida una serie de principios operativos que distinguen a la práctica moderna de la ingeniería inversa en sistemas Windows 11 (2026+) de las aproximaciones tradicionales:</p>
+<pre><code>                  EVOLUCIÓN DEL ENFOQUE DE REVERSING EN WINDOWS
+                  
+    ENFOQUE CLÁSICO (2010–2020)              FRONTERA MODERNA (TOMO III - 2026+)
+┌──────────────────────────────────────┐   ┌──────────────────────────────────────────┐
+│ Compilación monolítica con MSVC      │──&gt;│ Backend LLVM, Clang-cl, ThinLTO e ICF    │
+│ Desensamblado guiado por strings \0  │──&gt;│ Fat pointers de Rust (ptr+len) en .rdata │
+│ Excepciones SEH en pila de usuario   │──&gt;│ Shadow Stack por hardware (Intel CET)    │
+│ Procesos y permisos por ACLs / DACLs │──&gt;│ Contenedores LPAC y Capability SIDs      │
+│ Análisis manual artesanal o nube     │──&gt;│ IA local offline soberana y falsable     │
+└──────────────────────────────────────┘   └──────────────────────────────────────────┘</code></pre>
+<h3 id="t3m6-síntesis-de-lecciones-de-laboratorio-fase-3">Síntesis de Lecciones de Laboratorio (Fase 3):</h3>
+<ol><li><strong>La Divergencia entre Clang CFI y Microsoft kCFG:</strong></li></ol>
+<p>La ingeniería inversa de código compilado con <code>clang-cl</code> exige reconocer que las protecciones indirectas no siempre dependen del kernel de Windows ni de la tabla <code>GuardCFFunctionTable</code>. Clang CFI embebe comprobaciones inline basadas en firmas hash que terminan en trampas <code>ud2</code> (<code>0F 0B</code>), eludiendo por completo la maquinaria tradicional de <code>guard_dispatch_icall</code>.</p>
+<ol start="2"><li><strong>La Desaparición del Byte Nulo en Binarios Rust Stripped:</strong></li></ol>
+<p>La combinación de <code>panic = "abort"</code> y <code>strip = true</code> impone un cambio radical en la fase de reconocimiento de cadenas. Sin metadatos <code>.pdata</code> ni delimitadores <code>0x00</code>, el analista debe rastrear fat pointers <code>(ptr, len)</code> pasados en pares de registros o aplicar algoritmos heurísticos sobre la sección <code>.rdata</code> (como el implementado en <a href="../plantillas_codigo/plantilla_18_rust_lto/reconstruct_slices.py"><code>reconstruct_slices.py</code></a>).</p>
+<ol start="3"><li><strong>La Eficacia de la Auditoría User-Mode sobre Contenedores LPAC:</strong></li></ol>
+<p>No es obligatorio contar con un depurador de kernel conectado por KDNET para diagnosticar el confinamiento de un proceso moderno. Mediante la API de Win32 (<code>OpenProcessToken</code> y <code>GetTokenInformation</code>), el reverser puede extraer el bit <code>0x20</code> de <code>TokenFlags</code> y mapear los SIDs de capacidad <code>S-1-15-3-*</code>, determinando con certeza matemática el perímetro defensivo de una aplicación.</p>
+<ol start="4"><li><strong>El Shadow Stack de Intel como Barrera de Silicio:</strong></li></ol>
+<p>La prueba empírica sobre hardware físico demostró que la protección de la dirección de retorno ya no es una abstracción de software emulada. Cuando CET está activo, el procesador confronta cada <code>RET</code> con la cima de una pila secundaria inaccesible mediante instrucciones <code>MOV</code> ordinarias, elevando una excepción <code>#CP</code> (<code>0xC00006A6</code>) inmediata ante cualquier intento de desvío por ROP.</p>
+<ol start="5"><li><strong>El Imperativo Ético y Práctico de la IA Soberana:</strong></li></ol>
+<p>La adopción de LLMs locales en Ghidra solo es admisible si se preserva la confidencialidad estricta y se subordina cada inferencia al <strong>principio de falsabilidad</strong>. La inteligencia artificial propone hipótesis semánticas; la evidencia binaria de las referencias cruzadas y las llamadas API confirman o refutan la validez del análisis.</p>
+<hr>
+<h2 id="t3m6-6-2-resumen-de-hitos-y-estado-de-la-trilogía">6.2 Resumen de Hitos y Estado de la Trilogía</h2>
+<p>Con la entrega de este volumen, la trilogía completa de <em>«Reversing en Windows — Edición Libre y Abierta»</em> alcanza su arquitectura definitiva:</p>
+<div class="tabla"><table>
+<thead><tr>
+<th>Volumen</th>
+<th>Denominación y Enfoque</th>
+<th>Páginas Base</th>
+<th>Estado Editorial</th>
+</tr></thead><tbody>
+<tr><td><strong>Tomo I</strong></td><td><em>Fundamentos, Arquitectura PE, Flujo, Criptografía y Práctica Instrumental (Etapas 0 a 5)</em></td><td><strong>468 págs.</strong></td><td>Aprobado / En Imprenta (Partes A y B)</td></tr>
+<tr><td><strong>Tomo II</strong></td><td><em>Kernel de Windows, Subsistemas Internos, RPC/COM, Hyper-V y Mitigaciones VBS (Etapa 6 y Rama 2D)</em></td><td><strong>200 págs.</strong></td><td>Aprobado / En Imprenta</td></tr>
+<tr><td><strong>Tomo III</strong></td><td><em>LLVM, Rust, Contenedores LPAC, Hardware ISA (CET) y Reversing Aumentado por IA Local</em></td><td><strong>52 págs.</strong></td><td>Cerrado / Fases 1, 2 y 3 Verificadas</td></tr>
+<tr><td><strong>TOTAL</strong></td><td><strong>Trilogía Consolidada de Ingeniería Inversa en Windows</strong></td><td><strong>720 págs.</strong></td><td><strong>Obra Completa y Reproducible</strong></td></tr>
+</tbody></table></div>
+<blockquote><p><em>Nota de Mantenimiento Metodológico:</em> Conforme a lo declarado en la pág. 9 del Tomo I y ratificado en la especificación del Tomo III, los pendientes históricos relativos a tutoriales complementarios de IDA y laboratorios de explotación avanzada en ring-3 permanecen abiertos para futuras revisiones monográficas, manteniendo la integridad y coherencia documental de toda la colección.</p></blockquote>
+<hr>
+<div style="page-break-before: always;"></div>
+<h2 id="t3m6-colofón-editorial-y-técnico">Colofón Editorial y Técnico</h2>
+<div style="text-align: center; margin-top: 4rem; margin-bottom: 4rem;">
+<h3 id="t3m6-reversing-en-windows">REVERSING EN WINDOWS</h3>
+<h4 id="t3m6-edición-libre-y-abierta-tomo-iii-llvm-rust-contenedores-y-reversing-con-ia-local">Edición Libre y Abierta — Tomo III: LLVM, Rust, Contenedores y Reversing con IA Local</h4>
+<hr>
+<p>Este tercer volumen de la obra <em>«Reversing en Windows — Edición Libre y Abierta»</em> se terminó de redactar, verificar en laboratorio físico y maquetar en el mes de <strong>noviembre de 2026</strong>.</p>
+<p>La composición tipográfica de los textos se realizó utilizando familias tipográficas optimizadas para lectura técnica prolongada: <em>Inter</em> para el cuerpo general de texto, <em>JetBrains Mono</em> para listados de código de máquina y bloques de desensamblado, y <em>Fira Code</em> para diagramas estructurales en ASCII y tablas de verdad.</p>
+<p>La compilación y verificación de las plantillas de código se llevó a cabo en una estación de trabajo con Windows 11 Enterprise (versión 24H2, build 26100), utilizando el compilador LLVM/Clang v17.0+, el compilador Microsoft Visual C++ v19.51 (MSVC x64), el compilador Rustc v1.78+, el framework de desensamblado Ghidra v11.1+ y el motor de inferencia local Ollama ejecutando el modelo <code>qwen2.5-coder:14b</code>.</p>
+<hr>
+<p>El volumen consta de <strong>52 páginas numeradas</strong>, equivalentes a <strong>26 hojas físicas impresas a doble faz</strong>, diseñadas para garantizar un encuadernado perfecto en espiral metálico <em>Ring Wire 3:1</em> (14.3 mm).</p>
+<p>La paridad par estricta de este documento garantiza la correcta alternancia de márgenes interiores (lomo) y exteriores en imprenta profesional.</p>
+<hr>
+<p><em>«La ingeniería inversa no consiste en descifrar secretos ajenos,</em> <em>sino en comprender las leyes fundamentales del cómputo y la memoria,</em> <em>reclamando la soberanía sobre el software que ejecutamos en nuestras propias máquinas.»</em></p>
+<p><strong>Buenos Aires · 2026</strong></p>
+</div>
+<div class="pager"><a href="t3-05-plantillas-y-laboratorios.html">← Anterior: Tomo III · Módulo 5</a><a href="../tomo3.html">Índice del Tomo III →</a></div>
+</main>
+<footer class="pie">
+  <p>Material educativo y defensivo. Las prácticas se limitan a programas propios, software abierto o crackmes diseñados para aprender. No se enseña a eludir licencias, DRM ni controles de acceso.</p>
+  <p><a href="../00_EMPEZAR_AQUI.html">Inicio</a> · <a href="../guia/index.html">Mapa del curso</a> · <a href="../tomo3.html">Tomo III</a> · <a href="../fuentes_y_limites.html">Fuentes y límites</a> · <a href="../registro_de_cobertura.csv">Registro de cobertura</a></p>
+</footer>
+</body>
+</html>

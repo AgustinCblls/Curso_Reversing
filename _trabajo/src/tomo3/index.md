@@ -1,6 +1,6 @@
 # Reversing en Windows — Edición Libre y Abierta
 ## Tomo III: LLVM, Rust, Contenedores y Reversing con IA Local
-*(Revisión 5.4 / Trilogía Consolidada)*
+*(Revisión 5.5 / Trilogía Consolidada)*
 
 ---
 
@@ -42,7 +42,7 @@ En estricta observancia de la metodología declarada en la página 9 del Tomo I:
 | **Módulo 1 · Rust LTO** | `plantilla_18` | **Verificado** | Binario stripped con hash SHA-256 + volcado de `strings` limpio (sin rutas `.rs`) + script de slices ejecutado con éxito. |
 | **Módulo 2 · LPAC y MSIX** | `plantilla_19` | **Verificado** | Captura de `AccessChk.exe -p` + volcado WinDbg de `!token` exhibiendo bit LPAC `0x20` y SIDs `S-1-15-3-*` sobre una app real. |
 | **Módulo 3 · Intel CET** | `plantilla_20` | **Verificado** | Traza de `!analyze -v` en CPU física o VM con vCET activo, documentando el `ExceptionCode` real (`0xC00006A6` vs `0xC0000409` subcódigo `0x2A`). |
-| **Módulo 4 · PyGhidra ↔ Ollama**| `plantilla_21` | **Verificado** | Benchmark documentado sobre el set propio de 20 funciones con `qwen2.5-coder:14b`: $\ge 60\%$ acierto semántico, $\le 8$ s latencia y fallback regex probado. |
+| **Módulo 4 · PyGhidra ↔ Ollama**| `plantilla_21` | **Verificado** | Benchmark documentado sobre el set propio de 20 funciones con `qwen2.5-coder:14b`: ≥ 60 % acierto semántico, ≤ 8 s latencia y fallback regex probado. |
 
 ---
 
@@ -59,7 +59,7 @@ En estricta observancia de la metodología declarada en la página 9 del Tomo I:
 | **§3.3** (ARM64EC en el desensamblador) | Lección 2.35.b (Binarios Híbridos ARM64EC) | **Tomo I, págs. 263–264** |
 | **§4.1 – 4.4** (IA Local soberana para Ghidra) | Lección 2.31 (Extensiones de Ghidra y PyGhidra) | **Tomo I, págs. 240–242** *(Contexto instrumental: 115–120)* |
 
-> *Nota obligatoria de consulta:* Las páginas indicadas corresponden al **número impreso en el encabezado de cada hoja**, tanto en la edición consolidada de 410 páginas como en la edición dividida (donde la Parte B conserva la numeración continua de 173 a 410). Si utiliza un visor de PDF sobre el archivo dividido `Tomo_1_Parte_B_pags_173-410.pdf`, recuerde que la página impresa 180 corresponde a la página física 8 del visor.
+> *Nota obligatoria de consulta:* Las páginas indicadas corresponden al **número impreso en el encabezado de cada hoja**, como referencia aproximada de la edición base; ante reimpresiones o ajustes de paginación (p. ej. Tomo I de 468 págs., Tomo II de 200 págs.), utilice siempre el número de lección y los marcadores jerárquicos (*bookmarks*) del PDF maestro `CLS_Curso_Reversing.pdf`.
 
 ---
 

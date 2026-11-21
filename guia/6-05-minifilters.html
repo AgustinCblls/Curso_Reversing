@@ -10,10 +10,11 @@
 <body>
 <a class="salto" href="#contenido">Saltar al contenido</a>
 <header class="cabecera">
-  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5 · 27/10/2026</span></div>
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
   <nav class="principal" aria-label="Navegación principal">
     <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
     <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
     <a href="../materiales.html">Materiales</a>
     <a href="../fichas/index.html">Fichas</a>
     <a href="../glosario.html">Glosario</a>
@@ -23,6 +24,8 @@
 </header>
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 6 · Kernel y drivers (rama optativa)</span></nav><h1 id="minifilters-y-callbacks-observación-del-sistema-de-archivos">Minifilters y callbacks: observación del sistema de archivos</h1>
+<div class="meta-nivel"><span class="nivel-badge avanzado">Avanzado · Ring 0</span> <span><strong>Ruta 3 · Etapa 6 (Tomo II)</strong></span></div>
+
 <aside class="callout aviso"><p class="callout-titulo">Alcance de lectura</p><p>No construyas un filtro para bloquear, cambiar o capturar archivos de terceros. La práctica usa documentación, una muestra didáctica y archivos descartables de la VM. No cargues, descargues, adjuntes ni separes filtros del sistema.</p></aside>
 <aside class="callout nota"><p class="callout-titulo">Propósito</p><p>Ubicar un minifilter en la pila de filesystem y describir pre/post callbacks, orden y límites de observación. Al terminar deberías poder leer la lista de filtros de una VM, ubicar cada uno por su altitud y explicar qué puede y qué no puede haber visto de una operación.</p></aside>
 <p><strong>Prerrequisitos</strong></p>

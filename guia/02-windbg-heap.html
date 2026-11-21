@@ -10,10 +10,11 @@
 <body>
 <a class="salto" href="#contenido">Saltar al contenido</a>
 <header class="cabecera">
-  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5 · 27/10/2026</span></div>
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
   <nav class="principal" aria-label="Navegación principal">
     <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
     <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
     <a href="../materiales.html">Materiales</a>
     <a href="../fichas/index.html">Fichas</a>
     <a href="../glosario.html">Glosario</a>
@@ -23,6 +24,8 @@
 </header>
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 2 · Windows avanzado (2C)</span></nav><h1 id="windbg-ttd-y-heap">WinDbg, TTD y heap</h1>
+<div class="meta-nivel"><span class="nivel-badge avanzado">Avanzado</span> <span><strong>Ruta 3 · Bloque 2C núcleo duro</strong></span></div>
+
 <aside class="callout nota"><p class="callout-titulo">Objetivo de la lección</p><p>Manejar <strong>WinDbg</strong> para lo que x64dbg no da cómodo: <strong>time-travel</strong> (ir hacia atrás) y <strong>diagnóstico de heap</strong>. Encontrar la causa de un error de memoria en un programa <strong>propio</strong>. <strong>Prerrequisitos:</strong> debugger (2.6), llamadas y pila (2.4), memoria (1.2).</p></aside>
 <h2 id="windbg-por-qué-y-lo-mínimo">WinDbg: por qué y lo mínimo</h2>
 <p>El Curso IDA integra <strong>WinDbg con IDA</strong>: lo instala y lo maneja desde la interfaz de IDA porque es "un gran debugger" aunque incómodo, casi todo por comandos (<a class="fuente" href="../_trabajo/extraido_ida/32-INTRODUCCION%20AL%20REVERSING%20CON%20IDA%20PRO%20DESDE%20CERO.txt">Curso IDA, tute 32</a>). Comandos que vas a usar siempre:</p>

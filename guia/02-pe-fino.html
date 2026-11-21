@@ -10,10 +10,11 @@
 <body>
 <a class="salto" href="#contenido">Saltar al contenido</a>
 <header class="cabecera">
-  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5 · 27/10/2026</span></div>
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
   <nav class="principal" aria-label="Navegación principal">
     <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
     <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
     <a href="../materiales.html">Materiales</a>
     <a href="../fichas/index.html">Fichas</a>
     <a href="../glosario.html">Glosario</a>
@@ -23,6 +24,8 @@
 </header>
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 2 · Windows intermedio</span></nav><h1 id="pe-fino-los-directorios-que-cuentan-la-historia">PE fino: los directorios que cuentan la historia</h1>
+<div class="meta-nivel"><span class="nivel-badge intermedio">Intermedio</span> <span><strong>Ruta 2 · Bloque 2B</strong></span></div>
+
 <aside class="callout nota"><p class="callout-titulo">Objetivo de la lección</p><p>Leer los <strong>directorios del PE</strong> que la lección 1.4 solo nombra, y entender qué pista da cada uno <strong>antes</strong> de llegar al entry point. <strong>Prerrequisitos:</strong> <a href="01-pe.html">El formato PE</a> (1.4), <a href="02-tls.html">TLS</a> (2.11), <a href="02-huella-compilador.html">huella de compilador</a> (2.13).</p></aside>
 <p>En <a href="01-pe.html">1.4</a> viste la cabecera, las secciones, los imports y la IAT. Acá vamos a los <strong>otros <code>DataDirectory</code></strong>, que muchas veces resuelven el análisis sin ejecutar nada. Todo esto se lee con <strong>PE-bear</strong>, <strong>CFF Explorer</strong> o el navegador de IDA; el recorrido VA↔RVA↔offset es el del capítulo 05 (<a class="fuente" href="../../CLS_resultados_intermedios/transcripciones/extraidos/Reversing%20desde%20cero%20%28Ricardo%20y%20Solid%29/Ricardo%20Narvaja%20y%20Solid%20-%20Reversing%20desde%20cero_05%20Virtual%20Adress%2C%20RVA%2C%20Offsets%20y%20Desplazamientos_05%20Virtual%20Adress%2C%20RVA%2C%20Offsets%20y%20Desplazamientos.txt">Reversing desde cero, cap. 05</a>). El contenido de esta lección es <strong>conocimiento externo</strong> salvo donde se cite.</p>
 <h2 id="rich-header">Rich header</h2>

@@ -10,10 +10,11 @@
 <body>
 <a class="salto" href="#contenido">Saltar al contenido</a>
 <header class="cabecera">
-  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5 · 27/10/2026</span></div>
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
   <nav class="principal" aria-label="Navegación principal">
     <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
     <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
     <a href="../materiales.html">Materiales</a>
     <a href="../fichas/index.html">Fichas</a>
     <a href="../glosario.html">Glosario</a>
@@ -23,6 +24,8 @@
 </header>
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 2 · Introducción al reversing</span></nav><h1 id="punto-flotante-y-sse-los-registros-xmm">Punto flotante y SSE: los registros xmm</h1>
+<div class="meta-nivel"><span class="nivel-badge principiante">Principiante</span> <span><strong>Ruta 1 · Etapa 2A Base (Obligatoria)</strong></span></div>
+
 <aside class="callout aviso"><p class="callout-titulo">De dónde sale esta lección</p><p>Este tema no viene del curso clásico: lo agrega esta edición. El curso de reversing trabaja casi todo con enteros, así que el punto flotante quedaba sin cubrir. Lo incluimos porque aparece en cualquier binario de Windows real y, sin él, te trabás la primera vez que ves un registro <code>xmm</code>.</p></aside>
 <aside class="callout nota"><p class="callout-titulo">Objetivo de la lección</p><p>Al terminar vas a poder reconocer una operación con <code>float</code>/<code>double</code> en un listado, leer las instrucciones SSE escalares más comunes (<code>movss</code>, <code>movsd</code>, <code>addsd</code>, <code>cvtsi2sd</code>, <code>ucomisd</code>) y entender por qué una comparación de flotantes se lee distinto de una de enteros.</p></aside>
 <p><strong>Prerrequisitos:</strong> registros, instrucciones, flujo y llamadas (lecciones 2.1 a 2.4). <strong>Duración sugerida:</strong> 3 horas.</p>

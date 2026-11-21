@@ -3,7 +3,7 @@
 **Proyecto:** Reversing en Windows — Edición Libre y Abierta  
 **Volumen:** Tomo II («Kernel, Drivers e Internals»)  
 **Alcance:** Fase 1 · Auditoría y Corrección de Erratas (E-01 a E-10) y Trazabilidad Cruzada con Tomo I  
-**Estado de verificación:** Verificado contra el texto consolidado del Tomo II (`Tomo_2_Kernel_e_Internals.pdf`, 160 págs.), los archivos HTML de la Rama 2D (`2d-10` a `2d-15`) y las referencias cruzadas del Tomo I (`Tomo_1_Parte_A` y `Tomo_1_Parte_B`).  
+**Estado de verificación:** Verificado contra el texto consolidado del Tomo II (`Tomo_2_Kernel_e_Internals.pdf`, 200 págs. en Rev. 5.5; auditoría original sobre corte de 160 págs.), los archivos HTML de la Rama 2D (`2d-10` a `2d-15`) y las referencias cruzadas del Tomo I (`Tomo_1_Parte_A` y `Tomo_1_Parte_B`).  
 
 > [!NOTE]
 > **Política de Integridad Editorial de la Trilogía:**  

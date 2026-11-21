@@ -10,10 +10,11 @@
 <body>
 <a class="salto" href="#contenido">Saltar al contenido</a>
 <header class="cabecera">
-  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5 · 27/10/2026</span></div>
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
   <nav class="principal" aria-label="Navegación principal">
     <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
     <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
     <a href="../materiales.html">Materiales</a>
     <a href="../fichas/index.html">Fichas</a>
     <a href="../glosario.html">Glosario</a>
@@ -23,6 +24,8 @@
 </header>
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 2 · Desofuscación avanzada (2E)</span></nav><h1 id="instrumentación-binaria-dinámica-dynamorio-y-pin">Instrumentación binaria dinámica: DynamoRIO y Pin</h1>
+<div class="meta-nivel"><span class="nivel-badge especialista">Especialista</span> <span><strong>Ruta 4 · Bloque 2E</strong></span></div>
+
 <aside class="callout nota"><p class="callout-titulo">Objetivo de la lección</p><p>Entender qué es la <strong>DBI</strong> (instrumentación binaria dinámica) y usarla para <strong>contar instrucciones</strong>, <strong>medir cobertura</strong> y <strong>detectar código auto-modificado</strong> (desempaquetado genérico), sobre binarios propios. <strong>Prerrequisitos:</strong> scripting de debugger (<a href="02-scripting-debugger.html">2.21</a>) y packers didácticos (<a href="02-packers.html">2.17</a>).</p></aside>
 <p>Esto es <strong>análisis dinámico instrumentado</strong> sobre programas propios o crackmes. El malware, si se instrumenta, va en <strong>VM descartable</strong> (<a href="04-dinamico-seguro.html">4.4</a>).</p>
 <h2 id="qué-es-la-dbi">Qué es la DBI</h2>

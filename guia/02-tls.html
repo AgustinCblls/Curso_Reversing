@@ -10,10 +10,11 @@
 <body>
 <a class="salto" href="#contenido">Saltar al contenido</a>
 <header class="cabecera">
-  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5 · 27/10/2026</span></div>
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
   <nav class="principal" aria-label="Navegación principal">
     <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
     <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
     <a href="../materiales.html">Materiales</a>
     <a href="../fichas/index.html">Fichas</a>
     <a href="../glosario.html">Glosario</a>
@@ -23,6 +24,8 @@
 </header>
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 2 · Windows intermedio</span></nav><h1 id="tls-código-que-corre-antes-de-main">TLS: código que corre antes de <code>main</code></h1>
+<div class="meta-nivel"><span class="nivel-badge intermedio">Intermedio</span> <span><strong>Ruta 2 · Bloque 2B</strong></span></div>
+
 <aside class="callout nota"><p class="callout-titulo">Objetivo de la lección</p><p>Entender qué es el <strong>Thread Local Storage (TLS)</strong> y, sobre todo, los <strong>TLS callbacks</strong>: código que Windows ejecuta <strong>antes del entry point</strong>, un lugar clásico para esconder lógica. Saber encontrarlo en el PE y en el debugger. <strong>Prerrequisitos:</strong> PE y directorios (1.4), procesos e hilos (1.5), debugger (2.6).</p></aside>
 <h2 id="dos-cosas-distintas-con-el-mismo-nombre">Dos cosas distintas con el mismo nombre</h2>
 <p>El capítulo 38 es un apéndice teórico sobre TLS y aclara que en un mismo ejercicio (<code>EjemploTLS</code>) conviven <strong>dos formas</strong> de guardar datos por hilo (<a class="fuente" href="../../CLS_resultados_intermedios/transcripciones/extraidos/Reversing%20desde%20cero%20%28Ricardo%20y%20Solid%29/Ricardo%20Narvaja%20y%20Solid%20-%20Reversing%20desde%20cero_38%20Ap%C3%A9ndice%20te%C3%B3rico%20TLS_Ap%C3%A9ndice%20te%C3%B3rico%20TLS.txt">Reversing desde cero, cap. 38</a>):</p>

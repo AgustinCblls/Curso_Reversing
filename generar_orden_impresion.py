@@ -135,23 +135,23 @@ html_content = """<!DOCTYPE html>
   <tbody>
     <tr>
       <td class="col-vol">1. Tomo I — Parte A</td>
-      <td class="col-arch">Tomo_1_Parte_A_pags_1-224.pdf</td>
-      <td class="col-pags">224 págs.</td>
-      <td class="col-hojas">112 hojas</td>
+      <td class="col-arch">Tomo_1_Parte_A_pags_1-226.pdf</td>
+      <td class="col-pags">226 págs.</td>
+      <td class="col-hojas">113 hojas</td>
       <td class="col-enc">Anillado metálico Ring Wire / espiral o binder con tapa dura/polipropileno</td>
     </tr>
     <tr>
       <td class="col-vol">2. Tomo I — Parte B</td>
-      <td class="col-arch">Tomo_1_Parte_B_pags_225-458.pdf</td>
-      <td class="col-pags">234 págs.</td>
-      <td class="col-hojas">117 hojas</td>
+      <td class="col-arch">Tomo_1_Parte_B_pags_227-468.pdf</td>
+      <td class="col-pags">242 págs.</td>
+      <td class="col-hojas">121 hojas</td>
       <td class="col-enc">Anillado metálico Ring Wire / espiral o binder con tapa dura/polipropileno</td>
     </tr>
     <tr>
       <td class="col-vol">3. Tomo II</td>
       <td class="col-arch">Tomo_2_Kernel_e_Internals.pdf</td>
-      <td class="col-pags">198 págs.</td>
-      <td class="col-hojas">99 hojas</td>
+      <td class="col-pags">200 págs.</td>
+      <td class="col-hojas">100 hojas</td>
       <td class="col-enc">Anillado metálico Ring Wire / espiral o binder con tapa dura/polipropileno</td>
     </tr>
     <tr>
@@ -171,15 +171,15 @@ html_content = """<!DOCTYPE html>
     <tr class="total-row">
       <td class="col-vol">TOTAL FÍSICO A IMPRIMIR</td>
       <td class="col-arch">5 volúmenes encuadernados</td>
-      <td class="col-pags">726 págs.</td>
-      <td class="col-hojas">363 hojas</td>
+      <td class="col-pags">738 págs.</td>
+      <td class="col-hojas">369 hojas</td>
       <td class="col-enc">100 % Paridad Par (sin hojas impares ni blancas sueltas)</td>
     </tr>
   </tbody>
 </table>
 
 <div class="nota-maestro">
-  <strong>* Archivo maestro digital de consulta (Trilogía Completa Unificada):</strong> <span class="nombre-maestro">CLS_Curso_Reversing.pdf</span> (708 págs. · 354 hojas).<br>
+  <strong>* Archivo maestro digital de consulta (Trilogía Completa Unificada):</strong> <span class="nombre-maestro">CLS_Curso_Reversing.pdf</span> (720 págs. · 360 hojas).<br>
   Contiene los Tomos I, II y III consolidados en un solo archivo con marcadores de navegación completa. <strong>NO se manda a imprimir físicamente</strong> (para lectura digital en pantalla o archivo). Los archivos para impresión son exclusivamente los 5 listados arriba.
 </div>
 

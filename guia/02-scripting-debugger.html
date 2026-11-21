@@ -10,10 +10,11 @@
 <body>
 <a class="salto" href="#contenido">Saltar al contenido</a>
 <header class="cabecera">
-  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5 · 27/10/2026</span></div>
+  <div class="marca"><a href="../00_EMPEZAR_AQUI.html">CLS · Curso de reversing</a> <span class="edicion">edición 5.5 · Noviembre 2026</span></div>
   <nav class="principal" aria-label="Navegación principal">
     <a href="../00_EMPEZAR_AQUI.html">Inicio</a>
     <a href="../guia/index.html">Curso</a>
+    <a href="../tomo3.html">Tomo III</a>
     <a href="../materiales.html">Materiales</a>
     <a href="../fichas/index.html">Fichas</a>
     <a href="../glosario.html">Glosario</a>
@@ -23,6 +24,8 @@
 </header>
 <main id="contenido">
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../guia/index.html">Curso</a><span aria-hidden="true">›</span><span>Etapa 2 · Windows avanzado (2C)</span></nav><h1 id="scripting-de-debugger-automatizar-y-dejar-evidencia">Scripting de debugger: automatizar y dejar evidencia</h1>
+<div class="meta-nivel"><span class="nivel-badge intermedio">Intermedio</span> <span><strong>Ruta 2 · Bloque 2C (automatización)</strong></span></div>
+
 <aside class="callout nota"><p class="callout-titulo">Objetivo de la lección</p><p>Dejar de repetir a mano la misma secuencia en el debugger: <strong>automatizarla con un script</strong> de x64dbg y que ese script <strong>guarde evidencia</strong> reproducible. Reconocer y adaptar un <strong>OllyScript</strong> antiguo. <strong>Prerrequisitos:</strong> debugger (2.6). <em>Contexto recomendado (no bloqueante):</em> método de análisis (4.1) y automatización con IDAPython (5.3) — útiles como referencia, pero 2C no exige haber hecho las etapas 4 o 5.</p></aside>
 <h2 id="por-qué-scriptear-el-debugger">Por qué scriptear el debugger</h2>
 <p>Cuando una tarea se repite —poner el mismo breakpoint, leer el mismo registro, anotar el mismo valor en cada corrida— conviene <strong>automatizarla</strong>: es más rápido, no te equivocás y queda <strong>reproducible</strong> (cualquiera corre el script y obtiene lo mismo). Es el mismo espíritu que viste con <strong>IDAPython</strong> en la <a href="05-automatizacion.html">automatización de la Etapa 5</a>, pero del lado <strong>dinámico</strong>: en vez de recorrer el binario estático, manejás la ejecución.</p>

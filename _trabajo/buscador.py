@@ -20,7 +20,7 @@ GUIA = build.GUIA
 # Carpetas/páginas que no vale la pena indexar.
 SALTAR_DIR = {"_trabajo", "img"}
 SALTAR_PREFIJO = ("_backup_",)
-SALTAR_ARCH = {"buscar.html"}
+SALTAR_ARCH = {"buscar.html", "CLS_Curso_Reversing_v5.4_Ampliada.html"}
 MAX_TXT = 900  # caracteres de texto por página
 
 
