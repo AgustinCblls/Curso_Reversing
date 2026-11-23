@@ -10,8 +10,8 @@ etapa: "Etapa 5 · Ramas opcionales"
 Al terminar vas a poder explicar por qué el kernel, el desempaquetado de protectores comerciales, el exploiting contra terceros y **otras plataformas (Linux, macOS, Android, ARM)** no forman parte de esta edición, y qué prerequisites harían falta para abordarlos.
 :::
 
-:::{aviso} Esta edición es solo Windows
-Por decisión de alcance, la guía cubre **únicamente binarios de Windows** (PE, x86/x64). El reversing de **Linux/ELF**, **macOS/Mach-O**, **Android (APK/DEX)** y arquitecturas como **ARM/AArch64** queda **fuera**. Los conceptos de base (números, memoria, stack, flujo, método) se trasladan a esas plataformas, pero su formato, convenciones y herramientas son otro mundo y merecen su propio material.
+:::{aviso} Esta edición está centrada en Windows
+Por decisión de alcance, la guía cubre binarios de **Windows** (PE en **x86, x64 y ARM64EC** en Windows 11). El reversing de **Linux/ELF**, **macOS/Mach-O**, **Android (APK/DEX)** y **ARM64 nativo puro** queda **fuera**. Los conceptos de base (números, memoria, stack, flujo, método) se trasladan a esas plataformas, pero su formato, convenciones y herramientas son otro mundo y merecen su propio material.
 :::
 
 **Prerrequisitos:** etapas 0 a 4. **Duración sugerida:** 30 minutos (lectura y reflexión).
@@ -59,15 +59,14 @@ Si tu objetivo es la seguridad ofensiva profesional, el camino incluye:
 
 | Tema | Estado en esta edición |
 |---|---|
-| Android (APK/DEX) | **Fuera de alcance**: edición solo Windows |
-| Linux/ELF | **Fuera de alcance**: edición solo Windows |
-| macOS/Mach-O | **Fuera de alcance**: edición solo Windows |
-| ARM/AArch64 y otras arquitecturas | **Fuera de alcance**: edición solo Windows (x86/x64) |
+| Android (APK/DEX), Linux (ELF), macOS (Mach-O) | **Fuera de alcance**: obra enfocada en Windows |
+| ARM64 / ARM64EC en Windows 11 | Cubierto en **Tomo I, Lección 2.35** y **Tomo III, Módulo 3 (§3.4)**; ARM64 nativo puro queda fuera |
 | Malware | Triage estático defensivo de Windows; ejecución **fuera de alcance** |
 | Vulnerabilidades | Concepto y mitigación en laboratorio propio; exploit **fuera de alcance** |
-| Kernel/drivers (Windows) | Rama [optativa Etapa 6](etapa-6.html): drivers propios/didácticos en VM descartable; no rootkits, BYOVD, explotación ni evasión de mitigaciones |
+| Kernel/drivers (Windows) | Desarrollado en **Tomo II (Etapa 6 y Rama 2D)** con laboratorio de doble VM; no rootkits, BYOVD ni evasión maliciosa |
+| Simbólico, Go/Rust, VMs, SLEIGH, LLVM CFI e IA local | Go/Rust, MBA, mini-VMs y SLEIGH en **Tomo I (Bloque 2E)**; `clang-cl`/CFI, Rust endurecido, LPAC, Intel CET e IA local en **Tomo III** |
 | Protectores comerciales | **Fuera de alcance** por marco legal y ético |
-| Automatización | Rama con IDAPython/Ghidra; módulos avanzados **pendientes** |
+| Automatización | IDAPython, Ghidra API, radare2 y Binary Ninja (5.3) + angr/Triton/PyGhidra en **Bloque 2E y Tomo III** |
 
 ## Práctica
 

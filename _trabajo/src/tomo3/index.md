@@ -9,7 +9,7 @@
 - **Título Oficial:** Reversing en Windows — Tomo III: LLVM, Rust, Contenedores y Reversing con IA Local.
 - **Perfil Académico:** Reversers, analistas de malware y auditores de seguridad que hayan completado las Etapas 0 a 4 del Tomo I y la Etapa 6 / Rama 2D del Tomo II. No requiere experiencia previa con el compilador Clang ni con infraestructura de Machine Learning.
 - **Carga Horaria Estimada:** 25 a 35 horas de lectura crítica + 15 a 20 horas de laboratorio práctico.
-- **Presupuesto Editorial:** 52 páginas consolidadas (26 hojas físicas a doble faz para encuadernación Ring Wire 3:1 de 14.3 mm, volumen completo de cierre).
+- **Presupuesto Editorial:** 54 páginas consolidadas (27 hojas físicas a doble faz para encuadernación Ring Wire 3:1 de 14.3 mm, volumen completo de cierre).
 - **Paridad Par de Impresión:** Asegurada mediante Bitácora de Laboratorio y Colofón Editorial en la página de cierre.
 
 ---
@@ -28,8 +28,8 @@
 3. **Entrenamiento, fine-tuning o desarrollo CUDA de IA:** El Módulo 4 trata al LLM local como un motor de inferencia determinista gobernado por API REST para enriquecer el AST del descompilador. No es un manual de Machine Learning ni de computación tensorial.
 4. **Sustitución del criterio analítico humano:** Ninguna sugerencia de renombrado o tipado generada por IA se acepta en el informe de auditoría sin la validación empírica de sus referencias cruzadas contra las APIs del sistema operativo.
 
-#### Declaración de Pendientes Heredados (Coherencia con Tomo I, pág. 9)
-En estricta observancia de la metodología declarada en la página 9 del Tomo I:
+#### Declaración de Pendientes Heredados (Coherencia con Tomo I · Apertura y Alcance)
+En estricta observancia de la metodología declarada en la Apertura y Declaración de Alcance del Tomo I:
 > *Los pendientes históricos documentados en la obra base (la lectura exhaustiva de todas las transcripciones y tutoriales de IDA indexados, así como los contenedores avanzados de exploiting de la Etapa 5) **continúan abiertos** y no forman parte del alcance del Tomo III. Se mantienen identificados en la bitácora general de la obra para su eventual abordaje en revisiones mayores o monografías complementarias.*
 
 ---
@@ -40,7 +40,7 @@ En estricta observancia de la metodología declarada en la página 9 del Tomo I:
 |---|---|---|---|
 | **Módulo 1 · Clang CFI** | `plantilla_17a` / `17b` | **Verificado** | Binario compilado con hash SHA-256 + captura del trap `ud2` en desensamblador + versión exacta de LLVM (17+). |
 | **Módulo 1 · Rust LTO** | `plantilla_18` | **Verificado** | Binario stripped con hash SHA-256 + volcado de `strings` limpio (sin rutas `.rs`) + script de slices ejecutado con éxito. |
-| **Módulo 2 · LPAC y MSIX** | `plantilla_19` | **Verificado** | Captura de `AccessChk.exe -p` + volcado WinDbg de `!token` exhibiendo bit LPAC `0x20` y SIDs `S-1-15-3-*` sobre una app real. |
+| **Módulo 2 · LPAC y MSIX** | `plantilla_19` | **Verificado** | Captura de `AccessChk.exe -p` + volcado WinDbg de `!token` exhibiendo `S-1-15-2-2` / `WIN://NOALLAPPPKG` (y bit `0x20` en builds compatibles) y SIDs `S-1-15-3-*` sobre una app real. |
 | **Módulo 3 · Intel CET** | `plantilla_20` | **Verificado** | Traza de `!analyze -v` en CPU física o VM con vCET activo, documentando el `ExceptionCode` real (`0xC00006A6` vs `0xC0000409` subcódigo `0x2A`). |
 | **Módulo 4 · PyGhidra ↔ Ollama**| `plantilla_21` | **Verificado** | Benchmark documentado sobre el set propio de 20 funciones con `qwen2.5-coder:14b`: ≥ 60 % acierto semántico, ≤ 8 s latencia y fallback regex probado. |
 
@@ -48,18 +48,18 @@ En estricta observancia de la metodología declarada en la página 9 del Tomo I:
 
 ### Tabla de Concordancia Retrospectiva con Tomo I y Tomo II
 
-| Sección en Tomo III | Requiere Repaso Previo de | Página Impresa en la Obra Existente |
+| Sección en Tomo III | Requiere Repaso Previo de | Referencia en la Obra (Tomo + Lección) |
 |---|---|---|
-| **§1.1 – 1.2** (`clang-cl` vs. MSVC y CFI) | Lección 2.18 (C++ profundo y desensamblado MSVC) | **Tomo I, págs. 180–188** |
-| **§1.3 – 1.4** (Rust LTO y slices `ptr+len`) | Lección 2.32 (Go y Rust en profundidad) | **Tomo I, págs. 243–247** |
-| **§2.1 – 2.2** (Contenedores LPAC y SIDs) | Lección 2.35 (AppContainer y tokens) | **Tomo I, págs. 259–260** |
-| **§2.3** (Frontera WSL2 e IPC híbrido) | Lección 2D.16 (Hyper-V, particiones y VMBus) | **Tomo II, págs. 182–187** |
-| **§3.1** (Intel CET a nivel de Opcode) | Lección 5.2.b (Vulnerabilidades y mitigaciones ROP) | **Tomo I, págs. 332–335** |
-| **§3.2** (Detección de Stack Spoofing) | Lección 2D.11 (Excepciones, SEH y `UNWIND_CODE`) | **Tomo II, págs. 154–161** |
-| **§3.3** (ARM64EC en el desensamblador) | Lección 2.35.b (Binarios Híbridos ARM64EC) | **Tomo I, págs. 263–264** |
-| **§4.1 – 4.4** (IA Local soberana para Ghidra) | Lección 2.31 (Extensiones de Ghidra y PyGhidra) | **Tomo I, págs. 240–242** *(Contexto instrumental: 115–120)* |
+| **§1.1 – 1.4** (`clang-cl`, Switch Lowering, AVX2 y CFI) | C++ MSVC, mitigaciones ROP y kCFG en kernel | **Tomo I, Lecciones 2.18 y 5.2.b; Tomo II, Lección 6.6** |
+| **§1.5 – 1.6** (Rust LTO y slices `ptr+len`) | Lenguajes compilados nativos (Go y Rust) | **Tomo I, Lección 2.32** |
+| **§2.1 – 2.2** (Contenedores LPAC, MSIX y SIDs) | Sandbox AppContainer y anatomía de tokens | **Tomo I, Lección 2.35; Tomo II, Lección 2D.1** |
+| **§2.3** (Frontera WSL2 e IPC híbrido) | Virtualización Hyper-V, particiones y VMBus | **Tomo II, Lección 2D.16** |
+| **§3.1 – 3.2** (Intel CET a nivel ISA y `#CP` vs. `0xC0000409`) | Mitigaciones ROP y Shadow Stack en hardware | **Tomo I, Lección 5.2.b** |
+| **§3.3** (Detección de *Call Stack Spoofing*) | Anti-análisis, excepciones SEH y `UNWIND_CODE` | **Tomo I, Lección 2.15; Tomo II, Lección 2D.11** |
+| **§3.4** (ARM64EC en el desensamblador) | Binarios híbridos ARM64EC y metadatos CHPE | **Tomo I, Lección 2.35** |
+| **§4.1 – 4.4** (IA Local soberana para Ghidra) | Scripting en Ghidra, PyGhidra y automatización | **Tomo I, Lecciones 2.16, 2.31 y 5.3** |
 
-> *Nota obligatoria de consulta:* Las páginas indicadas corresponden al **número impreso en el encabezado de cada hoja**, como referencia aproximada de la edición base; ante reimpresiones o ajustes de paginación (p. ej. Tomo I de 468 págs., Tomo II de 200 págs.), utilice siempre el número de lección y los marcadores jerárquicos (*bookmarks*) del PDF maestro `CLS_Curso_Reversing.pdf`.
+> *Nota obligatoria de consulta:* Las referencias cruzadas entre volúmenes se indexan por **Tomo + Lección** (además de los marcadores jerárquicos del PDF maestro `CLS_Curso_Reversing.pdf`) para mantenerse invariantes ante ajustes de maquetación o impresión.
 
 ---
 
@@ -68,4 +68,4 @@ En estricta observancia de la metodología declarada en la página 9 del Tomo I:
 - **ESTADO 1: Especificación Técnica y Editorial:** `[CERRADO Y APROBADO]`.
 - **ESTADO 2: Fase 2 de Redacción (Módulos 1 a 4):** `[COMPLETADO]`.
 - **ESTADO 3: Fase 3 de Laboratorio (Hardware e IA Local):** `[VERIFICADO]`.
-- **ESTADO 4: Publicación e Impresión Física (52 págs. par):** `[LISTO PARA IMPRENTA]`.
+- **ESTADO 4: Publicación e Impresión Física (54 págs. par):** `[LISTO PARA IMPRENTA]`.

@@ -101,7 +101,45 @@ Para neutralizar esta inmensa superficie de ataque, Microsoft introdujo en Windo
 
 ### Inspección en WinDbg
 ```text
-$$ Inspeccionar si un proceso tiene deshabilitadas las llamadas a Win32k
-dt nt!_EPROCESS <ProcessAddress> MitigationFlags
-$$ El bit 0x04 (DisallowWin32kSystemCalls) indica que el proceso tiene Win32k bloqueado
+$$ Inspeccionar si un proceso tiene deshabilitadas las llamadas a Win32k (verificar con PDB)
+dt nt!_EPROCESS <ProcessAddress> MitigationFlagsValues
+$$ En MitigationFlags, DisableWin32kSystemCalls corresponde al bit 12 (Pos 12 / máscara 0x1000)
 ```
+
+## Práctica
+
+1. En una VM con símbolos PDB en WinDbg (kernel), listá los descriptores de `nt!KeServiceDescriptorTableShadow` (`dq nt!KeServiceDescriptorTableShadow L8`) e identificá el puntero base de la tabla #1 correspondiente a `win32k`.
+2. Compilá un programa propio mínimo de consola que invoque `SetProcessMitigationPolicy(ProcessSystemCallDisablePolicy, ...)` con `DisallowWin32kSystemCalls = 1`, luego intente crear una ventana GUI (`CreateWindowExW`) y verificá el código de fallo retornado.
+3. Compará en WinDbg los flags `MitigationFlagsValues.DisableWin32kSystemCalls` entre tu proceso de prueba (o un renderer de Chromium/Edge) y un proceso GUI común (como `notepad.exe`).
+
+## Entregable
+
+Esquema de despacho de syscalls gráficas (`0x1000+` -> `PsConvertToGuiThread` -> `KeServiceDescriptorTableShadow[1]`), salida de `dt nt!_EPROCESS MitigationFlagsValues` verificada contra el PDB del build analizado y breve explicación defensiva de por qué `KeUserModeCallback` exige revalidar objetos tras volver de Ring 3.
+
+## Repaso
+
+?? ¿Cómo distingue el despachador de syscalls (`KiSystemCall64`) una syscall nativa de `ntoskrnl` de una gráfica de `win32k`?
+!! Por el número de servicio (SSN): los servicios estándar del ejecutivo usan índices `0x0000..0x0FFF` (tabla #0 en `KeServiceDescriptorTable`), mientras que las syscalls de GDI/USER llevan encendido el bit `0x1000` (tabla #1 de `KeServiceDescriptorTableShadow`).
+
+?? ¿Qué hace `nt!PsConvertToGuiThread` cuando un hilo normal ejecuta su primera syscall gráfica?
+!! Primero verifica si la mitigación `DisableWin32kSystemCalls` está activa; si se permite, asocia un objeto `_W32THREAD`, expande el stack de kernel del hilo y apunta `KTHREAD->ServiceTable` hacia `KeServiceDescriptorTableShadow`.
+
+?? ¿Por qué `nt!KeUserModeCallback` ha sido históricamente una fuente frecuente de vulnerabilidades de kernel (UAF)?
+!! Porque suspende la ejecución en kernel, salta a `ntdll!KiUserCallbackDispatcher` en Ring 3 y retorna mediante `NtCallbackReturn`. Durante esa ventana en usuario, el proceso puede destruir ventanas u objetos GDI; si al volver el driver no revalida bloqueos y punteros, incurre en un *Use-After-Free*.
+
+?? ¿Cómo bloquea *Win32k System Call Lockdown* las syscalls gráficas en sandboxes modernos?
+!! Activa el bit `DisableWin32kSystemCalls` en `_EPROCESS.MitigationFlagsValues`. Cuando un hilo intenta promoverse en `PsConvertToGuiThread`, el kernel aborta la conversión y devuelve `STATUS_ACCESS_DENIED (0xC0000022)` sin modificar la tabla SSDT global del sistema.
+
+:::{nota} Puerta optativa
+Podés explicar la dualidad SSDT vs. Shadow SSDT, trazar la promoción de un hilo con `PsConvertToGuiThread`, describir el riesgo de reentrancia en `KeUserModeCallback` y auditar la mitigación `DisableWin32kSystemCalls` en `_EPROCESS` desde WinDbg.
+:::
+
+## Fuentes
+
+- Forshaw, J. (2015). *Windows 10 Mitigation Improvements: Win32k System Call Filtering*. Google Project Zero.
+- Microsoft Learn. (2023). *SetProcessMitigationPolicy function* (`ProcessSystemCallDisablePolicy`).
+- Russinovich, M., Solomon, D., & Ionescu, A. (2017). *Windows Internals, Part 1* (7th ed.). Microsoft Press.
+
+:::{nota} Etiquetas
+**Núcleo conceptual:** tablas de despacho de sistema y frontera Ring 3/Ring 0. **Conocimiento externo:** arquitectura `win32kbase.sys`/`win32kfull.sys`, `KeServiceDescriptorTableShadow`, `KeUserModeCallback` y mitigación `ProcessSystemCallDisablePolicy`. **Ejemplo ilustrativo:** fragmento C `EnableWin32kLockdown` y salida esquemática de `dt nt!_EPROCESS MitigationFlagsValues`. **Laboratorio verificado:** no; offsets de bits verificables por build mediante PDB.
+:::

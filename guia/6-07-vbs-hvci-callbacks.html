@@ -88,19 +88,20 @@ $$ 2. Breakpoint en la biblioteca de integridad de código (VTL 0)
 bp ci!CiValidateImageHeader "du poi(@rcx+0x30); gc"
 bp ci!CiValidateImagePages
 
-$$ 3. Breakpoint en la llamada de transición de hipervisor (VtlCall / VtCall hacia Secure Kernel)
-$$ (Nota técnica: En ci.dll, la rutina nativa exportada que ensambla la transición VtlCall/VtCall hacia VTL1 se denomina ci!IvtCallHypervisor, citada también como ci!VtCallHypervisor)
-bp ci!IvtCallHypervisor
-$$ Al alcanzar ci!IvtCallHypervisor, examinar los argumentos de la llamada:
-$$ RCX = Código de comando VTL1 (ej. 0x17 = SECURE_IMAGE_VALIDATE_PAGES)
-$$ RDX = Puntero al bloque de contexto con las PFNs físicas a verificar
+$$ 3. Verificar símbolos reales y poner breakpoint en la transición VTL0 -> VTL1 (VtlCall)
+x nt!Vsl*Image*
+x ci!CiValidateImage*
+bp nt!VslValidateSecureImagePages
+bp nt!VslpEnterIumSecureMode
+$$ Al alcanzar VslValidateSecureImagePages / VslpEnterIumSecureMode, examinar contexto antes del vmcall:
+$$ (nt!VslpEnterIumSecureMode empaqueta argumentos y ejecuta VtlCall hacia Secure Kernel)
 r rcx, rdx
 
 $$ 4. Breakpoint en el Secure Kernel (VTL 1) (si el depurador está conectado a VTL1)
 bp skci!SkciValidateImagePages</code></pre>
 <h3 id="kcfg-kernel-control-flow-guard-respaldado-por-vtl-1">kCFG (Kernel Control Flow Guard) Respaldado por VTL 1</h3>
 <p>En modo kernel, <strong>kCFG</strong> verifica cada llamada indirecta (<code>call rax</code>) comprobando si la dirección de destino está registrada en el bitmap de funciones válidas del kernel (<code>nt!_guard_dispatch_icall</code>). Bajo VBS, el mapa de bits de CFG se almacena en memoria de solo lectura para VTL 0 y solo puede ser actualizado por el Secure Kernel en VTL 1.</p>
-<aside class="callout aviso"><p class="callout-titulo">Precisión sobre códigos de fallo en CFG y CET (#CP)</p><p>Al auditar fallos de integridad de flujo de control en user-mode y kernel-mode (y como fe de erratas respecto de la mención en el Tomo I, Lección 5.2.b, p. 333), no confundas los códigos de estado de <code>ntstatus.h</code>: el código <strong><code>0xC0000409</code></strong> corresponde a <strong><code>STATUS_STACK_BUFFER_OVERRUN</code></strong> (invocado mediante <code>int 29h</code> / <code>__fastfail</code> con subcódigo en <code>RCX</code>, como <code>0x0A</code> = <code>FAST_FAIL_GUARD_ICALL_CHECK_FAILURE</code> en violaciones de CFG o <code>0x2A</code> / <code>0x39</code> en violaciones de retorno; en modo kernel desencadena el bugcheck <code>0x139 KERNEL_SECURITY_CHECK_FAILURE</code>). En cambio, el código <code>NTSTATUS</code> específico asignado a la excepción de hardware <strong><code>#CP</code> (Control Protection Exception, vector 21 de Intel CET / AMD Shadow Stack)</strong> es <strong><code>0xC00006A6</code> (<code>STATUS_CONTROL_PROTECTION_EXCEPTION</code>)</strong> (y en modo kernel el bugcheck <code>0x00000139</code> con parámetro <code>0x39</code> o <code>0x0000007F UNEXPECTED_KERNEL_MODE_TRAP</code> con trampa <code>0x15</code>).</p></aside>
+<aside class="callout aviso"><p class="callout-titulo">Precisión sobre códigos de fallo en CFG y CET (#CP)</p><p>Al auditar fallos de integridad de flujo de control en user-mode y kernel-mode (en línea con el <strong>Tomo I, Lección 5.2.b</strong>), no confundas los códigos de estado de <code>ntstatus.h</code>: el código <strong><code>0xC0000409</code></strong> corresponde a <strong><code>STATUS_STACK_BUFFER_OVERRUN</code></strong> (invocado mediante <code>int 29h</code> / <code>__fastfail</code> con subcódigo en <code>RCX</code>, como <code>0x0A</code> = <code>FAST_FAIL_GUARD_ICALL_CHECK_FAILURE</code> en violaciones de CFG o <code>0x2A</code> / <code>0x39</code> en violaciones de retorno; en modo kernel desencadena el bugcheck <code>0x139 KERNEL_SECURITY_CHECK_FAILURE</code>). En cambio, el código <code>NTSTATUS</code> específico asignado a la excepción de hardware <strong><code>#CP</code> (Control Protection Exception, vector 21 de Intel CET / AMD Shadow Stack)</strong> es <strong><code>0xC00006A6</code> (<code>STATUS_CONTROL_PROTECTION_EXCEPTION</code>)</strong> (y en modo kernel el bugcheck <code>0x00000139</code> con parámetro <code>0x39</code> o <code>0x0000007F UNEXPECTED_KERNEL_MODE_TRAP</code> con trampa <code>0x15</code>).</p></aside>
 <hr>
 <h2 id="2-auditoría-en-memoria-de-los-vectores-de-telemetría-y-notificación-de-kernel">2. Auditoría en Memoria de los Vectores de Telemetría y Notificación de Kernel</h2>
 <p>El reverser o analista defensivo debe dominar la inspección en <strong>WinDbg</strong> de los arreglos no exportados de notificación, registro y telemetría en memoria viva.</p>

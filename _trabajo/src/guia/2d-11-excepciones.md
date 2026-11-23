@@ -82,62 +82,60 @@ Cronología de lectura (ilustrativa) del mismo caso, en el orden en que aparece 
 | 4 | El programa continúa y no hay segunda oportunidad | Ejecución | Un `catch` la manejó |
 | 5 | Ejecución reanudada en `app!RunCase` | Breakpoint en el `catch` | Coincide con el handler esperado |
 
-> **Ampliación editorial basada en fuentes externas — Verificación de marcos de pila y detección de *Call Stack Spoofing* mediante `.pdata` y validación de sitios de `CALL`**
->
-> En la lección 2.15 vimos que las técnicas de *Call Stack Spoofing* fabrican marcos de pila sintéticos para ocultar el origen real de una llamada al sistema, y en 2D.11 vimos el layout binario de `RUNTIME_FUNCTION` (`.pdata`) y `UNWIND_INFO` (`.xdata`) (*Microsoft Learn: x64 stack usage y RtlVirtualUnwind*) (**Hecho confirmado**). Un analista o motor defensivo verifica la autenticidad de una pila de llamadas en x64 aplicando tres comprobaciones encadenadas sobre cada marco:
->
-> 1. **Respaldo de módulo (`RtlLookupFunctionEntry`):**
->    Para cada `ControlPc` (`RIP` actual o dirección de retorno en la pila), debe existir una entrada `RUNTIME_FUNCTION` válida dentro de la sección `.pdata` de un módulo PE firmado/respaldado en disco (`Image` en el VAD, no `MEM_PRIVATE`). Las únicas funciones x64 sin `.pdata` son las *funciones hoja* (*leaf functions*), que por definición de la ABI **no pueden modificar `RSP` ni llamar a ninguna otra función** (solo pueden estar en el frame `0` del tope de la pila, nunca en un frame intermedio).
->
-> 2. **Coherencia del tamaño de marco (`UNWIND_CODE`):**
->    La distancia entre el `RSP` de un marco y el `RSP` del marco padre debe coincidir exactamente con la suma de los códigos `UWOP_ALLOC_SMALL` (`OpInfo * 8 + 8`), `UWOP_ALLOC_LARGE` y `UWOP_PUSH_NONVOL` (`8` bytes por registro no volátil salvado) declarados en `UNWIND_INFO`.
->
-> 3. **Validación de la instrucción previa a `ReturnAddress` (detección de *Gadgets*):**
->    Cuando `call destino` se ejecuta, empuja en la pila la dirección de la instrucción inmediatamente siguiente (`ReturnAddress`). Por lo tanto, los **2 a 7 bytes anteriores a `ReturnAddress`** en memoria ejecutable deben decodificarse como una instrucción `CALL` legítima:
->
-> | Bytes previos a `ReturnAddress` | Instrucción x64 | Interpretación en auditoría de pila |
-> | :--- | :--- | :--- |
-> | `E8 xx xx xx xx` (`ReturnAddress - 5`) | `call rel32` | Llamada directa normal. Se verifica que el destino calculado (`ReturnAddress + rel32`) coincida con el inicio de la función hija. |
-> | `FF 15 xx xx xx xx` (`ReturnAddress - 6`) | `call qword ptr [rip+disp32]` | Llamada indirecta vía IAT o puntero global (normal en llamadas a DLLs). |
-> | `FF D0`..`FF D7` o `41 FF D0`..`D7` (`-2` / `-3`) | `call rax`..`r15` | Llamada indirecta por registro (vtable, callback o `GetProcAddress`). |
-> | `FF 23` / `FF 26` / `FF 27` (`jmp [rbx]` / `[rsi]` / `[rdi]`) | `jmp qword ptr [reg]` | **Anomalía crítica (*Gadget de Call Stack Spoofing*):** la dirección en la pila apunta después de un `JMP`, no de un `CALL`, o el `call rel32` apunta a una función distinta de la que está en el frame hijo. |
->
-> **Inspección rápida en WinDbg ante una pila sospechosa:**
-> ```text
-> 0:000> kn                                  ; Lista los números de frame, Child-SP y Call Site
-> 0:000> !fnent <Call_Site>                  ; Verifica la entrada RUNTIME_FUNCTION y el tamaño del marco en .xdata
-> 0:000> ub <Call_Site> L1                   ; Desensambla la instrucción inmediatamente ANTERIOR al retorno (debe ser CALL)
-> ```
+### Layout binario de `RUNTIME_FUNCTION` (`.pdata`) y `UNWIND_INFO` / `UNWIND_CODE` (`.xdata`)
 
-### Anatomía Binaria de UNWIND_INFO y Decodificación de UNWIND_CODE en x64
+A diferencia de x86 (donde la cadena SEH vive en la pila mediante `FS:[0]`), en Windows x64 el desenrollado de pila y el despacho de excepciones se rigen por tablas estáticas en el PE sin tocar la pila en el prólogo (*Microsoft Learn: x64 exception handling*) *(Hecho confirmado)*:
 
-En arquitecturas x64, la estructura `UNWIND_INFO` almacenada en la sección `.xdata` gobierna cómo el kernel y los depuradores desenrollan la pila hacia atrás. Cada registro de desenrollado tiene la siguiente estructura binaria en memoria:
+| Estructura y Sección | Offset / Tamaño | Campos Binarios y Significado |
+|---|---|---|
+| `RUNTIME_FUNCTION` (`.pdata`) | `12 bytes` fijos | `+0x00` `BeginAddress` (RVA inicio); `+0x04` `EndAddress` (RVA fin); `+0x08` `UnwindInfoAddress` (RVA a `.xdata`). |
+| `UNWIND_INFO` (`.xdata`) | `4 bytes` cabecera + variable | `+0x00` `Version:3` (1 o 2) y `Flags:5` (`0x01=EHANDLER`, `0x02=UHANDLER`, `0x04=CHAININFO`); `+0x01` `SizeOfProlog`; `+0x02` `CountOfCodes`; `+0x03` `FrameRegister:4` + `FrameOffset:4`; `+0x04` `UNWIND_CODE[]`; tras el array (alineado a 4B), RVA de `ExceptionHandler` si `Flags & 0x03`. |
 
 ```text
 Estructura UNWIND_INFO (.xdata):
-   +0x00: UBYTE Version : 3;      // Versión de unwind (típicamente 1 o 2)
-   +0x00: UBYTE Flags   : 5;      // 0x01=EHANDLER (__except), 0x02=UHANDLER (__finally), 0x04=CHAININFO
-   +0x01: UBYTE SizeOfProlog;     // Longitud del prólogo de la función en bytes
-   +0x02: UBYTE CountOfCodes;     // Número de entradas en el arreglo UnwindCode[]
-   +0x03: UBYTE FrameRegister : 4;// Registro de marco (0=ninguno, 5=RBP, etc.)
-   +0x03: UBYTE FrameOffset   : 4;// Offset del registro de marco escalado (*16)
-   +0x04: UNWIND_CODE UnwindCode[CountOfCodes]; // Arreglo de operaciones de desenrollado
+   +0x00: UBYTE Version : 3;       // Version de unwind (1 o 2)
+   +0x00: UBYTE Flags   : 5;       // 0x01=EHANDLER, 0x02=UHANDLER
+   +0x01: UBYTE SizeOfProlog;      // Longitud del prologo (bytes)
+   +0x02: UBYTE CountOfCodes;      // Entradas en UnwindCode[]
+   +0x03: UBYTE FrameRegister : 4; // 0=ninguno, 5=RBP, etc.
+   +0x03: UBYTE FrameOffset   : 4; // Offset escalado (*16)
+   +0x04: UNWIND_CODE UnwindCode[CountOfCodes];
 ```
 
-#### Decodificación de Slots de `UNWIND_CODE` (2 bytes por slot)
-Cada elemento de `UnwindCode` ocupa exactamente 16 bits (2 bytes) y describe una operación que el prólogo ejecutó y que el desenrollador debe revertir:
-- **`CodeOffset` (8 bits bajos):** Offset en bytes desde el inicio de la función donde se realizó la operación.
-- **`UnwindOp` (4 bits):** Operación de reversión de pila:
-  * `0` = `UWOP_PUSH_NONVOL`: El prólogo hizo un `push` de un registro no volátil. Operación inversa: pop del registro indicado en `OpInfo`.
-  * `1` = `UWOP_ALLOC_LARGE`: Asignó un tamaño grande en stack (ocupa 2 o 3 slots sucesivos de `UNWIND_CODE` para especificar el tamaño).
-  * `2` = `UWOP_ALLOC_SMALL`: Asignó entre 8 y 128 bytes en la pila. Operación inversa: sumar `(OpInfo * 8 + 8)` a `RSP`.
-  * `3` = `UWOP_SET_FPREG`: Estableció el puntero de marco de pila. Operación inversa: restaurar `RSP` desde `FrameRegister`.
-  * `4` = `UWOP_SAVE_NONVOL`: Guardó un registro no volátil en la pila usando `mov` en lugar de `push` (ocupa 2 slots para codificar el offset).
-  * `10` = `UWOP_EPILOG`: Define los epílogos de la función (Windows 10 21H1+ para soporte de Time Travel Debugging).
-- **`OpInfo` (4 bits altos):** Índice del registro x64 involucrado (`0`=RAX, `1`=RCX, `2`=RDX, `3`=RBX, `4`=RSP, `5`=RBP, `6`=RSI, `7`=RDI, `8..15`=R8..R15).
+#### Decodificación de slots de `UNWIND_CODE` (2 bytes por slot)
+Cada elemento de `UnwindCode` ocupa exactamente 16 bits y describe una operación que el prólogo ejecutó y que el desenrollador revierte:
+- **`CodeOffset` (8 bits bajos):** offset en bytes desde el inicio de la función donde ocurrió la operación.
+- **`UnwindOp` (4 bits):**
+  * `0` = `UWOP_PUSH_NONVOL`: `push` de registro no volátil; inversa: `pop` del registro `OpInfo`.
+  * `1` = `UWOP_ALLOC_LARGE`: reserva grande en stack (2 o 3 slots sucesivos).
+  * `2` = `UWOP_ALLOC_SMALL`: reserva de 8 a 128 bytes; inversa: sumar `(OpInfo * 8 + 8)` a `RSP`.
+  * `3` = `UWOP_SET_FPREG`: restaurar `RSP` desde `FrameRegister`.
+  * `4` = `UWOP_SAVE_NONVOL`: guardó un registro vía `mov` en vez de `push` (2 slots).
+  * `6` = `UWOP_EPILOG`: describe epílogos en `UNWIND_INFO` versión 2 (Windows 8.1+ / VS 2013+).
+  * `10` = `UWOP_PUSH_MACHFRAME`: marco de interrupción o trampa hardware (`SS`, `RSP`, `EFLAGS`, `CS`, `RIP`).
+- **`OpInfo` (4 bits altos):** índice del registro x64 (`0=RAX`, `1=RCX`, `2=RDX`, `3=RBX`, `4=RSP`, `5=RBP`, `6=RSI`, `7=RDI`, `8..15=R8..R15`).
 
-#### Verificación Forense frente a Call Stack Spoofing
-Cuando una herramienta de seguridad (EDR) o un analista en WinDbg valida una pila con `!fnent`, el kernel simula la ejecución inversa de cada `UNWIND_CODE`. Si un atacante utilizó *Call Stack Spoofing* fabricando una dirección de retorno falsa pero no ajustó `RSP` para coincidir exactamente con la sumatoria de los `UWOP_ALLOC_SMALL`/`UWOP_PUSH_NONVOL` de la función invocadora, o si la instrucción previa a la dirección de retorno no es un opcode `CALL` legítimo (`E8 rel32` o `FF /2`), el desenrollado falla con inconsistencia de marco y delata la intrusión.
+### Verificación de marcos de pila, detección de *Call Stack Spoofing* y `!fnent`
+
+Como vimos en la Lección 2.15, las técnicas de *Call Stack Spoofing* fabrican marcos sintéticos para ocultar el origen de una llamada. Un analista o motor defensivo valida la autenticidad de la pila x64 mediante tres comprobaciones encadenadas (*Microsoft Learn: x64 stack usage y RtlVirtualUnwind*) (**Hecho confirmado**):
+
+1. **Respaldo de módulo (`RtlLookupFunctionEntry`):** cada dirección de retorno debe contar con entrada `RUNTIME_FUNCTION` en `.pdata` de un módulo PE respaldado en disco (no `MEM_PRIVATE`). Solo las *funciones hoja* carecen de `.pdata` y únicamente pueden ocupar el frame `0`.
+2. **Coherencia del tamaño de marco (`UNWIND_CODE`):** la distancia entre el `RSP` hijo y el padre debe coincidir exactamente con la suma de `UWOP_ALLOC_SMALL` (`OpInfo * 8 + 8`), `UWOP_ALLOC_LARGE` y `UWOP_PUSH_NONVOL` (8B por registro).
+3. **Instrucción previa a `ReturnAddress` (detección de *gadgets*):** los 2 a 7 bytes anteriores a cada retorno deben decodificarse como un `CALL` legítimo (no un `JMP` sintético):
+
+| Bytes previos a `ReturnAddress` | Instrucción x64 | Interpretación en auditoría de pila |
+| :--- | :--- | :--- |
+| `E8 xx xx xx xx` (`-5`) | `call rel32` | Llamada directa normal; el destino calculado debe coincidir con el inicio de la función hija. |
+| `FF 15 xx xx xx xx` (`-6`) | `call qword ptr [rip+disp32]` | Llamada indirecta vía IAT o puntero global (típica hacia DLLs). |
+| `FF D0`..`D7` / `41 FF D0`..`D7` | `call rax`..`r15` | Llamada indirecta por registro (vtable, callback o `GetProcAddress`). |
+| `FF 23` / `FF 26` / `FF 27` | `jmp qword ptr [reg]` | **Anomalía crítica (*Call Stack Spoofing*):** retorno detrás de un `JMP` o hacia un destino ajeno al frame hijo. |
+
+```text
+:: Verificacion rapida en WinDbg ante una pila sospechosa
+0:000> kn                     ; Lista frames, Child-SP y Call Site
+0:000> !fnent <Call_Site>     ; Decodifica .pdata/.xdata (UNWIND_CODE)
+0:000> ub <Call_Site> L1      ; Instr. previa al retorno (debe ser CALL)
+```
 
 ## Práctica
 

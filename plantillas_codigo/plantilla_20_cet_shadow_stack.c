@@ -11,9 +11,10 @@
 //   sistema opera en modo de compatibilidad sin disparar la excepción #CP.
 //
 // Mecánica en Desensamblador:
-//   1. Opcode RDSSP (F3 0F 1E C8) lee el registro de pila sombra de la CPU.
-//   2. La instrucción RET compara atómicamente [RSP] == [SSP].
-//   3. Si [RSP] fue sobreescrito -> Trampa #CP (STATUS_CONTROL_PROTECTION_EXCEPTION 0xC00006A6)
+//   1. CPUID.(EAX=7, ECX=0): ECX bit 7 = CET_SS; EDX bit 20 = CET_IBT.
+//   2. Opcode RDSSPQ (F3 48 0F 1E C8) lee el registro de pila sombra de la CPU.
+//   3. La instrucción RET compara atómicamente [RSP] == [SSP].
+//   4. Si [RSP] fue sobreescrito -> Trampa #CP (STATUS_CONTROL_PROTECTION_EXCEPTION 0xC00006A6)
 //      o Fast-Fail de usuario (STATUS_STACK_BUFFER_OVERRUN 0xC0000409 subcódigo 0x2A).
 // ==============================================================================
 
@@ -21,6 +22,8 @@
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <intrin.h>
 #include <immintrin.h>
 
 // Definición de códigos canónicos
@@ -49,6 +52,15 @@ ULONG_PTR ReadShadowStackPointer(void) {
 
 // Función objetivo donde se simula una sobreescritura de stack
 __declspec(noinline) void TargetVulnerableFunction(int simulate_tamper) {
+    int regs[4] = { 0 };
+#if defined(_M_X64) || defined(_M_IX86)
+    __cpuidex(regs, 7, 0);
+    // CPUID.(EAX=7, ECX=0): ECX (regs[2]) bit 7 = CET_SS; EDX (regs[3]) bit 20 = CET_IBT
+    int has_cet_ss = (regs[2] & (1 << 7)) != 0;
+    int has_cet_ibt = (regs[3] & (1 << 20)) != 0;
+    printf("[1] CPUID.[EAX=7, ECX=0]: ECX bit 7 (CET_SS)=%d, EDX bit 20 (CET_IBT)=%d\n",
+           has_cet_ss, has_cet_ibt);
+#endif
     volatile ULONG_PTR local_var = 0x1122334455667788ULL;
     printf("[*] Dentro de TargetVulnerableFunction (RSP local=%p)...\n", (void*)&local_var);
 

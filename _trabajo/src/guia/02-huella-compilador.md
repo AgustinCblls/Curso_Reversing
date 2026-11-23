@@ -30,6 +30,17 @@ El mismo programa en C se ve **distinto** según el compilador, y un programa de
 
 Regla práctica: **mirá primero los imports** (qué DLLs de runtime trae) y las **strings** (nombres de clases/módulos); con eso ya ubicás la familia.
 
+### Triage rápido de instaladores y wrappers frecuentes en Windows
+
+Muchas muestras empaquetadas como instaladores o wrappers envuelven la carga real en contenedores estándar; extraer en solo lectura evita perder tiempo revirtiendo el stub genérico (**conocimiento externo**):
+
+| Instalador / Wrapper | Huellas rápidas (strings / secciones / recursos) | Extracción estática recomendada |
+|---|---|---|
+| **NSIS** (Nullsoft) | Strings `NullsoftInst` / `Nullsoft.NSIS.exehead`, sección `.ndata` y payload comprimido en overlay | **`7-Zip`** (`7z x setup.exe`) extrae archivos y stub sin ejecutar |
+| **Inno Setup** | Banner `Inno Setup Setup Data` / `JR.Inno.Setup` en recursos (runtime típico en Delphi) | **`innoextract`** (`innoextract -d ./out setup.exe`) recupera ejecutables y script |
+| **MSI** (Windows Installer) | Magic OLE Compound File (`D0 CF 11 E0 A1 B1 1A E1`), tablas `CustomAction` y flujo `Binary` | **`lessmsi`** (extracción de streams) / **`Orca`** (inspección de tablas SQL del `.msi`) |
+| **AutoIt** (v3 compilado) | Recurso `RT_RCDATA` `SCRIPT`, firma `AU3!EA06` (o `AU3!EA05`) y stub intérprete C++ | Inspección del recurso `SCRIPT` / herramientas de extracción AutoIt en VM aislada |
+
 ## Dos casos que cambian la estrategia
 
 - **VB6 p-code vs. nativo.** Si es p-code, el código "real" no es x86: es bytecode que interpreta `MSVBVM60.DLL`. Leer el x86 directo no sirve; hay que usar herramientas específicas de VB. Reconocerlo temprano evita perder tiempo.
@@ -37,22 +48,12 @@ Regla práctica: **mirá primero los imports** (qué DLLs de runtime trae) y las
 
 En recopilaciones dispersas esto suele figurar como material suelto, no como lección estructurada: en `Teorias_Numeradas` hay **decenas de títulos de Delphi** y **varios de Visual Basic/VB6, p-code y Java** ([índice clasificado](../teorias.html)). Son conteos **por subcadena del título** (aproximados, sin abrir los contenedores): orientan para profundizar, no son prueba. El único runtime trabajado a fondo en el curso es **MSVC/C++** (y MFC en la [2.12](02-mfc.html), observado en el cap. 39: {{src:CLS_resultados_intermedios/transcripciones/extraidos/Reversing desde cero (Ricardo y Solid)/Ricardo Narvaja y Solid - Reversing desde cero_39 TIPS 2 MFC_TIPS 2 MFC.txt|Reversing desde cero, cap. 39}}).
 
-## Lenguajes que no se leen como C: Go, Rust y Delphi
+## Lenguajes que no se leen como C: huella rápida de Go, Rust y Delphi
 
-Los tres producen código nativo x86/x64, así que IDA y Ghidra los abren sin problema. Lo que cambia es **qué esperar** del listado. Todo este apartado es **conocimiento externo** al material de reversing; lo citado viene de la documentación de cada lenguaje.
+Los tres producen código nativo x86/x64, así que IDA y Ghidra los abren sin problema. Todo este apartado es **conocimiento externo** al material de reversing clásico. En esta lección dejamos solo la **huella rápida de triage** para Go y Rust (para profundizar en su ABI de registros, `pclntab`, `itab`, *trait objects* y *niche optimization*, continuá en [**Lección 2.32 · Go y Rust en profundidad**](02-go-rust.html)):
 
-**Go.** Un "hola mundo" en Go pesa varios megabytes porque trae enlazado el runtime completo (planificador de goroutines, recolector de basura). Para leerlo:
-
-- **Los nombres de funciones sobreviven.** El runtime de Go necesita una tabla que relaciona direcciones con funciones y líneas (`pclntab`) para armar trazas de pila, perfilar y recolectar basura, así que está en el binario aunque se hayan quitado los símbolos de depuración. Herramientas e IDA/Ghidra recientes la usan para recuperar nombres como `main.main` o `main.verificarClave`. Empezá por las funciones del paquete `main`: el resto suele ser runtime y biblioteca estándar.
-- **Las cadenas no terminan en `0`.** Un `string` de Go es puntero + longitud; el compilador guarda muchas cadenas pegadas en una sola zona y el buscador de strings las muestra como un bloque largo. Para saber dónde termina una, buscá la longitud que se carga junto al puntero.
-- **Convención propia.** Go no usa la convención x64 de Windows de [Llamadas y convenciones](02-llamadas.html) para sus funciones internas: tiene su propio ABI (en versiones recientes pasa argumentos en registros, en otro orden). Al comienzo de casi toda función vas a ver una **comprobación de pila** —una comparación del puntero de pila con un límite y un salto a `runtime.morestack`— que no es lógica del programa y se puede saltar con la vista.
-
-**Rust.** También enlaza estáticamente su biblioteca estándar, pero suele usar el runtime de C de la plataforma.
-
-- **Huella engañosa.** Con el target `x86_64-pc-windows-msvc` el binario lo enlaza el linker de Microsoft: puede tener Rich header e importar `vcruntime140.dll`. Ver esas pistas y concluir "C++ de MSVC" es el error típico; las rutas `.rs` y los mensajes de pánico lo desmienten.
-- **Cadenas como puntero + longitud** (`&str`), igual que en Go: sin `0` final.
-- **Nombres con mangling.** El esquema antiguo se parece al de C++ de Itanium (`_ZN...` con un hash al final) y el esquema **v0** empieza con `_R`; ambos se pueden demanglear con las herramientas de Rust.
-- **Mucho código de comprobación.** Chequeos de límites de arreglos y desbordes que terminan en una función de pánico. Las ramas que van al pánico son el camino de error; la lógica está en el otro.
+- **Go (triage rápido):** ejecutables grandes (varios MB) por el runtime embebido, strings `.go` / `Go build ID` y tabla `pclntab` intacta aunque esté «stripeado»; cadenas sin terminador nulo y prólogo con chequeo de pila antes de la lógica. Analizalo a fondo en [2.32](02-go-rust.html).
+- **Rust (triage rápido):** trampa frecuente en Windows: con el target `-msvc` trae Rich header e importa `vcruntime140.dll` como C++, pero lo delatan rutas `.rs` en *panics* (`src/main.rs`), símbolos `_ZN...E` / `_R...` y chequeos de límites frecuentes. Analizalo a fondo en [2.32](02-go-rust.html).
 
 **Delphi** (amplía la fila de la tabla).
 

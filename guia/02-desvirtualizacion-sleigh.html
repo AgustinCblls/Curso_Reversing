@@ -212,6 +212,11 @@ macro update_flags(result) {
     update_flags(acc);
 }
 
+:CMP imm8 is op=4; imm8 {
+    local y:4 = zext(imm8);
+    zf = (acc == y);
+}
+
 :MBA imm8 is op=5; imm8 {
     local y:4 = zext(imm8);
     acc = (acc ^ y) + 2 * (acc &amp; y);

@@ -2,15 +2,16 @@
 // Plantilla 17a · Demostración de Clang CFI (Forward-Edge Type-Based Integrity)
 // Obra: Reversing en Windows — Tomo III (Módulo 1)
 //
-// Invocación recomendada (LLVM 17+ en Windows con lld-link):
-//   clang-cl -O2 -flto=thin -fsanitize=cfi -fuse-ld=lld-link plantilla_17a_clang_cfi.cpp -o plantilla_17a.exe
+// Invocación recomendada (LLVM 17+ en Windows con lld):
+//   clang-cl /O2 /EHsc -flto=thin -fsanitize=cfi -fvisibility=hidden -fuse-ld=lld plantilla_17a_clang_cfi.cpp /Fe:plantilla_17a.exe /link /subsystem:console
 //
-// Invocación alternativa en WSL2 / Linux (si el target msvc carece de lld-link):
+// Invocación alternativa en WSL2 / Linux (si el target msvc carece de lld):
 //   clang++ -O2 -flto -fsanitize=cfi -fvisibility=hidden plantilla_17a_clang_cfi.cpp -o plantilla_17a_elf
 //
 // Mecánica en Desensamblador:
-//   Previo al 'call [rax + offset]', Clang inserta una comprobación de tipo
-//   cargando el Type Hash en [Target - 4]. Si no coincide -> trampa 'ud2' (0F 0B).
+//   Con -fsanitize=cfi (vtable/bitset LTO), LLVM verifica que la vtable pertenezca al
+//   rango/bitset válido del tipo BaseParser (en -fsanitize=kcfi verifica el hash en [Target-4]).
+//   Si falla -> trampa 'ud2' (0F 0B).
 // ==============================================================================
 
 #include <cstdio>

@@ -66,7 +66,7 @@ Lectura: es un servicio didáctico de proceso propio, detenido y de inicio manua
 
 ## Práctica segura: servicio propio y limpieza
 
-Realizá el ejercicio solo en una VM descartable con snapshot. Realizá el ejercicio en una VM descartable con snapshot. Compilá el servicio didáctico desde el archivo `plantillas_codigo/svclab_min.c` (**Plantilla 7 del Kit de Código**), que implementa `StartServiceCtrlDispatcherW`, `ServiceMain` y `RegisterServiceCtrlHandlerExW` para Windows x86/x64:
+Realizá el ejercicio solo en una VM descartable con snapshot. Compilá el servicio didáctico desde el archivo `plantillas_codigo/svclab_min.c` (**Plantilla 7 del Kit de Código**), que implementa `StartServiceCtrlDispatcherW`, `ServiceMain` y `RegisterServiceCtrlHandlerExW` para Windows x86/x64:
 ```cmd
 cl /Zi /O1 /DUNICODE /D_UNICODE svclab_min.c advapi32.lib /Fe:C:\ReversingLab\SvcLab.exe
 ```

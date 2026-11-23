@@ -71,18 +71,24 @@
 <ul><li><strong>Los endpoints no aíslan interfaces.</strong> En un proceso con varios servidores RPC, <em>todas</em> las interfaces son invocables por <em>todos</em> los endpoints del proceso. Que tu componente registre solo <code>ncalrpc</code> no impide que lo llamen por un pipe o un socket que abrió otro componente del mismo proceso. Por eso un descriptor de seguridad sobre un endpoint no es un control efectivo; la recomendación es un <strong>callback de seguridad</strong> que verifique protocolo e identidad en cada llamada.</li><li><strong>Registrar autenticación no la exige.</strong> <code>RpcServerRegisterAuthInfo</code> agrega una <strong>opción</strong> de autenticación, no un requisito: un cliente no autenticado que podía conectarse sigue pudiendo, aunque luego fallen funciones como <code>RpcImpersonateClient</code>.</li><li><strong>Flags de registro.</strong> Con <code>RpcServerRegisterIf2</code>/<code>Ex</code>/<code>3</code>, <code>RPC_IF_ALLOW_LOCAL_ONLY</code> rechaza clientes remotos (con las excepciones que detalla la documentación para <code>ncacn_np</code>), y <code>RPC_IF_ALLOW_SECURE_ONLY</code> exige un nivel de autenticación mayor que <em>none</em>, <strong>sin</strong> garantizar que el usuario sea privilegiado: puede ser una cuenta de invitado.</li></ul>
 <p>Microsoft remarca que <code>ncalrpc</code> no es “seguro por ser local”: en un servidor de terminales, cientos de usuarios pueden llegar a un servicio local.</p>
 <h3 id="anatomía-interna-de-stubs-rpc-y-decodificación-de-ndr-format-strings">Anatomía Interna de Stubs RPC y Decodificación de NDR (Format Strings)</h3>
-<p>Para el analista de ingeniería inversa que audita un binario sin símbolos ni archivos <code>.idl</code>, reconstruir la firma exacta de las funciones expuestas por un servidor RPC requiere inspeccionar las estructuras internas que MIDL compila en la sección <code>.data</code> o <code>.rdata</code>:</p>
-<pre><code class="lenguaje-text">RPC_SERVER_INTERFACE (puntero exportado o registrado con RpcServerRegisterIf2):
-   +0x00: Length: 0x60 (96 bytes en x64)
-   +0x04: InterfaceId.SyntaxGUID (UUID de 16 bytes de la interfaz)
-   +0x14: InterfaceId.SyntaxVersion (Major/Minor version)
-   +0x50: InterpreterInfo (Ptr64 a MIDL_SERVER_INFO)
-
-MIDL_SERVER_INFO:
-   +0x00: pStubDesc (Ptr64 a MIDL_STUB_DESC)
-   +0x08: DispatchTable (Ptr64 a arreglo de punteros a funciones C del servidor)
-   +0x10: ProcFormatString (Ptr64 a tabla de formatos de procedimiento NDR)
-   +0x18: FmtStringOffset (Ptr64 a tabla de índices a ProcFormatString)</code></pre>
+<p>Cuando un binario registra un servidor RPC mediante <code>RpcServerRegisterIf</code> / <code>RpcServerRegisterIf2</code> / <code>RpcServerRegisterIfEx</code> sin símbolos ni archivos <code>.idl</code>, IDA Pro o Ghidra no resuelven por defecto qué opcode corresponde a cada función C. El primer argumento (<code>IfSpec</code>, en <code>RCX</code> en x64) apunta a <code>RPC_SERVER_INTERFACE</code> en <code>.rdata</code> o <code>.data</code>, generada por el compilador MIDL (<code>rpcndr.h</code> del Windows SDK) <em>(Hecho confirmado)</em>:</p>
+<div class="tabla"><table>
+<thead><tr><th>Offset (x64)</th><th>Campo en <code>RPC_SERVER_INTERFACE</code></th><th>Tipo y significado en IDA / Ghidra</th></tr></thead>
+<tbody>
+<tr><td><strong><code>+0x00</code></strong></td><td><code>Length</code></td><td>Tamaño de estructura (<code>0x60</code> / 96 bytes en x64).</td></tr>
+<tr><td><strong><code>+0x04</code></strong></td><td><code>InterfaceId</code></td><td><code>RPC_SYNTAX_IDENTIFIER</code> (20B): <code>SyntaxGUID</code> (16B) + <code>MajorVersion</code> (2B) + <code>MinorVersion</code> (2B).</td></tr>
+<tr><td><strong><code>+0x30</code></strong></td><td><code>DispatchTable</code></td><td><code>PRPC_DISPATCH_TABLE</code>: cantidad (<code>DispatchTableCount</code>) y puntero al despachador NDR (<code>NdrServerCall2</code> / <code>NdrServerCallAll</code>).</td></tr>
+<tr><td><strong><code>+0x50</code></strong></td><td><code>InterpreterInfo</code></td><td>Puntero hacia <code>MIDL_SERVER_INFO</code> (<code>+0x00 pStubDesc</code>, <code>+0x08 DispatchTable</code>, <code>+0x10 ProcFormatString</code>, <code>+0x18 FmtStringOffset</code>).</td></tr>
+</tbody></table></div>
+<p>Siguiendo <code>InterpreterInfo</code> hacia <code>MIDL_SERVER_INFO</code>, el campo <strong><code>+0x08 DispatchTable</code></strong> contiene el arreglo directo de punteros a las funciones C del servidor (<code>ServerRoutineTable[0..N-1]</code>). Herramientas abiertas como <strong><code>RpcView</code></strong> o scripts de <strong>IDAPython</strong> automatizan la navegación <code>InterfaceId &rarr; InterpreterInfo &rarr; DispatchTable</code> para tipar todas las rutinas expuestas.</p>
+<pre><code class="lenguaje-text">RPC_SERVER_INTERFACE (+0x00 Length = 0x60 en x64):
+   +0x04: InterfaceId.SyntaxGUID (UUID 16B) + SyntaxVersion
+   +0x30: DispatchTable (PRPC_DISPATCH_TABLE -&gt; NdrServerCall2)
+   +0x50: InterpreterInfo (Ptr64 -&gt; MIDL_SERVER_INFO)
+          +-- +0x00: pStubDesc (Ptr64 -&gt; MIDL_STUB_DESC)
+          +-- +0x08: DispatchTable (ServerRoutineTable[0..N-1])
+          +-- +0x10: ProcFormatString (formatos NDR)
+          +-- +0x18: FmtStringOffset (indices a ProcFormatString)</code></pre>
 <h4 id="decodificación-de-procformatstring-y-typeformatstring">Decodificación de <code>ProcFormatString</code> y <code>TypeFormatString</code></h4>
 <p>El compilador MIDL genera secuencias de bytes compactas que codifican los parámetros de cada método mediante la máquina de tipos de <strong>NDR (Network Data Representation)</strong>:</p>
 <ol><li><strong>Cabecera de Procedimiento:</strong> En <code>ProcFormatString</code>, cada rutina arranca con una cabecera de 6 bytes en modo <code>-Oicf</code> que define el tamaño del marco en la pila (<code>stack_size</code>) y el número de parámetros.</li><li><strong>Descriptores de Parámetros (6 bytes por parámetro):</strong></li></ol>
@@ -91,7 +97,38 @@ MIDL_SERVER_INFO:
 <ul><li><code>0x11</code> (<code>FC_RP</code>): Puntero de referencia (no puede ser nulo).</li><li><code>0x12</code> (<code>FC_UP</code>): Puntero único (puede ser nulo).</li><li><code>0x21</code> (<code>FC_C_CSTRING</code>): Cadena ASCII conformante terminada en nulo (<code>char*</code>).</li><li><code>0x22</code> (<code>FC_C_WSTRING</code>): Cadena UTF-16 conformante terminada en nulo (<code>wchar_t*</code>).</li><li><code>0x1A</code> (<code>FC_BOGUS_STRUCT</code>): Estructura compleja con alineación manual y punteros anidados.</li></ul>
 <p>El laboratorio <code>plantillas_codigo/rpc_com_server_lab.c</code> y su definición <code>rpc_com_server_lab.idl</code> permiten compilar un servidor local sobre <code>ncalrpc</code> y verificar la disposición exacta de estas tablas en memoria.</p>
 <h2 id="alpc">ALPC</h2>
-<p>ALPC es el mecanismo de mensajes locales que usan muchos componentes de Windows. Su contrato no está documentado para uso general y cambia entre versiones, así que el curso solo pide <strong>reconocerlo</strong>: qué proceso lo usa, que existe una clase de eventos ETW para ALPC (ver <a href="2d-12-etw.html">2D.12</a>) y que, si un análisis llega a ALPC, la conclusión debe apoyarse en la documentación del componente, no en suposiciones sobre el formato de los mensajes.</p>
+<p>ALPC (<em>Advanced Local Procedure Call</em>) es el mecanismo interno de mensajes locales sobre el que corren RPC local (<code>ncalrpc</code>) y múltiples servicios del sistema. Su contrato binario interno no es una API pública documentada y varía entre versiones de Windows, así que debés enfocarte en <strong>reconocerlo y auditarlo en modo lectura</strong> sin enviar mensajes a puertos del sistema.</p>
+<aside class="callout aviso"><p class="callout-titulo">Declaración de entorno (inspección ALPC)</p><p><code>Laboratorio verificado: no; requiere VM/toolchain</code>. Requiere Sysinternals <code>handle64.exe</code> con privilegios administrativos y/o una sesión de depuración de kernel en WinDbg (<code>!alpc</code>).</p></aside>
+<ol><li><strong>Primitivas de <code>ntdll.dll</code> y espacio de nombres <code>\RPC Control\</code>:</strong> el servidor publica un objeto <code>ALPC Port</code> con <code>ntdll!NtAlpcCreatePort</code> (usualmente bajo <code>\RPC Control\&lt;Puerto&gt;</code> o <code>\Sessions\&lt;N&gt;\BaseNamedObjects\...</code>), el cliente conecta con <code>ntdll!NtAlpcConnectPort</code> / <code>NtAlpcConnectPortEx</code> y ambos intercambian datos con <code>ntdll!NtAlpcSendWaitReceivePort</code>.</li>
+<li><strong>Cabecera <code>PORT_MESSAGE</code> en memoria (<code>+0x00..+0x27</code>, 40 bytes en x64 / 24 bytes en x86):</strong></li></ol>
+<pre><code class="lenguaje-c">typedef struct _PORT_MESSAGE_X64 {
+    USHORT    DataLength;            // +0x00: bytes de payload
+    USHORT    TotalLength;           // +0x02: 0x28 + DataLength
+    USHORT    Type;                  // +0x04: REQUEST(1), REPLY(2)
+    USHORT    DataInfoOffset;        // +0x06
+    PVOID     ClientIdUniqueProcess; // +0x08: PID emisor
+    PVOID     ClientIdUniqueThread;  // +0x10: TID emisor
+    ULONG     MessageId;             // +0x18: ID correlativo
+    ULONG     Reserved;              // +0x1C
+    ULONG_PTR ClientViewSize;        // +0x20: cabecera total = 0x28
+} PORT_MESSAGE_X64;</code></pre>
+<ol start="3"><li><strong>Inspección en solo lectura (<code>handle64.exe</code> en user-mode y <code>!alpc</code> en WinDbg):</strong></li></ol>
+<pre><code class="lenguaje-text">:: Enumeracion en user-mode (consola elevada) con Sysinternals
+C:\Tools\Sysinternals&gt; handle64.exe -a -p lsass.exe | findstr /i "ALPC"
+   228: ALPC Port      \RPC Control\lsapolicylookup
+   254: ALPC Port      \RPC Control\lsasspirpc
+   2bc: ALPC Port      \RPC Control\protected_storage
+
+:: En WinDbg de kernel (!alpc): puertos de conexion, detalle y clientes
+kd&gt; !alpc /lpl
+  Port: ffffb609148e2c90 Owner: lsass.exe    Name: \RPC Control\lsasspirpc
+  Port: ffffb60915a1a080 Owner: services.exe Name: \RPC Control\spoolerpc
+
+kd&gt; !alpc /lpp &lt;dir_EPROCESS&gt;  ; puertos creados/conectados por proceso
+kd&gt; !alpc /p ffffb609148e2c90  ; detalle de ConnectionPort y colas
+kd&gt; !alpc /c ffffb609148e2c90  ; clientes conectados (ej. svchost.exe)
+kd&gt; !alpc /m &lt;dir_Message&gt;     ; decodifica un mensaje en vuelo</code></pre>
+<p>De forma complementaria, el comando <code>!alpc /p &lt;dir_PortObject&gt;</code> expone el bloque <code>_KALPC_PORT</code> completo (<code>OwnerProcess</code>, <code>ServerCommunicationPort</code>, <code>ClientCommunicationPort</code>, longitudes de <code>MainQueueLength</code> / <code>PendingQueueLength</code> y flags como <code>HasCompletionList</code> o <code>FlushOnClose</code>), mientras que <code>!alpc /c</code> lista cada par servidor-cliente en <code>CommunicationInfo</code> sin perturbar los mensajes.</p>
 <h2 id="ejemplo-trabajado">Ejemplo trabajado</h2>
 <p><em>(Ejemplo ilustrativo de una app propia; los valores no son una captura.)</em></p>
 <pre><code class="lenguaje-text">BlocClient -&gt; \\.\pipe\BlocLab.Status -&gt; BlocService
@@ -113,31 +150,6 @@ Seguridad: ACL permite al usuario de la sesión; no acepta datos arbitrarios</co
 <tr><td>Validación</td><td>Mensaje de tamaño fijo; versión distinta de 1 se rechaza</td><td>Observación en código propio</td></tr>
 <tr><td>“Ningún otro proceso puede hacerse pasar por servidor”</td><td>—</td><td>Inferencia: la sostiene la primera instancia con bandera, no el nombre</td></tr>
 </tbody></table></div>
-<blockquote><p><strong>Ampliación editorial basada en fuentes externas — Inspección práctica de puertos y conexiones ALPC en user-mode y WinDbg (<code>!alpc</code>)</strong></p>
-<p>Aunque ALPC (<em>Advanced Local Procedure Call</em>) es una interfaz interna de <code>ntdll.dll</code>, el analista necesita saber reconocer sus llamadas en un binario y auditar qué procesos están conectados a un puerto local durante una sesión de depuración (<em>Windows Internals 7th Ed., Cap. 3 / extensión <code>!alpc</code> de WinDbg</em>) (<strong>Hecho confirmado</strong>):</p>
-<ol><li><strong>Las tres primitivas de <code>ntdll.dll</code> y el espacio de nombres <code>\RPC Control\</code>:</strong></li></ol>
-<ul><li><strong>Servidor:</strong> Llama a <code>ntdll!NtAlpcCreatePort(&amp;PortHandle, &amp;ObjectAttributes, &amp;PortInformation)</code> publicando un objeto de tipo <code>ALPC Port</code> en el directorio del Object Manager (casi siempre bajo <code>\RPC Control\&lt;NombreDelPuerto&gt;</code> o <code>\Sessions\&lt;N&gt;\BaseNamedObjects\...</code>).</li><li><strong>Cliente:</strong> Se conecta con <code>ntdll!NtAlpcConnectPort</code> (o <code>NtAlpcConnectPortEx</code>) especificando el <code>UNICODE_STRING</code> del puerto destino.</li><li><strong>Intercambio de mensajes:</strong> Ambos lados usan <code>ntdll!NtAlpcSendWaitReceivePort(PortHandle, Flags, SendMessage, SendMessageAttributes, ReceiveMessage, &amp;BufferLength, ReceiveMessageAttributes, Timeout)</code>.</li></ul>
-<ol start="2"><li><strong>Cabecera <code>PORT_MESSAGE</code> en memoria (<code>+0x00..+0x27</code>, 40 bytes en x64 / 24 bytes en x86):</strong></li></ol>
-<p>Todo mensaje enviado o recibido por ALPC comienza con una cabecera fija <code>PORT_MESSAGE</code> seguida inmediatamente por los datos de la aplicación:</p>
-<pre><code class="lenguaje-c">typedef struct _PORT_MESSAGE_X64 {
-USHORT DataLength;     // +0x00 (2B): Bytes útiles del payload después de esta cabecera
-USHORT TotalLength;    // +0x02 (2B): sizeof(PORT_MESSAGE) (0x28 en x64) + DataLength
-USHORT Type;           // +0x04 (2B): LPC_REQUEST (1), LPC_REPLY (2), LPC_CONNECTION_REQUEST (10)
-USHORT DataInfoOffset; // +0x06 (2B)
-PVOID  ClientIdUniqueProcess; // +0x08 (8B): PID del emisor (CLIENT_ID.UniqueProcess)
-PVOID  ClientIdUniqueThread;  // +0x10 (8B): TID del emisor (CLIENT_ID.UniqueThread)
-ULONG  MessageId;      // +0x18 (4B): ID correlativo del mensaje
-ULONG  Reserved;       // +0x1C (4B)
-ULONG_PTR ClientViewSize; // +0x20 (8B): Total cabecera = 0x28 (40 bytes en x64)
-} PORT_MESSAGE_X64;</code></pre>
-<ol start="3"><li><strong>Comandos de inspección en solo lectura (Sysinternals y WinDbg de kernel):</strong></li></ol>
-<pre><code class="lenguaje-text"># En user-mode (consola elevada en la VM): listar todos los puertos ALPC abiertos y su proceso dueño
-handle.exe -a -p &lt;PID_o_nombre&gt; "ALPC Port"
-
-# En WinDbg conectado al kernel de la VM (extensión !alpc):
-kd&gt; !alpc /lpp &lt;dir_EPROCESS&gt;    ; Lista todos los puertos ALPC creados y conectados por ese proceso
-kd&gt; !alpc /p &lt;dir_PortObject&gt;    ; Muestra el proceso servidor, la cola de mensajes y todos los clientes conectados
-kd&gt; !alpc /m &lt;dir_Message&gt;       ; Decodifica un mensaje ALPC en vuelo y quién lo envió</code></pre></blockquote>
 <h2 id="práctica">Práctica</h2>
 <p>Con un cliente/servidor propios ya preparados:</p>
 <ol><li>Listá los pipes visibles en la VM solo para ubicar el tuyo (en PowerShell, <code>Get-ChildItem \\.\pipe\</code> muestra nombres) y no abras pipes ajenos.</li><li>Inspeccioná en Process Explorer/Procmon la apertura del endpoint y seguí una sola solicitud inocua. Capturá nombre, PID, operación, respuesta y ACL observada.</li><li>Completá la tabla “Qué revisar en un pipe propio” con evidencia del código o del depurador.</li><li>Para RPC, usá el propio contrato local: anotá UUID/versión, secuencias de protocolo registradas, flags de registro y si hay callback de seguridad.</li><li>Para ALPC, describí una traza/documentación existente, sin enviar mensajes.</li></ol>
@@ -155,83 +167,8 @@ kd&gt; !alpc /m &lt;dir_Message&gt;       ; Decodifica un mensaje ALPC en vuelo 
 <aside class="callout nota"><p class="callout-titulo">Puerta optativa</p><p>Podés distinguir pipe, RPC y ALPC, seguir un intercambio propio, revisar ACL, primera instancia, clientes remotos, modo e impersonación de un pipe, explicar por qué en RPC el control debe estar en el callback de seguridad y no en el endpoint, e inspeccionar interfaces RPC y puertos ALPC en modo lectura.</p></aside>
 <aside class="callout nota"><p class="callout-titulo">Lo que queda fuera</p><p>El protocolo SMB de los pipes remotos en la red, la especificación completa del motor NDR64, la construcción de clientes para puertos ALPC del sistema, mailslots y otros mecanismos IPC legados no se desarrollan. No se enseña a enviar datos a pipes ni a endpoints RPC o ALPC ajenos.</p></aside>
 <h2 id="fuentes">Fuentes</h2>
-<ul><li>Microsoft Learn: <a href="https://learn.microsoft.com/en-us/windows/win32/ipc/interprocess-communications" rel="noopener" target="_blank">Interprocess Communications</a>, <a href="https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipes" rel="noopener" target="_blank">Named Pipes</a>, <a href="https://learn.microsoft.com/en-us/windows/win32/rpc/rpc-start-page" rel="noopener" target="_blank">RPC</a>, <a href="https://learn.microsoft.com/en-us/windows/win32/etw/alpc" rel="noopener" target="_blank">ALPC ETW class</a>.</li><li>Microsoft Learn, pipes: <a href="https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createnamedpipea" rel="noopener" target="_blank">CreateNamedPipe</a>, <a href="https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipe-security-and-access-rights" rel="noopener" target="_blank">Named Pipe Security and Access Rights</a>, <a href="https://learn.microsoft.com/en-us/windows/win32/ipc/impersonating-a-named-pipe-client" rel="noopener" target="_blank">Impersonating a Named Pipe Client</a>, <a href="https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipe-type-read-and-wait-modes" rel="noopener" target="_blank">Named Pipe Type, Read, and Wait Modes</a>.</li><li>Microsoft Learn, RPC seguro: <a href="https://learn.microsoft.com/en-us/windows/win32/rpc/writing-a-secure-rpc-client-or-server" rel="noopener" target="_blank">Writing a Secure RPC Client or Server</a>, <a href="https://learn.microsoft.com/en-us/windows/win32/rpc/be-wary-of-other-rpc-endpoints-running-in-the-same-process" rel="noopener" target="_blank">Be Wary of Other RPC Endpoints Running in the Same Process</a>, <a href="https://learn.microsoft.com/en-us/windows/win32/rpc/common-mistake-assuming-rpcserverregisterauthinfo-prevents-unauthorized-users-from-calling-your-server" rel="noopener" target="_blank">RpcServerRegisterAuthInfo doesn't deny unauthorized users</a>, <a href="https://learn.microsoft.com/en-us/windows/win32/rpc/interface-registration-flags" rel="noopener" target="_blank">Interface Registration Flags</a>, <a href="https://learn.microsoft.com/en-us/windows/win32/rpc/protocol-sequence-constants" rel="noopener" target="_blank">Protocol Sequence Constants</a>.</li><li><strong>Fundamentos previos:</strong> call stack y procesos en <a href="01-procesos.html">1.3</a>; DCOM/RPC en <a href="2d-08-dcom-rpc.html">2D.8</a>.</li></ul>
+<ul><li>Microsoft Learn: <a href="https://learn.microsoft.com/en-us/windows/win32/ipc/interprocess-communications" rel="noopener" target="_blank">Interprocess Communications</a>, <a href="https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipes" rel="noopener" target="_blank">Named Pipes</a>, <a href="https://learn.microsoft.com/en-us/windows/win32/rpc/rpc-start-page" rel="noopener" target="_blank">RPC</a>, <a href="https://learn.microsoft.com/en-us/windows/win32/etw/alpc" rel="noopener" target="_blank">ALPC ETW class</a>, y <a href="https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/-alpc" rel="noopener" target="_blank">WinDbg <code>!alpc</code> extension</a>.</li><li>Microsoft Learn, pipes: <a href="https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createnamedpipea" rel="noopener" target="_blank">CreateNamedPipe</a>, <a href="https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipe-security-and-access-rights" rel="noopener" target="_blank">Named Pipe Security and Access Rights</a>, <a href="https://learn.microsoft.com/en-us/windows/win32/ipc/impersonating-a-named-pipe-client" rel="noopener" target="_blank">Impersonating a Named Pipe Client</a>, <a href="https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipe-type-read-and-wait-modes" rel="noopener" target="_blank">Named Pipe Type, Read, and Wait Modes</a>.</li><li>Microsoft Learn, RPC seguro: <a href="https://learn.microsoft.com/en-us/windows/win32/rpc/writing-a-secure-rpc-client-or-server" rel="noopener" target="_blank">Writing a Secure RPC Client or Server</a>, <a href="https://learn.microsoft.com/en-us/windows/win32/rpc/be-wary-of-other-rpc-endpoints-running-in-the-same-process" rel="noopener" target="_blank">Be Wary of Other RPC Endpoints Running in the Same Process</a>, <a href="https://learn.microsoft.com/en-us/windows/win32/rpc/common-mistake-assuming-rpcserverregisterauthinfo-prevents-unauthorized-users-from-calling-your-server" rel="noopener" target="_blank">RpcServerRegisterAuthInfo doesn't deny unauthorized users</a>, <a href="https://learn.microsoft.com/en-us/windows/win32/rpc/interface-registration-flags" rel="noopener" target="_blank">Interface Registration Flags</a>, <a href="https://learn.microsoft.com/en-us/windows/win32/rpc/protocol-sequence-constants" rel="noopener" target="_blank">Protocol Sequence Constants</a>.</li><li>Literatura técnica ALPC: Russinovich, M., Solomon, D., &amp; Ionescu, A., <em>Windows Internals, Part 2</em> (6th/7th ed., Microsoft Press); Garnier, C. (2008), <em>Windows Vista / Server 2008 ALPC Internals</em> (SyScan).</li><li><strong>Fundamentos previos:</strong> call stack y procesos en <a href="01-procesos.html">1.3</a>; DCOM/RPC en <a href="2d-08-dcom-rpc.html">2D.8</a>.</li></ul>
 <aside class="callout nota"><p class="callout-titulo">Etiquetas</p><p><strong>Núcleo conceptual:</strong> procesos e IPC general. <strong>Conocimiento externo:</strong> IPC Windows, seguridad de named pipes y RPC. <strong>Ejemplo ilustrativo:</strong> protocolo y ficha BlocLab. <strong>Laboratorio verificado:</strong> no; ejemplo propio propuesto.</p></aside>
-
-<aside class="ampliacion-ext">
-<p class="callout-titulo">Ampliación editorial basada en fuentes externas — Reconstrucción estática de interfaces RPC (RPC_SERVER_INTERFACE y MIDL_SERVER_INFO)</p>
-<p>Cuando un binario registra un servidor RPC mediante <code>RpcServerRegisterIf</code> / <code>RpcServerRegisterIf2</code> / <code>RpcServerRegisterIfEx</code>, IDA Pro o Ghidra no resuelven por defecto la relación entre números de procedimiento (opcodes RPC) y funciones C. El primer argumento (<code>IfSpec</code>, registro <code>RCX</code> en x64) apunta a la estructura <code>RPC_SERVER_INTERFACE</code> en <code>.rdata</code> o <code>.data</code> generada por el compilador MIDL (<code>rpcndr.h</code> del Windows SDK) <em>(Hecho confirmado)</em>:</p>
-<div class="tabla"><table>
-<thead><tr><th>Offset (x64)</th><th>Campo en <code>RPC_SERVER_INTERFACE</code></th><th>Tipo y Significado en IDA / Ghidra</th></tr></thead>
-<tbody>
-<tr><td><strong><code>+0x04</code></strong></td><td><code>InterfaceId</code></td><td><code>RPC_SYNTAX_IDENTIFIER</code> (20 bytes: <code>GUID</code> de 16 bytes de la interfaz RPC + <code>MajorVersion</code> de 2B + <code>MinorVersion</code> de 2B).</td></tr>
-<tr><td><strong><code>+0x30</code></strong></td><td><code>DispatchTable</code></td><td><code>PRPC_DISPATCH_TABLE</code>: cantidad de funciones (<code>DispatchTableCount</code>) y puntero al despachador NDR (<code>NdrServerCall2</code> / <code>NdrServerCallAll</code>).</td></tr>
-<tr><td><strong><code>+0x50</code></strong></td><td><code>InterpreterInfo</code></td><td><code>const void*</code> que apunta a <code>MIDL_SERVER_INFO</code>: metadatos de decompilación del servidor.</td></tr>
-</tbody></table></div>
-<p>Siguiendo el puntero <strong><code>InterpreterInfo</code></strong> hacia la estructura <strong><code>MIDL_SERVER_INFO</code></strong>:</p>
-<ul>
-<li>En <strong><code>+0x00</code></strong> (<code>pStubDesc</code>) reside el descriptor de tipos y sintaxis NDR.</li>
-<li>En <strong><code>+0x08</code></strong> (<strong><code>DispatchTable</code></strong>) reside el <strong>arreglo directo de punteros a las funciones C reales del servidor</strong> (<code>ServerRoutineTable[0..N-1]</code>). Navegar a esta dirección revela inmediatamente la lista completa de procedimientos remotos expuestos por el binario.</li>
-</ul>
-<p><strong>Automatización práctica:</strong> En análisis defensivo o auditoría de servicios de Windows, herramientas de código abierto como <strong><code>RpcView</code></strong> o un script de <strong>IDAPython</strong> que automatice la navegación <code>InterfaceId &rarr; InterpreterInfo &rarr; DispatchTable</code> permiten extraer y tipar todas las rutinas del servidor RPC en cuestión de segundos.</p>
-</aside>
-
-<hr>
-
-<h2 id="5-inspeccion-practica-de-puertos-alpc-con-handle-exe-y-alpc-en-windbg">5. Inspección Práctica de Puertos ALPC con <code>handle64.exe</code> y <code>!alpc</code> en WinDbg</h2>
-<aside class="callout aviso"><p class="callout-titulo">Declaración de Entorno</p><p><code>Laboratorio verificado: no; requiere VM/toolchain</code>. Requiere Sysinternals <code>handle64.exe</code> ejecutándose con privilegios administrativos y una sesión de depuración de kernel en WinDbg.</p></aside>
-
-<h3 id="5-1-enumeracion-en-modo-usuario-con-handle64-exe">5.1. Enumeración en Modo Usuario con <code>handle64.exe</code></h3>
-<p>Desde una consola elevada, la utilidad <code>handle64.exe</code> de Sysinternals permite filtrar la tabla de handles de cualquier proceso (por ejemplo, el servicio de programación de tareas o <code>lsass.exe</code>) restringiendo la salida al tipo de objeto del ejecutivo <strong><code>ALPC Port</code></strong> mediante los modificadores <code>-a</code> (volcar todos los tipos de objetos) y <code>-p</code>:</p>
-
-<pre><code class="lenguaje-text">C:\Tools\Sysinternals&gt; handle64.exe -a -p lsass.exe | findstr /i "ALPC"
-   228: ALPC Port      \RPC Control\lsapolicylookup
-   254: ALPC Port      \RPC Control\lsasspirpc
-   2bc: ALPC Port      \RPC Control\protected_storage</code></pre>
-
-<p>Para mapear el proceso que actúa como cliente de dicho endpoint, se busca el handle de tipo <code>ALPC Port</code> en procesos cliente que apunte al mismo nombre simbólico en el directorio <code>\RPC Control</code> de la tabla de objetos del Object Manager.</p>
-
-<h3 id="5-2-inspeccion-de-estructuras-internas-kalpc-port-en-windbg-con-alpc">5.2. Inspección de Estructuras Internas (<code>_KALPC_PORT</code>) en WinDbg con <code>!alpc</code></h3>
-<p>En una sesión viva de depuración de kernel (KD), la extensión <code>!alpc</code> de WinDbg interpreta los grafos de conexión entre puertos servidor y puertos de comunicación cliente:</p>
-
-<pre><code class="lenguaje-text">kd&gt; !alpc /lpl
-Scanning connection ports ...
-  Port: ffffb609148e2c90  Owner: ffffb60912c95080 (lsass.exe)  Name: \RPC Control\lsasspirpc
-  Port: ffffb60915a1a080  Owner: ffffb609121a80c0 (services.exe) Name: \RPC Control\spoolerpc
-
-kd&gt; !alpc /p ffffb609148e2c90
-Port @ ffffb609148e2c90
-  Type                      : ConnectionPort
-  OwnerProcess              : ffffb60912c95080 (lsass.exe)
-  ConnectionPort            : ffffb609148e2c90
-  ServerCommunicationPort   : 0000000000000000
-  ClientCommunicationPort   : 0000000000000000
-  Flags                     : 0x00000000
-  State                     : 0x00000001
-  SequenceNo                : 0x00000001
-  PortContext               : 0000000000000000
-  HasCompletionList         : No
-  ConnectionRefused         : No
-  Disconnected              : No
-  Closed                    : No
-  FlushOnClose              : Yes
-  MainQueueLength           : 0x00000000
-  PendingQueueLength        : 0x00000000
-  LargeMessageQueueLength   : 0x00000000
-
-kd&gt; !alpc /c ffffb609148e2c90
-Connections for port ffffb609148e2c90
-  CommunicationInfo @ ffffb609182143a0
-    ConnectionPort          : ffffb609148e2c90 (lsasspirpc)
-    ServerCommunicationPort : ffffb60918215920 [lsass.exe]
-    ClientCommunicationPort : ffffb60918215410 [svchost.exe]</code></pre>
-
-<h2 id="referencias-y-fuentes-tecnicas">Referencias y Fuentes Técnicas</h2>
-<ul>
-  <li>Garnier, C. (2008). <em>Windows Vista / Server 2008 ALPC Internals</em>. SyScan Conference.</li>
-  <li>Russinovich, M., Solomon, D., &amp; Ionescu, A. (2012). <em>Windows Internals, Part 2</em> (6th ed.). Microsoft Press.</li>
-  <li>Microsoft Learn. (2023). <em>ALPC Reference and Port Message Structures</em>.</li>
-</ul>
 
 </main>
 <footer class="pie">

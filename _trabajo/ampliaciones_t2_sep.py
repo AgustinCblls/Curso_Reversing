@@ -127,7 +127,7 @@ Ciertas muestras evasivas intentan silenciar la telemetría del propio proceso (
 
 # HTML para Hoja 4 de la Separata (Página 15)
 HOJA4_HTML = """
-<h2 id="hoja-4">Hoja 4 · Evasión User-Mode, Inyección, Go/Rust y Extracción In-Place (Rev. 5.4)</h2>
+<h2 id="hoja-4">Hoja 4 · Evasión User-Mode, Inyección, Go/Rust y Extracción In-Place (Rev. 5.5)</h2>
 
 <h3>4.1 Stubs de Syscall en <code>ntdll.dll</code> (x64) y Matriz de Evasión (Lecciones 2.14 y 2.15)</h3>
 <div class="tabla"><table>
@@ -159,7 +159,7 @@ FF 25 [offset]  jmp qword ptr [pfn_ntdll_syscall]
 <tr><td><strong>Reflective DLL</strong></td><td>Reserva memoria <code>RWX</code>/<code>RX</code> y salta a <code>ReflectiveLoader</code> sin <code>LoadLibrary</code></td><td>La DLL no figura en <code>PEB-&gt;Ldr</code> (<code>lm</code>), pero existe como región <code>Private</code> ejecutable en <code>!vadump</code>.</td></tr>
 </tbody></table></div>
 
-<h3>4.3 Go (1.17+ ABI) y Rust (Mangling v0 y Niche Optimization) (Lección 2.13)</h3>
+<h3>4.3 Go (1.17+ ABI) y Rust (Mangling v0 y Niche Optimization) (Lecciones 2.13 y 2.32)</h3>
 <ul>
 <li><strong>Go <code>pclntab</code> Magic Bytes:</strong> <code>0xFFFFFFFB</code> (Go 1.2), <code>0xFFFFFFFA</code> (Go 1.16), <code>0xFFFFFFF0</code> (Go 1.18+), <code>0xFFFFFFF1</code> (Go 1.20+). Recuperar nombres con <code>GoReSym</code> o Ghidra 11+.</li>
 <li><strong>Go <code>string</code> y Registros:</strong> Par <code>{ptr, len}</code> de 16B <strong>sin byte <code>0x00</code></strong>. Registros de argumentos/retorno en orden: <strong><code>RAX, RBX, RCX, RDI, RSI, R8, R9, R10, R11</code></strong>. Goroutine activa en <strong><code>R14</code></strong> (<code>cmp rsp, [r14+10h]</code>).</li>
@@ -173,7 +173,7 @@ FF 25 [offset]  jmp qword ptr [pfn_ntdll_syscall]
 
 # HTML para Hoja 5 de la Separata (Página 16)
 HOJA5_HTML = """
-<h2 id="hoja-5">Hoja 5 · Criptografía Nativa (CryptoAPI / CNG) y Reversing de Drivers .sys (Rev. 5.4)</h2>
+<h2 id="hoja-5">Hoja 5 · Criptografía Nativa (CryptoAPI / CNG) y Reversing de Drivers .sys (Rev. 5.5)</h2>
 
 <h3>5.1 CryptoAPI (<code>advapi32.dll</code>) vs. CNG (<code>bcrypt.dll</code>) y Endianness (Lección 4.2)</h3>
 <div class="tabla"><table>
@@ -199,33 +199,35 @@ HOJA5_HTML = """
 
 # HTML para Hoja 6 de la Separata (Offsets Críticos del Kernel)
 HOJA6_HTML = """
-<h2 id="hoja-6">Hoja 6 · Offsets Críticos del Kernel (_EPROCESS, _KPROCESS, _TOKEN) (Rev. 5.4)</h2>
+<h2 id="hoja-6">Hoja 6 · Offsets Críticos del Kernel (_EPROCESS, _KPROCESS, _TOKEN) (Rev. 5.5)</h2>
 
-<h3>6.1 Tabla Comparativa de Offsets en x64: Windows 10 (22H2) vs. Windows 11 (23H2 / 24H2)</h3>
+<h3>6.1 Tabla Comparativa de Offsets en x64: Windows 10 (22H2) vs. Windows 11 (23H2 / 24H2 GA)</h3>
 <div class="tabla"><table>
-<thead><tr><th>Estructura</th><th>Campo</th><th>Tipo</th><th>Win10 (22H2 Build 19045)</th><th>Win11 (23H2 Build 22631)</th><th>Win11 (24H2 Build 26100)</th><th>Propósito Defensivo / Reversing</th></tr></thead>
+<thead><tr><th>Estructura</th><th>Campo</th><th>Tipo</th><th>Win10 (22H2 Build 19045)</th><th>Win11 (23H2 Build 22631)</th><th>Win11 (24H2 Build 26100 GA)</th><th>Propósito Defensivo / Reversing</th></tr></thead>
 <tbody>
-<tr><td rowspan="6"><strong><code>nt!_EPROCESS</code></strong></td><td><code>UniqueProcessId</code></td><td><code>HANDLE</code></td><td><code>+0x440</code></td><td><code>+0x440</code></td><td><code>+0x440</code></td><td>Identificador numérico de proceso (PID). Estable entre versiones recientes.</td></tr>
-<tr><td><code>ActiveProcessLinks</code></td><td><code>LIST_ENTRY</code></td><td><code>+0x448</code></td><td><code>+0x448</code></td><td><code>+0x448</code></td><td>Lista circular del scheduler recorrida por <code>tasklist</code> / <code>EnumProcesses</code>. Blanco clásico de DKOM.</td></tr>
-<tr><td><code>Token</code></td><td><code>EX_FAST_REF</code></td><td><code>+0x4B8</code></td><td><code>+0x4B8</code></td><td><code>+0x4B8</code></td><td>Puntero al token de acceso primario. Aplicar máscara <code>&amp; ~0x0F</code> para despojar el conteo de referencias.</td></tr>
-<tr><td><code>ImageFileName</code></td><td><code>UCHAR[15]</code></td><td><code>+0x5A8</code></td><td><code>+0x5A8</code></td><td><code>+0x5A8</code></td><td>Nombre corto de imagen (ASCII de hasta 14 caracteres + nulo terminador).</td></tr>
-<tr><td><code>Protection</code></td><td><code>_PS_PROTECTION</code></td><td><code>+0x87A</code></td><td><code>+0x87A</code></td><td><strong><code>+0x8FA</code></strong></td><td>Byte de mitigación PPL (Protected Process Light: Signer y Type). <strong>Desplazado en 24H2</strong>.</td></tr>
-<tr><td><code>MitigationFlags</code> / <code>Flags2</code></td><td><code>ULONG</code></td><td><code>+0x9D0</code></td><td><strong><code>+0x9D8</code></strong></td><td><strong><code>+0xA58</code></strong></td><td>Máscara de mitigaciones: kCFG, ACG, CET Shadow Stack, Win32k Lockdown. <strong>Varía entre compilaciones</strong>.</td></tr>
+<tr><td rowspan="6"><strong><code>nt!_EPROCESS</code></strong></td><td><code>UniqueProcessId</code></td><td><code>HANDLE</code></td><td><code>+0x440</code></td><td><code>+0x440</code></td><td><strong><code>+0x1D0</code></strong> <br><em>(Pre-GA: <code>+0x440</code>)</em></td><td>Identificador numérico de proceso (PID). Reordenado en 24H2 GA.</td></tr>
+<tr><td><code>ActiveProcessLinks</code></td><td><code>LIST_ENTRY</code></td><td><code>+0x448</code></td><td><code>+0x448</code></td><td><strong><code>+0x1D8</code></strong> <br><em>(Pre-GA: <code>+0x448</code>)</em></td><td>Lista circular del scheduler recorrida por <code>tasklist</code> / <code>EnumProcesses</code>. Blanco clásico de DKOM.</td></tr>
+<tr><td><code>Token</code></td><td><code>EX_FAST_REF</code></td><td><code>+0x4B8</code></td><td><code>+0x4B8</code></td><td><strong><code>+0x248</code></strong> <br><em>(Pre-GA: <code>+0x4B8</code>)</em></td><td>Puntero al token de acceso primario. Aplicar máscara <code>&amp; ~0x0F</code> para despojar el conteo de referencias.</td></tr>
+<tr><td><code>ImageFileName</code></td><td><code>UCHAR[15]</code></td><td><code>+0x5A8</code></td><td><code>+0x5A8</code></td><td><strong><code>+0x338</code></strong> <br><em>(Pre-GA: <code>+0x5A8</code>)</em></td><td>Nombre corto de imagen (ASCII de hasta 14 caracteres + nulo terminador).</td></tr>
+<tr><td><code>Protection</code></td><td><code>_PS_PROTECTION</code></td><td><code>+0x87A</code></td><td><code>+0x87A</code></td><td><strong><code>+0x5FA</code></strong> <br><em>(Pre-GA: <code>+0x8FA</code>)</em></td><td>Byte de mitigación PPL (Protected Process Light: Signer y Type). <strong>Desplazado en 24H2 GA</strong>.</td></tr>
+<tr><td><code>MitigationFlags</code> / <code>Flags2</code></td><td><code>ULONG</code></td><td><code>+0x9D0</code> / <code>+0x9D4</code></td><td><strong><code>+0x9D8</code> / <code>+0x9DC</code></strong></td><td><strong><code>+0x750</code> / <code>+0x754</code></strong> <br><em>(Pre-GA: <code>+0xA58</code>)</em></td><td>Máscara de mitigaciones: kCFG, ACG, CET Shadow Stack, Win32k Lockdown. <strong>Varía entre compilaciones</strong>.</td></tr>
 <tr><td rowspan="3"><strong><code>nt!_KPROCESS</code></strong></td><td><code>DirectoryTableBase</code></td><td><code>ULONG_PTR</code></td><td><code>+0x028</code></td><td><code>+0x028</code></td><td><code>+0x028</code></td><td>Dirección física base de la tabla de páginas de nivel 4 (PML4 / registro <code>CR3</code>).</td></tr>
-<tr><td><code>InstrumentationCallback</code></td><td><code>PVOID</code></td><td><code>+0x3D8</code></td><td><strong><code>+0x3E8</code></strong></td><td><strong><code>+0x3E8</code></strong></td><td>Puntero al sensor en usermode que intercepta retornos de syscalls (<code>NtSetInformationProcess 0x28</code>).</td></tr>
+<tr><td><code>InstrumentationCallback</code></td><td><code>PVOID</code></td><td><code>+0x3D8</code></td><td><strong><code>+0x3E8</code></strong></td><td><strong><code>+0x2C8</code></strong></td><td>Puntero al sensor en usermode que intercepta retornos de syscalls (<code>NtSetInformationProcess 0x28</code>).</td></tr>
 <tr><td><code>UserDirectoryTableBase</code></td><td><code>ULONG_PTR</code></td><td><code>+0x278</code></td><td><code>+0x278</code></td><td><code>+0x278</code></td><td>Directorio de páginas para KVA Shadow (mitigación de hardware frente a Meltdown / CVE-2017-5754).</td></tr>
-<tr><td rowspan="4"><strong><code>nt!_TOKEN</code></strong></td><td><code>Privileges.Present</code></td><td><code>UINT64</code></td><td><code>+0x040</code></td><td><code>+0x040</code></td><td><code>+0x040</code></td><td>Máscara de 64 bits de privilegios concedidos a la cuenta (ej. bit 20 = <code>SeDebugPrivilege</code>).</td></tr>
+<tr><td rowspan="5"><strong><code>nt!_TOKEN</code></strong></td><td><code>Privileges.Present</code></td><td><code>UINT64</code></td><td><code>+0x040</code></td><td><code>+0x040</code></td><td><code>+0x040</code></td><td>Máscara de 64 bits de privilegios concedidos a la cuenta (ej. bit 20 = <code>SeDebugPrivilege</code>).</td></tr>
 <tr><td><code>Privileges.Enabled</code></td><td><code>UINT64</code></td><td><code>+0x048</code></td><td><code>+0x048</code></td><td><code>+0x048</code></td><td>Máscara de 64 bits de privilegios habilitados actualmente en el proceso.</td></tr>
 <tr><td><code>Privileges.EnabledByDefault</code></td><td><code>UINT64</code></td><td><code>+0x050</code></td><td><code>+0x050</code></td><td><code>+0x050</code></td><td>Privilegios habilitados en el momento de creación del token.</td></tr>
-<tr><td><code>UserAndGroups</code></td><td><code>PSID_AND_ATTRIBUTES</code></td><td><code>+0x0A8</code></td><td><code>+0x0A8</code></td><td><code>+0x0A8</code></td><td>Puntero al arreglo de SIDs de seguridad (usuario, grupos administrativos y AppContainer SID).</td></tr>
+<tr><td><code>UserAndGroups</code></td><td><code>PSID_AND_ATTRIBUTES</code></td><td><code>+0x0A8</code></td><td><code>+0x0A8</code></td><td><strong><code>+0x098</code></strong></td><td>Arreglo de SIDs de usuario y grupos. En builds previas residía en <code>+0x0A8</code>; verificar siempre vía PDB.</td></tr>
+<tr><td><code>Capabilities</code> / <code>TokenFlags</code></td><td><code>PSID_AND_ATTRIBUTES</code> / <code>ULONG</code></td><td>Consultar vía PDB</td><td>Consultar vía PDB</td><td><strong><code>+0x318</code> / <code>+0x0C8</code></strong></td><td>SIDs de capacidades AppContainer/LPAC y banderas de aislamiento. Resolver siempre con <code>dt nt!_TOKEN</code>.</td></tr>
 </tbody></table></div>
 
 <h3>6.2 Recetas de Inspección Forense en WinDbg</h3>
 <pre><code>$$ 1. Volcar campos críticos de un objeto de proceso en una sola línea
 dt nt!_EPROCESS &lt;addr&gt; UniqueProcessId ActiveProcessLinks Token Protection ImageFileName
 
-$$ 2. Inspeccionar la máscara de privilegios habilitados en el token de un proceso
+$$ 2. Inspeccionar la máscara de privilegios y capacidades en el token sin fijar offsets
 r $t0 = poi(&lt;EPROCESS_addr&gt; + @@(#FIELD_OFFSET(nt!_EPROCESS, Token))) &amp; ~0xf
+dt nt!_TOKEN @$t0 UserAndGroups RestrictedSids Capabilities TokenFlags
 ? poi(@$t0 + @@(#FIELD_OFFSET(nt!_TOKEN, Privileges.Enabled)))
 
 $$ 3. Auditar el sensor nativo InstrumentationCallback en el hilo/proceso
@@ -235,5 +237,52 @@ dt nt!_KPROCESS &lt;EPROCESS_addr&gt; InstrumentationCallback</code></pre>
 <p class="callout-titulo">Advertencia Crítica de Estabilidad — Prohibición de Hardcoding de Offsets</p>
 <p>Las estructuras internas del ejecutivo de Windows (<code>_EPROCESS</code>, <code>_KPROCESS</code>, <code>_TOKEN</code>) son <strong>opacas y no documentadas</strong>. Microsoft altera la disposición de sus campos entre actualizaciones menores, service packs y compilaciones mayores (como se observa en el salto de <code>Protection</code> y <code>MitigationFlags</code> en Windows 11 24H2). Un script o controlador que utilice offsets numéricos fijos (<em>hardcoded</em>) provocará un fallo de desreferencia o un Bugcheck inmediato (<code>0x3B</code> / <code>SYSTEM_SERVICE_EXCEPTION</code> o <code>0x50</code> / <code>PAGE_FAULT_IN_NONPAGED_AREA</code>). En entornos de producción y herramientas de auditoría se deben emplear siempre las macros dinámicas con símbolos <code>#FIELD_OFFSET</code>, APIs soportadas (<code>PsGetProcessId</code>, <code>PsReferencePrimaryToken</code>) o resolución heurística por firmas.</p>
 </aside>
+"""
+
+# HTML para Hoja 7 de la Separata (Tomo III: Frontera Moderna)
+HOJA7_HTML = """
+<h2 id="hoja-7">Hoja 7 · Frontera Moderna: Clang CFI, Rust, LPAC, CET e IA Local (Tomo III — Rev. 5.5)</h2>
+
+<h3>7.1 Clang Forward-Edge CFI / KCFI vs. MSVC kCFG (Tomo III §1.4)</h3>
+<div class="tabla"><table>
+<thead><tr><th>Propiedad</th><th>Clang CFI (<code>-fsanitize=cfi</code>, LTO)</th><th>Clang KCFI (<code>-fsanitize=kcfi</code>)</th><th>MSVC CFG / kCFG (<code>/guard:cf</code>)</th></tr></thead>
+<tbody>
+<tr><td><strong>Validación del destino</strong></td><td>Tabla de salto + rango/alineación por tipo (requiere <code>-flto -fvisibility=hidden</code>).</td><td>Hash de tipo de 32 bits antes del prólogo de cada función objetivo.</td><td><code>call cs:__guard_dispatch_icall_fptr</code> valida contra bitmap de CFG/kCFG.</td></tr>
+<tr><td><strong>Fallo / parada</strong></td><td><code>ud2</code> (<code>0F 0B</code>) &rarr; <code>STATUS_ILLEGAL_INSTRUCTION</code>.</td><td><code>ud2</code> (<code>0F 0B</code>) / trap en kernel antes del salto indirecto.</td><td><code>mov ecx, 0Ah ; int 29h</code> &rarr; <code>0xC0000409</code> (user) / Bugcheck <code>0x139</code> (kernel).</td></tr>
+<tr><td><strong>Dependencia VBS/HVCI</strong></td><td>Ninguna (solo texto de solo lectura RX).</td><td>Ninguna en tabla global; depende de W^X RX.</td><td>kCFG resiste escritura en Ring 0 solo con HVCI (bitmap protegido por SLAT VTL1).</td></tr>
+</tbody></table></div>
+
+<h3>7.2 Rust en x64: Slices, <code>Vec</code> y Vtables de <code>dyn Trait</code> (Tomo I 2.32 y Tomo III §1.5)</h3>
+<ul>
+  <li><strong>Fat pointers y colecciones (sin NUL):</strong> <code>&amp;[T]</code> / <code>&amp;str</code> = <code>(ptr, len)</code> (16 B); <code>Vec&lt;T&gt;</code> / <code>String</code> = <code>(ptr, len, cap)</code> (24 B).</li>
+  <li><strong>Vtable de <code>dyn Trait</code>:</strong> <code>+0x00 drop_in_place&lt;T&gt;</code>, <code>+0x08 size: usize</code>, <code>+0x10 align: usize</code>, <code>+0x18+ métodos</code> del trait.</li>
+  <li><strong>Mangling y panics:</strong> v0 empieza con <code>_R</code> (RFC 2603) &rarr; <code>rustfilt</code>; <code>core::panicking::panic_bounds_check</code> delata longitudes esperadas.</li>
+</ul>
+
+<h3>7.3 Contenedores AppContainer vs. LPAC (Less Privileged AppContainer) (Tomo III §2)</h3>
+<div class="tabla"><table>
+<thead><tr><th>Concepto / SID</th><th>Prefijo / Valor</th><th>Implicancia en auditoría de tokens (<code>!token</code> / <code>AccessChk</code>)</th></tr></thead>
+<tbody>
+<tr><td><strong>AppContainer estándar</strong></td><td><code>S-1-15-2-1</code> (<em>ALL APPLICATION PACKAGES</em>)</td><td>Habilitado de forma automática; accede a recursos comunes con ACE para <code>S-1-15-2-1</code>.</td></tr>
+<tr><td><strong>LPAC (confinamiento estricto)</strong></td><td><strong><code>S-1-15-2-2</code></strong> (<em>ALL RESTRICTED APP PACKAGES</em>)</td><td>Atributo de seguridad <code>WIN://NOALLAPPPKG</code>; excluye <code>S-1-15-2-1</code>, bloqueando gran parte de filesystem y Registro salvo permiso explícito.</td></tr>
+<tr><td><strong>Package / Capability SIDs</strong></td><td><code>S-1-15-2-*</code> / <strong><code>S-1-15-3-*</code></strong></td><td>Identidad del paquete (<code>S-1-15-2-A-B-C-D</code>) y capacidades (p. ej. <code>S-1-15-3-1024-*</code> o <code>registryRead</code>, <code>lpacCom</code>).</td></tr>
+</tbody></table></div>
+
+<h3>7.4 Intel CET (Shadow Stack &amp; IBT): Opcodes y Desglose de Excepciones (Tomo III §3.1–3.2)</h3>
+<div class="tabla"><table>
+<thead><tr><th>Instrucción / Código</th><th>Bytes / Vector / NTSTATUS</th><th>Función arquitectónica y lectura en WinDbg / IDA</th></tr></thead>
+<tbody>
+<tr><td><strong><code>RDSSPQ</code> / <code>INCSSPQ</code></strong></td><td><code>F3 48 0F 1E C8</code> / <code>F3 49 0F AE EA</code></td><td>Lee el Shadow Stack Pointer (<code>SSP</code>) o avanza marcos en <code>RtlUnwindEx</code> tras SEH/<code>longjmp</code>.</td></tr>
+<tr><td><strong><code>SAVEPREVSSP</code> / <code>RSTORSSP</code></strong></td><td><code>F3 0F 01 EA</code> / <code>F3 0F 01 29</code></td><td>Preserva y restaura el token de pila sombra en conmutación de fibras/hilos (<code>[rcx]</code>).</td></tr>
+<tr><td><strong><code>ENDBR64</code></strong> (CET IBT)</td><td><code>F3 0F 1E FA</code></td><td>Landing pad obligatorio tras <code>call</code>/<code>jmp</code> indirecto en IBT (NOP multibyte en CPUs sin CET).</td></tr>
+<tr><td><strong>Excepción hardware <code>#CP</code></strong></td><td>Vector <code>21</code> &rarr; <strong><code>0xC00006A6</code></strong></td><td><code>STATUS_CONTROL_PROTECTION_EXCEPTION</code> disparada por CPU al detectar <code>[RSP] != [SSP]</code> o falta de <code>endbr64</code>.</td></tr>
+<tr><td><strong>Fast-Fail software CET</strong></td><td><code>mov ecx, 2Ah ; int 29h</code> &rarr; <code>0xC0000409</code></td><td><code>STATUS_STACK_BUFFER_OVERRUN</code> (subcódigo <code>0x2A = FAST_FAIL_CONTROL_PROTECTION_USER</code>).</td></tr>
+</tbody></table></div>
+
+<h3>7.5 Inferencia Determinista con PyGhidra + Ollama Local (Offline) (Tomo III §4)</h3>
+<ul>
+  <li><strong>Regla de soberanía y falsabilidad:</strong> nunca enviar pseudocódigo propietario o de incidentes a APIs en nube. Tratar toda hipótesis del LLM como <em>no verificada</em> hasta contrastarla contra P-Code, xrefs, strings e imports reales en Ghidra.</li>
+  <li><strong>Contrato de inferencia reproducible (Plantilla 21):</strong> endpoint local <code>http://127.0.0.1:11434/api/generate</code>, modelos coder cuantizados (<code>qwen2.5-coder:14b</code> / <code>7b</code>), salida JSON estricta y parámetros deterministas: <strong><code>temperature = 0.0</code></strong> (o <code>0.1</code>), <strong><code>top_p = 0.9</code></strong> y <strong><code>seed = 42</code></strong>.</li>
+</ul>
 """
 

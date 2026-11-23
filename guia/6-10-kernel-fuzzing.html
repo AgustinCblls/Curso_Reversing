@@ -241,7 +241,97 @@ shutdown /r /t 0</code></pre>
 
     </section>
 
+    <section class="theory-block">
 
+      <h2>2.2. Escalón previo: Harness de Fuzzing IOCTL en modo usuario</h2>
+
+      <p>
+        Antes de escalar a fuzzers basados en snapshots (<strong>WTF</strong>) o hipervisores con <strong>Intel PT</strong> (<strong>kAFL</strong>), resulta muy práctico validar el controlador con un <strong>harness en espacio de usuario</strong> que interactúe directo con la interfaz <code>IRP_MJ_DEVICE_CONTROL</code> (<code>EvtIoDeviceControl</code> en KMDF), combinando códigos <code>IOCTL</code>, tamaños incongruentes y punteros anómalos mientras un depurador de kernel observa vía KDNET (<a href="6-03-debug-kernel.html">Lección 6.3</a>):
+      </p>
+
+      <ol>
+        <li><strong>Apertura del dispositivo:</strong> obtiene un handle con <code>CreateFileW(L"\\\\.\\MiDriver", GENERIC_READ | GENERIC_WRITE, ...)</code> mediante el enlace simbólico expuesto por el driver.</li>
+        <li><strong>Bucle de mutación de IOCTLs:</strong> permuta códigos <code>CTL_CODE</code> variando <em>DeviceType</em> (<code>0x8000</code>..<code>0xFFFF</code>), <em>Function</em> (<code>0x800</code>..<code>0xFFF</code>) y los cuatro métodos (<code>METHOD_BUFFERED</code>, <code>IN_DIRECT</code>, <code>OUT_DIRECT</code>, <code>METHOD_NEITHER</code>).</li>
+        <li><strong>Manejo estricto de excepciones:</strong> encapsula <code>DeviceIoControl</code> dentro de <code>__try / __except</code> para capturar violaciones de acceso en modo usuario si el driver usa <code>METHOD_NEITHER</code> sin abortar el harness.</li>
+      </ol>
+
+      <pre><code class="lenguaje-c">// Archivo: plantillas_codigo/ioctl_fuzzer_harness.c
+// Compilar MSVC x64:
+//   cl /Zi /O2 ioctl_fuzzer_harness.c /Fe:IoctlFuzzer.exe
+
+#include &lt;windows.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;time.h&gt;
+
+#define MAX_PAYLOAD_SIZE 4096
+
+void GenerarPayloadMutado(BYTE* buffer, DWORD size) {
+    static const DWORD patrones[] = {
+        0x00000000, 0xFFFFFFFF, 0x7FFFFFFF, 0x80000000, 0x41414141
+    };
+    for (DWORD i = 0; i &lt; size; i++) {
+        buffer[i] = (BYTE)(rand() % 256);
+    }
+    if (size &gt;= 4) {
+        *(DWORD*)buffer = patrones[rand() % 5];
+    }
+}
+
+int main(int argc, char* argv[]) {
+    LPCWSTR deviceName = L"\\\\.\\BlocLabDevice";
+    HANDLE hDevice = CreateFileW(
+        deviceName, GENERIC_READ | GENERIC_WRITE,
+        0, NULL, OPEN_EXISTING, 0, NULL
+    );
+    if (hDevice == INVALID_HANDLE_VALUE) {
+        printf("[-] Error abriendo %ls (Error: %lu)\n",
+               deviceName, GetLastError());
+        return 1;
+    }
+
+    printf("[+] Fuzzing IOCTLs sobre %ls...\n", deviceName);
+    srand((unsigned int)time(NULL));
+
+    BYTE inBuffer[MAX_PAYLOAD_SIZE];
+    BYTE outBuffer[MAX_PAYLOAD_SIZE];
+    DWORD bytesReturned = 0;
+
+    for (DWORD func = 0x800; func &lt; 0x850; func++) {
+        for (DWORD method = 0; method &lt; 4; method++) {
+            DWORD ioctl = CTL_CODE(
+                FILE_DEVICE_UNKNOWN, func, method, FILE_ANY_ACCESS
+            );
+
+            for (int iter = 0; iter &lt; 100; iter++) {
+                DWORD inSize = rand() % MAX_PAYLOAD_SIZE;
+                DWORD outSize = rand() % MAX_PAYLOAD_SIZE;
+                GenerarPayloadMutado(inBuffer, inSize);
+
+                __try {
+                    DeviceIoControl(
+                        hDevice, ioctl, inBuffer, inSize,
+                        outBuffer, outSize, &amp;bytesReturned, NULL
+                    );
+                }
+                __except (EXCEPTION_EXECUTE_HANDLER) {
+                    printf("[!] Excepcion usermode IOCTL 0x%08X"
+                           " (InSize: %lu)\n", ioctl, inSize);
+                }
+            }
+        }
+    }
+
+    CloseHandle(hDevice);
+    printf("[+] Campana de fuzzing IOCTLs finalizada.\n");
+    return 0;
+}</code></pre>
+
+      <p>
+        Con <strong>KDNET</strong> conectado a una máquina anfitriona con WinDbg, los crashes desencadenados por este harness o por fuzzers guiados por cobertura (<em>WinAFL / Intel PT / kAFL</em>) se capturan al instante antes del reinicio mediante su código de <strong>Bugcheck</strong>: <code>0x50</code> (<code>PAGE_FAULT_IN_NONPAGED_AREA</code> por desreferencia de puntero sin validar), <code>0xD1</code> (<code>DRIVER_IRQL_NOT_LESS_OR_EQUAL</code> por acceso a memoria paginada en <code>DISPATCH_LEVEL</code>) o <code>0x7E</code> (<code>SYSTEM_THREAD_EXCEPTION_NOT_HANDLED</code> por falta de SEH). Con <code>!analyze -v</code> aislás el call stack exacto y la instrucción culpable en el <code>.sys</code>.
+      </p>
+
+    </section>
 
     <section class="theory-block">
 
@@ -563,11 +653,31 @@ pfn 104523 ---DA--KWEV     pfn 104524 ---DA--KWEV     pfn 104525 ---DA--KWEV    
 
     </section>
 
+    <section class="theory-block">
+      <h2 id="práctica">5. Práctica en laboratorio aislado</h2>
+      <p>En tu VM descartable con depuración de kernel vía KDNET y un driver propio de laboratorio (como <code>BlocLab.sys</code> de <a href="6-02-kmdf-ioctl.html">6.2</a>):</p>
+      <ol>
+        <li>Activá <strong>Driver Verifier</strong> con <em>Special Pool</em> exclusivamente sobre tu driver de práctica (<code>verifier.exe /flags 0x209BB /driver BlocLab.sys</code>) y reiniciá la VM.</li>
+        <li>Compilá <code>ioctl_fuzzer_harness.c</code> y ejecutalo sobre el enlace simbólico propio restringiendo los <code>CTL_CODE</code> al rango de funciones de prueba, observando si <code>__try / __except</code> captura excepciones en user-mode con <code>METHOD_NEITHER</code>.</li>
+        <li>Si provocás un fallo controlado en tu driver de prueba (o en un binario didáctico compilado en tu laboratorio), capturá el Bugcheck en WinDbg (<code>0x50</code>, <code>0xD1</code>, <code>0x7E</code> o <code>0xD6</code>) y ejecutá <code>!analyze -v</code>, <code>!pool</code> y <code>!pte</code> para identificar el tamaño exacto de asignación y la instrucción culpable.</li>
+        <li>Desactivá Verifier al finalizar (<code>verifier.exe /reset</code>) antes de guardar o revertir el snapshot.</li>
+      </ol>
 
+      <h2 id="entregable">Entregable</h2>
+      <p>Matriz de códigos <code>IOCTL</code> y métodos de transferencia ejercitados, parámetros del harness, salida de <code>!analyze -v</code> / <code>!pool</code> y clasificación de causa raíz (validación de longitud, puntero de usuario sin <code>ProbeForRead</code>/<code>Write</code> o acceso a memoria paginada en <code>DISPATCH_LEVEL</code>).</p>
+
+      <h2 id="repaso">Repaso</h2>
+      <details class="qa"><summary>¿Por qué el harness en espacio de usuario debe envolver <code>DeviceIoControl</code> dentro de <code>__try / __except</code>?</summary><div class="respuesta"><p>Cuando un driver procesa una solicitud con <code>METHOD_NEITHER</code>, lee punteros crudos de espacio de usuario. Si el harness pasa direcciones límite o nulas y el controlador provoca o propaga un fallo al acceso de usuario sin capturar, el bloque SEH evita que el propio fuzzer aborte antes de recorrer el resto de los <code>IOCTL</code>.</p></div></details>
+      <details class="qa"><summary>¿Qué problema concreto resuelve activar <em>Special Pool</em> en Driver Verifier durante el fuzzing?</summary><div class="respuesta"><p>En el pool normal del kernel, un desbordamiento de pocos bytes puede pisar memoria contigua sin causar un crash inmediato (fallo silencioso o bugcheck tardío en otro driver). <em>Special Pool</em> ubica cada asignación contra una página de guarda no mapeada al final (o al principio), convirtiendo cualquier acceso fuera de límites de tan solo 1 byte en un Bugcheck inmediato y determinista (<code>0xD6</code>).</p></div></details>
+      <details class="qa"><summary>¿Qué ventaja aporta el fuzzing basado en snapshots (WTF) o Intel PT (kAFL) frente a un harness puro sobre VM viva?</summary><div class="respuesta"><p>Fuzzear un driver vivo por <code>DeviceIoControl</code> acumula estado global entre iteraciones y tarda decenas de segundos en reiniciar la VM ante cada BSOD. Los fuzzers basados en snapshots o hipervisor restauran estado determinista en milisegundos tras cada caso de prueba y guían la mutación por cobertura de bloques básicos en Ring 0.</p></div></details>
+      <details class="qa"><summary>En un triaje por KDNET, ¿qué indica el Bugcheck <code>0xD1</code> (<code>DRIVER_IRQL_NOT_LESS_OR_EQUAL</code>) frente a <code>0x50</code>?</summary><div class="respuesta"><p><code>0xD1</code> indica acceso a una página no residente (paginada o inválida) mientras el procesador ejecutaba código a un IRQL igual o superior a <code>DISPATCH_LEVEL</code> (donde los fallos de página están prohibidos). <code>0x50</code> (<code>PAGE_FAULT_IN_NONPAGED_AREA</code>) señala desreferencia de una dirección del rango del kernel que es inválida o liberada a cualquier IRQL permitido.</p></div></details>
+
+      <aside class="callout nota"><p class="callout-titulo">Puerta optativa</p><p>Podés armar un harness mínimo de mutación de <code>CTL_CODE</code> contra un driver propio en VM aislada, habilitar <em>Special Pool</em> en Driver Verifier, distinguir cuándo conviene escalar hacia snapshots (WTF) o kAFL con cobertura por hardware, y diagnosticar en WinDbg Bugchecks <code>0x50</code>, <code>0xD1</code>, <code>0x7E</code> y <code>0xD6</code> con <code>!analyze -v</code>, <code>!pool</code> y <code>!pte</code>.</p></aside>
+    </section>
 
     <section class="references">
 
-      <h2>5. Referencias y Fuentes Técnicas</h2>
+      <h2>6. Referencias y Fuentes Técnicas</h2>
 
       <ul>
 
@@ -580,6 +690,8 @@ pfn 104523 ---DA--KWEV     pfn 104524 ---DA--KWEV     pfn 104525 ---DA--KWEV    
         <li>Yosifovich, P., Ionescu, A., Russinovich, M., &amp; Solomon, D. A. (2017). <em>Windows Internals, Part 1: System architecture, processes, threads, memory management, and more</em> (7th ed.). Microsoft Press.</li>
 
       </ul>
+
+      <aside class="callout nota"><p class="callout-titulo">Etiquetas</p><p><strong>Núcleo conceptual:</strong> auditoría dinámica y fuzzing de interfaces E/S en modo usuario/kernel. <strong>Conocimiento externo:</strong> arquitectura de WTF (snapshots) y kAFL/Nyx (Intel PT), Driver Verifier / <em>Special Pool</em> y códigos de Bugcheck de Microsoft. <strong>Ejemplo ilustrativo:</strong> fragmentos <code>ioctl_fuzzer_harness.c</code>, <code>target_hevd_wtf.cc</code> y salida de triaje <code>!analyze -v</code> / <code>!pool</code> / <code>!pte</code>. <strong>Laboratorio verificado:</strong> no; requiere VM aislada con WDK, KDNET y Driver Verifier.</p></aside>
 
     </section>
 

@@ -108,6 +108,7 @@ def run_in_ghidra():
                                     memory.getBytes(target_addr, buf)
                                     if is_printable_ascii(buf):
                                         text = buf.decode('ascii', errors='ignore')
+                                        createAsciiString(target_addr, length)
                                         setPlateComment(instr.getAddress(), f"[Rust Slice &str] \"{text}\" (len={length})")
                                         slices_found += 1
                                 except Exception:

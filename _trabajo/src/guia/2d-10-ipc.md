@@ -69,20 +69,26 @@ Microsoft remarca que `ncalrpc` no es “seguro por ser local”: en un servidor
 
 ### Anatomía Interna de Stubs RPC y Decodificación de NDR (Format Strings)
 
-Para el analista de ingeniería inversa que audita un binario sin símbolos ni archivos `.idl`, reconstruir la firma exacta de las funciones expuestas por un servidor RPC requiere inspeccionar las estructuras internas que MIDL compila en la sección `.data` o `.rdata`:
+Para el analista de ingeniería inversa que audita un binario sin símbolos ni archivos `.idl`, cuando el servidor invoca `RpcServerRegisterIf` / `RpcServerRegisterIf2` / `RpcServerRegisterIfEx`, el primer argumento (`IfSpec` en `RCX` en x64) apunta a `RPC_SERVER_INTERFACE` en `.rdata` o `.data` (*Hecho confirmado*, `rpcndr.h`):
+
+| Offset (x64) | Campo en `RPC_SERVER_INTERFACE` | Tipo y significado en IDA / Ghidra |
+|---|---|---|
+| `+0x00` | `Length` | Tamaño de estructura (`0x60` / 96 bytes en x64). |
+| `+0x04` | `InterfaceId` | `RPC_SYNTAX_IDENTIFIER` (20B): `SyntaxGUID` (16B) + `MajorVersion` (2B) + `MinorVersion` (2B). |
+| `+0x30` | `DispatchTable` | `PRPC_DISPATCH_TABLE`: cantidad (`DispatchTableCount`) y despachador NDR (`NdrServerCall2` / `NdrServerCallAll`). |
+| `+0x50` | `InterpreterInfo` | Puntero hacia `MIDL_SERVER_INFO` (`+0x00 pStubDesc`, `+0x08 DispatchTable`, `+0x10 ProcFormatString`, `+0x18 FmtStringOffset`). |
+
+Siguiendo `InterpreterInfo` hacia `MIDL_SERVER_INFO`, el campo **`+0x08 DispatchTable`** contiene el arreglo directo de punteros a las funciones C del servidor (`ServerRoutineTable[0..N-1]`). Herramientas como **`RpcView`** o scripts de **IDAPython** automatizan la navegación `InterfaceId -> InterpreterInfo -> DispatchTable`.
 
 ```text
-RPC_SERVER_INTERFACE (puntero exportado o registrado con RpcServerRegisterIf2):
-   +0x00: Length: 0x60 (96 bytes en x64)
-   +0x04: InterfaceId.SyntaxGUID (UUID de 16 bytes de la interfaz)
-   +0x14: InterfaceId.SyntaxVersion (Major/Minor version)
-   +0x50: InterpreterInfo (Ptr64 a MIDL_SERVER_INFO)
-
-MIDL_SERVER_INFO:
-   +0x00: pStubDesc (Ptr64 a MIDL_STUB_DESC)
-   +0x08: DispatchTable (Ptr64 a arreglo de punteros a funciones C del servidor)
-   +0x10: ProcFormatString (Ptr64 a tabla de formatos de procedimiento NDR)
-   +0x18: FmtStringOffset (Ptr64 a tabla de índices a ProcFormatString)
+RPC_SERVER_INTERFACE (+0x00 Length = 0x60 en x64):
+   +0x04: InterfaceId.SyntaxGUID (UUID 16B) + SyntaxVersion
+   +0x30: DispatchTable (PRPC_DISPATCH_TABLE -> NdrServerCall2)
+   +0x50: InterpreterInfo (Ptr64 -> MIDL_SERVER_INFO)
+          +-- +0x00: pStubDesc (Ptr64 -> MIDL_STUB_DESC)
+          +-- +0x08: DispatchTable (ServerRoutineTable[0..N-1])
+          +-- +0x10: ProcFormatString (formatos NDR)
+          +-- +0x18: FmtStringOffset (indices a ProcFormatString)
 ```
 
 #### Decodificación de `ProcFormatString` y `TypeFormatString`
@@ -103,7 +109,50 @@ El laboratorio `plantillas_codigo/rpc_com_server_lab.c` y su definición `rpc_co
 
 ## ALPC
 
-ALPC es el mecanismo de mensajes locales que usan muchos componentes de Windows. Su contrato no está documentado para uso general y cambia entre versiones, así que el curso solo pide **reconocerlo**: qué proceso lo usa, que existe una clase de eventos ETW para ALPC (ver [2D.12](2d-12-etw.html)) y que, si un análisis llega a ALPC, la conclusión debe apoyarse en la documentación del componente, no en suposiciones sobre el formato de los mensajes.
+ALPC (*Advanced Local Procedure Call*) es el mecanismo interno de mensajes locales sobre el que corren RPC local (`ncalrpc`) y múltiples servicios del sistema. Su contrato binario interno no es una API pública documentada y varía entre versiones de Windows, así que debés enfocarte en **reconocerlo y auditarlo en modo lectura** sin enviar mensajes a puertos del sistema.
+
+:::{aviso} Declaración de entorno (inspección ALPC)
+`Laboratorio verificado: no; requiere VM/toolchain`. Requiere Sysinternals `handle64.exe` con privilegios administrativos y/o una sesión de depuración de kernel en WinDbg (`!alpc`).
+:::
+
+1. **Primitivas de `ntdll.dll` y espacio de nombres `\RPC Control\`:** el servidor publica un objeto `ALPC Port` con `ntdll!NtAlpcCreatePort` (usualmente bajo `\RPC Control\<Puerto>` o `\Sessions\<N>\BaseNamedObjects\...`), el cliente conecta con `ntdll!NtAlpcConnectPort` / `NtAlpcConnectPortEx` y ambos intercambian datos con `ntdll!NtAlpcSendWaitReceivePort`.
+2. **Cabecera `PORT_MESSAGE` en memoria (`+0x00..+0x27`, 40 bytes en x64 / 24 bytes en x86):**
+
+```c
+typedef struct _PORT_MESSAGE_X64 {
+    USHORT    DataLength;            // +0x00: bytes de payload
+    USHORT    TotalLength;           // +0x02: 0x28 + DataLength
+    USHORT    Type;                  // +0x04: REQUEST(1), REPLY(2)
+    USHORT    DataInfoOffset;        // +0x06
+    PVOID     ClientIdUniqueProcess; // +0x08: PID emisor
+    PVOID     ClientIdUniqueThread;  // +0x10: TID emisor
+    ULONG     MessageId;             // +0x18: ID correlativo
+    ULONG     Reserved;              // +0x1C
+    ULONG_PTR ClientViewSize;        // +0x20: cabecera total = 0x28
+} PORT_MESSAGE_X64;
+```
+
+3. **Inspección en solo lectura (`handle64.exe` en user-mode y `!alpc` en WinDbg):**
+
+```text
+:: Enumeracion en user-mode (consola elevada) con Sysinternals
+C:\Tools\Sysinternals> handle64.exe -a -p lsass.exe | findstr /i "ALPC"
+   228: ALPC Port      \RPC Control\lsapolicylookup
+   254: ALPC Port      \RPC Control\lsasspirpc
+   2bc: ALPC Port      \RPC Control\protected_storage
+
+:: En WinDbg de kernel (!alpc): puertos de conexion, detalle y clientes
+kd> !alpc /lpl
+  Port: ffffb609148e2c90 Owner: lsass.exe    Name: \RPC Control\lsasspirpc
+  Port: ffffb60915a1a080 Owner: services.exe Name: \RPC Control\spoolerpc
+
+kd> !alpc /lpp <dir_EPROCESS>  ; puertos creados/conectados por proceso
+kd> !alpc /p ffffb609148e2c90  ; detalle de ConnectionPort y colas
+kd> !alpc /c ffffb609148e2c90  ; clientes conectados (ej. svchost.exe)
+kd> !alpc /m <dir_Message>     ; decodifica un mensaje en vuelo
+```
+
+De forma complementaria, `!alpc /p <dir_PortObject>` expone la estructura `_KALPC_PORT` completa (`OwnerProcess`, `ServerCommunicationPort`, `ClientCommunicationPort`, longitudes de colas y flags) y `!alpc /c` lista cada par servidor-cliente en `CommunicationInfo` sin perturbar los mensajes.
 
 ## Ejemplo trabajado
 
@@ -128,42 +177,6 @@ Ficha del análisis, separando observación de inferencia:
 | Impersonación | `ImpersonateNamedPipeClient` antes de leer la configuración del usuario; `RevertToSelf` en salida normal y en error | Observación en código propio |
 | Validación | Mensaje de tamaño fijo; versión distinta de 1 se rechaza | Observación en código propio |
 | “Ningún otro proceso puede hacerse pasar por servidor” | — | Inferencia: la sostiene la primera instancia con bandera, no el nombre |
-
-> **Ampliación editorial basada en fuentes externas — Inspección práctica de puertos y conexiones ALPC en user-mode y WinDbg (`!alpc`)**
->
-> Aunque ALPC (*Advanced Local Procedure Call*) es una interfaz interna de `ntdll.dll`, el analista necesita saber reconocer sus llamadas en un binario y auditar qué procesos están conectados a un puerto local durante una sesión de depuración (*Windows Internals 7th Ed., Cap. 3 / extensión `!alpc` de WinDbg*) (**Hecho confirmado**):
->
-> 1. **Las tres primitivas de `ntdll.dll` y el espacio de nombres `\RPC Control\`:**
->    * **Servidor:** Llama a `ntdll!NtAlpcCreatePort(&PortHandle, &ObjectAttributes, &PortInformation)` publicando un objeto de tipo `ALPC Port` en el directorio del Object Manager (casi siempre bajo `\RPC Control\<NombreDelPuerto>` o `\Sessions\<N>\BaseNamedObjects\...`).
->    * **Cliente:** Se conecta con `ntdll!NtAlpcConnectPort` (o `NtAlpcConnectPortEx`) especificando el `UNICODE_STRING` del puerto destino.
->    * **Intercambio de mensajes:** Ambos lados usan `ntdll!NtAlpcSendWaitReceivePort(PortHandle, Flags, SendMessage, SendMessageAttributes, ReceiveMessage, &BufferLength, ReceiveMessageAttributes, Timeout)`.
->
-> 2. **Cabecera `PORT_MESSAGE` en memoria (`+0x00..+0x27`, 40 bytes en x64 / 24 bytes en x86):**
->    Todo mensaje enviado o recibido por ALPC comienza con una cabecera fija `PORT_MESSAGE` seguida inmediatamente por los datos de la aplicación:
->    ```c
->    typedef struct _PORT_MESSAGE_X64 {
->        USHORT DataLength;     // +0x00 (2B): Bytes útiles del payload después de esta cabecera
->        USHORT TotalLength;    // +0x02 (2B): sizeof(PORT_MESSAGE) (0x28 en x64) + DataLength
->        USHORT Type;           // +0x04 (2B): LPC_REQUEST (1), LPC_REPLY (2), LPC_CONNECTION_REQUEST (10)
->        USHORT DataInfoOffset; // +0x06 (2B)
->        PVOID  ClientIdUniqueProcess; // +0x08 (8B): PID del emisor (CLIENT_ID.UniqueProcess)
->        PVOID  ClientIdUniqueThread;  // +0x10 (8B): TID del emisor (CLIENT_ID.UniqueThread)
->        ULONG  MessageId;      // +0x18 (4B): ID correlativo del mensaje
->        ULONG  Reserved;       // +0x1C (4B)
->        ULONG_PTR ClientViewSize; // +0x20 (8B): Total cabecera = 0x28 (40 bytes en x64)
->    } PORT_MESSAGE_X64;
->    ```
->
-> 3. **Comandos de inspección en solo lectura (Sysinternals y WinDbg de kernel):**
->    ```text
->    # En user-mode (consola elevada en la VM): listar todos los puertos ALPC abiertos y su proceso dueño
->    handle.exe -a -p <PID_o_nombre> "ALPC Port"
->
->    # En WinDbg conectado al kernel de la VM (extensión !alpc):
->    kd> !alpc /lpp <dir_EPROCESS>    ; Lista todos los puertos ALPC creados y conectados por ese proceso
->    kd> !alpc /p <dir_PortObject>    ; Muestra el proceso servidor, la cola de mensajes y todos los clientes conectados
->    kd> !alpc /m <dir_Message>       ; Decodifica un mensaje ALPC en vuelo y quién lo envió
->    ```
 
 ## Práctica
 

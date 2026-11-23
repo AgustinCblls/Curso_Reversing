@@ -96,12 +96,13 @@ $$ 2. Breakpoint en la biblioteca de integridad de código (VTL 0)
 bp ci!CiValidateImageHeader "du poi(@rcx+0x30); gc"
 bp ci!CiValidateImagePages
 
-$$ 3. Breakpoint en la llamada de transición de hipervisor (VtlCall / VtCall hacia Secure Kernel)
-$$ (Nota técnica: En ci.dll, la rutina nativa exportada que ensambla la transición VtlCall/VtCall hacia VTL1 se denomina ci!IvtCallHypervisor, citada también como ci!VtCallHypervisor)
-bp ci!IvtCallHypervisor
-$$ Al alcanzar ci!IvtCallHypervisor, examinar los argumentos de la llamada:
-$$ RCX = Código de comando VTL1 (ej. 0x17 = SECURE_IMAGE_VALIDATE_PAGES)
-$$ RDX = Puntero al bloque de contexto con las PFNs físicas a verificar
+$$ 3. Verificar símbolos reales y poner breakpoint en la transición VTL0 -> VTL1 (VtlCall)
+x nt!Vsl*Image*
+x ci!CiValidateImage*
+bp nt!VslValidateSecureImagePages
+bp nt!VslpEnterIumSecureMode
+$$ Al alcanzar VslValidateSecureImagePages / VslpEnterIumSecureMode, examinar contexto antes del vmcall:
+$$ (nt!VslpEnterIumSecureMode empaqueta argumentos y ejecuta VtlCall hacia Secure Kernel)
 r rcx, rdx
 
 $$ 4. Breakpoint en el Secure Kernel (VTL 1) (si el depurador está conectado a VTL1)
@@ -152,7 +153,7 @@ $$ Recorrer en WinDbg todos los callbacks de registro registrados
 
 ### D. Sensor en Proceso: `KPROCESS->InstrumentationCallback`
 Para evitar el monitoreo invasivo mediante inline hooking en modo usuario, Windows expone un mecanismo nativo de instrumentación en el despachador de syscalls:
-- En la estructura `_KPROCESS` (`nt!_KPROCESS`), el campo **`InstrumentationCallback`** (offset **`+0x3D8`** en Windows 10 x64, **`+0x3E8`** en Windows 11 x64) almacena un puntero a una función en espacio de usuario.
+- En la estructura `_KPROCESS` (`nt!_KPROCESS`), el campo **`InstrumentationCallback`** cambia de desplazamiento según la compilación: reside en **`+0x3D8` en Windows 10 22H2 (Build 19045)**, en **`+0x3E8` en Windows 11 22H2/23H2 (Builds 22621/22631)** y en **`+0x2C8` en Windows 11 24H2 (Build 26100 GA)**. Almacena un puntero a la rutina de retorno en espacio de usuario.
 - Se configura desde user mode mediante `NtSetInformationProcess` pasando la clase no documentada `ProcessInstrumentationCallback` (`0x28`).
 - **Mecánica de intercepción:** Cuando este puntero está activo, cada vez que una llamada al sistema (`syscall`) o interrupción retorna desde el kernel al modo usuario, la CPU no regresa inmediatamente a la instrucción siguiente (`RIP`), sino que desvía la ejecución a la dirección configurada en `InstrumentationCallback`. Sensores defensivos y EDRs lo utilizan para inspeccionar el estado de los registros y el stack post-syscall.
 
@@ -251,7 +252,7 @@ $$ Script WinDbg: Recorrer todos los procesos y detectar callbacks activos
 ### E. Proveedor de Telemetría de Kernel `ETWti` (*Microsoft-Windows-Threat-Intelligence*)
 El subsistema ETWti alimenta a los EDRs con telemetría de bajo nivel:
 - Su handle de registro global reside en `nt!EtwThreatIntProvRegHandle`.
-- Apunta a una estructura `_ETW_REG_ENTRY`. En el offset **`+0x10`** reside el puntero a `_ETW_GUID_ENTRY`.
+- Apunta a una estructura `_ETW_REG_ENTRY`. En el offset **`+0x20`** en x64 moderno (`+0x10` en arquitecturas de 32 bits o builds heredadas) reside el puntero `GuidEntry` hacia `_ETW_GUID_ENTRY`.
 - Dentro de `_ETW_GUID_ENTRY`, el campo `ProviderEnableInfo` define si el proveedor está activo (`EnableMask != 0`) y a qué nivel de detalle registra eventos de kernel.
 
 ---

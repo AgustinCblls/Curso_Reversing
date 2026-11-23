@@ -200,7 +200,7 @@ CET introduce el **Shadow Stack** gestionado directamente por el microprocesador
 2. **Validación en Tiempo Real en `CALL` y `RET`:**
    - Al ejecutarse una instrucción `call`, la CPU guarda la dirección de retorno en el stack de datos y, **simultáneamente**, realiza un push de la misma dirección en el Shadow Stack por hardware.
    - Al ejecutarse la instrucción `ret`, el procesador lee la dirección de retorno de ambos stacks y las compara a nivel de microcódigo.
-   - **Detección de Intrusión:** Si las dos direcciones difieren (porque un desbordamiento o gadget alteró el stack de datos normal), la CPU dispara inmediatamente una excepción por protección de control de flujo: **`#CP` (*Control Protection Exception*)**. Windows intercepta `#CP` y aborta el proceso en el acto con el código de estado `STATUS_CONTROL_PROTECTION_EXCEPTION` (`0xC0000409`), impidiendo que el payload ROP tome el control.
+   - **Detección de Intrusión:** Si las dos direcciones difieren (porque un desbordamiento o gadget alteró el stack de datos normal), la CPU dispara inmediatamente una excepción por protección de control de flujo: **`#CP` (*Control Protection Exception*)**. Windows intercepta `#CP` y aborta el proceso en el acto con el código de estado **`STATUS_CONTROL_PROTECTION_EXCEPTION` (`0xC00006A6`)** (no confundir con `0xC0000409`, que corresponde a `STATUS_STACK_BUFFER_OVERRUN` disparado por `int 29h` / `__fastfail`), impidiendo que el payload ROP tome el control.
 
 ### Apariencia en el Desensamblador e Instrucción `endbr64`
 Además del Shadow Stack (que protege saltos hacia atrás / retornos), CET incorpora **IBT (Indirect Branch Tracking)** para proteger saltos hacia adelante indirectos (`call rax`, `jmp rbx`):

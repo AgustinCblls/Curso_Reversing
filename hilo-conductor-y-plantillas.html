@@ -23,7 +23,7 @@
 </header>
 <main id="contenido">
 <h1 id="hilo-conductor-multi-nivel-y-kit-de-plantillas-c-c">Hilo conductor multi-nivel y kit de plantillas C/C++</h1>
-<aside class="callout nota"><p class="callout-titulo">Propósito de esta sección transversal</p><p>Conectar de forma práctica todos los niveles del curso (Principiante, Intermedio, Avanzado y Especialista). En la <strong>Parte I</strong> vemos cómo un único programa de validación (desde el <code>check.c</code> básico de la Etapa 1 hasta el componente <code>BlocLab</code> de las Etapas 2C, 2D y 6) cambia en el desensamblador y en el debugger a medida que evoluciona. En la <strong>Parte II</strong> tenés el <strong>kit completo de 20 plantillas y laboratorios</strong> en <code>plantillas_codigo/</code> (15 plantillas troncales y avanzadas del Tomo I/II + 5 laboratorios de frontera moderna del <a href="tomo3.html">Tomo III</a>) listos para compilar y analizar en tu VM.</p></aside>
+<aside class="callout nota"><p class="callout-titulo">Propósito de esta sección transversal</p><p>Conectar de forma práctica todos los niveles del curso (Principiante, Intermedio, Avanzado y Especialista). En la <strong>Parte I</strong> vemos cómo un único programa de validación (desde el <code>check.c</code> básico de la Etapa 1 hasta el componente <code>BlocLab</code> de las Etapas 2C, 2D y 6) cambia en el desensamblador y en el debugger a medida que evoluciona. En la <strong>Parte II</strong> tenés el <strong>kit completo de plantillas y laboratorios</strong> en <code>plantillas_codigo/</code> (Plantillas 1 a 16 de los Tomos I y II + Plantillas 17a/17b a 21 del <a href="tomo3.html">Tomo III</a>) listos para compilar y analizar en tu VM.</p></aside>
 
 <h2 id="parte-i-el-hilo-conductor-un-mismo-binario-a-través-de-los-tres-niveles">Parte I · El hilo conductor: un mismo binario a través de los tres niveles</h2>
 <p>Una de las dificultades más comunes al estudiar reversing es sentir que cada tema nuevo (optimizaciones, TLS callbacks, packers, C++ con vtables, named pipes o drivers KMDF) pertenece a un mundo desconectado del anterior. Para unirlos, sigamos <strong>la misma regla de negocio</strong> en sus tres estadios de evolución:</p>
@@ -81,7 +81,7 @@ fallo:
 <p>En el nivel Avanzado, la misma verificación vive dentro de una arquitectura realista de Windows:</p>
 <ul>
 <li><strong>Polimorfismo C++, RTTI, SSO y Excepciones (<a href="guia/02-cpp-profundo.html">2.18</a> y <a href="guia/2d-11-excepciones.html">2D.11</a>):</strong> un objeto derivado <code>ValidadorBloc</code> implementa el método virtual <code>verificar(const std::string&amp; etiqueta, const MensajeCLSF* m)</code>. En el listado vemos <code>mov rax, [rcx] ; call qword ptr [rax+8]</code>. Inspeccionando <code>vtable[-1]</code> en <code>.rdata</code> encontramos el <code>_RTTICompleteObjectLocator</code> (con RVAs en x64) que lleva al nombre <code>.?AVValidadorBloc@@</code>. Si los parámetros violan el rango, lanza una excepción C++ despachada por <code>__CxxFrameHandler4</code> a través de <code>.pdata</code> y <code>.xdata</code>.</li>
-<li><strong>Protocolo binario <code>CLSF</code> sobre Named Pipe (<a href="guia/04-formatos-protocolos.html">4.5</a> y <a href="guia/2d-10-ipc.html">2D.10</a>):</strong> en lugar de pedir números por consola con <code>scanf</code>, un proceso servidor crea <code>\.\pipe\BlocLabPipe</code> (con <code>FILE_FLAG_FIRST_PIPE_INSTANCE</code> y <code>PIPE_REJECT_REMOTE_CLIENTS</code>) y recibe una trama <code>CLSF</code> cuyos campos en offset <code>0x08</code> y <code>0x0A</code> transportan <code>a</code> y <code>b</code> en little-endian.</li>
+<li><strong>Protocolo binario <code>CLSF</code> sobre Named Pipe (<a href="guia/04-formatos-protocolos.html">4.5</a> y <a href="guia/2d-10-ipc.html">2D.10</a>):</strong> en lugar de pedir números por consola con <code>scanf</code>, un proceso servidor crea <code>\\.\pipe\BlocLabPipe</code> (con <code>FILE_FLAG_FIRST_PIPE_INSTANCE</code> y <code>PIPE_REJECT_REMOTE_CLIENTS</code>) y recibe una trama <code>CLSF</code> cuyos campos en offset <code>0x08</code> y <code>0x0A</code> transportan <code>a</code> y <code>b</code> en little-endian.</li>
 <li><strong>Auditoría de memoria y Kernel (<a href="guia/02-windbg-heap.html">2.19</a>, <a href="guia/02-patch-diffing.html">2.20</a> y <a href="guia/6-02-kmdf-ioctl.html">6.2</a>):</strong> si el parser copia el cuerpo del mensaje sin validar <code>body_len</code> contra el tamaño del buffer reservado en el heap, diagnosticamos el desborde con <strong>Full Page Heap</strong> y <strong>WinDbg TTD</strong> (<code>!heap -p -a</code> y <code>g-</code>), comparamos el binario vulnerable (<code>v1</code>) contra el corregido (<code>v2</code>) con <strong>BinDiff / Version Tracking</strong>, y verificamos cómo el servidor consulta la versión del subsistema mediante <code>DeviceIoControl(IOCTL_BLOCLAB_QUERY_VERSION = 0x80006000)</code> hacia el driver KMDF de laboratorio.</li>
 </ul>
 
@@ -100,8 +100,8 @@ fallo:
 
 <hr>
 
-<h2 id="parte-ii-kit-de-5-plantillas-de-código-mínimo-boilerplates-listos-para-compilar">Parte II · Kit Completo de 20 Plantillas y Laboratorios Prácticos (Tomos I, II y III)</h2>
-<p>Todas las prácticas del curso están pensadas para ejecutarse sobre <strong>programas propios en tu VM aislada</strong> (Etapa 0). A continuación se documentan las <strong>15 plantillas base y avanzadas</strong> de los Tomos I y II, seguidas por el índice de las <strong>5 plantillas de frontera moderna del Tomo III</strong> (Plantillas 17a/17b a 21), todas guardadas en la carpeta <code>plantillas_codigo/</code> del paquete. Compilalas en la VM con <strong>Visual Studio Developer Command Prompt (<code>cl.exe</code>)</strong>, <strong><code>clang-cl.exe</code></strong>, <strong><code>cargo</code></strong> o <strong>MinGW-w64</strong>.</p>
+<h2 id="parte-ii-kit-de-5-plantillas-de-código-mínimo-boilerplates-listos-para-compilar">Parte II · Kit Completo de Plantillas y Laboratorios Prácticos (Plantillas 1 a 16)</h2>
+<p>Todas las prácticas del curso están pensadas para ejecutarse sobre <strong>programas propios en tu VM aislada</strong> (Etapa 0). A continuación se documentan las <strong>16 plantillas base y avanzadas</strong> de los Tomos I y II, seguidas por el índice de los <strong>laboratorios de frontera moderna del Tomo III</strong> (Plantillas 17a/17b a 21), todas guardadas en la carpeta <code>plantillas_codigo/</code> del paquete. Compilalas en la VM con <strong>Visual Studio Developer Command Prompt (<code>cl.exe</code>)</strong>, <strong><code>clang-cl.exe</code></strong>, <strong><code>cargo</code></strong> o <strong>MinGW-w64</strong>.</p>
 
 <h3 id="plantilla-1-check-evolucion-c-práctica-para-1-5-2-4-2-8-2-10-2-11-2-15-2-17-y-4-1">Plantilla 1 · <code>check_evolucion.c</code> (Práctica para 1.5, 2.3, 2.8, 2.10, 2.11, 2.15, 2.17 y 4.1)</h3>
 <p>Un único archivo en C que podés compilar en modo Principiante (por defecto) o en modo Intermedio (pasando <code>/DMODO_INTERMEDIO</code> o <code>-DMODO_INTERMEDIO</code>), lo que activa un <strong>TLS Callback</strong> que comprueba <code>IsDebuggerPresent()</code> y una rutina de descifrado <strong>XOR</strong> sobre el mensaje de éxito:</p>
@@ -371,8 +371,8 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) 
 
 NTSTATUS BlocLabEvtDeviceAdd(WDFDRIVER Driver, PWDFDEVICE_INIT DeviceInit) {
     UNREFERENCED_PARAMETER(Driver);
-    DECLARE_CONST_UNICODE_STRING(ntDeviceName, L"\Device\BlocLab");
-    DECLARE_CONST_UNICODE_STRING(symbolicLink, L"\DosDevices\BlocLab");
+    DECLARE_CONST_UNICODE_STRING(ntDeviceName, L"\\Device\\BlocLab");
+    DECLARE_CONST_UNICODE_STRING(symbolicLink, L"\\DosDevices\\BlocLab");
 
     NTSTATUS status = WdfDeviceInitAssignName(DeviceInit, &amp;ntDeviceName);
     if (!NT_SUCCESS(status)) return status;
@@ -502,8 +502,7 @@ static VOID WINAPI SvcLabMain(DWORD dwArgc, LPWSTR* lpszArgv) {
 
 int wmain(int argc, wchar_t* argv[]) {
     if (argc &gt; 1 &amp;&amp; wcscmp(argv[1], L"--console") == 0) {
-        wprintf(L"[SvcLab] Modo diagnóstico de consola OK. Para usar con el SCM, registralo con sc.exe create.
-");
+        wprintf(L"[SvcLab] Modo diagnóstico de consola OK. Para usar con el SCM, registralo con sc.exe create.\n");
         return 0;
     }
     SERVICE_TABLE_ENTRYW DispatchTable[] = {
@@ -513,21 +512,19 @@ int wmain(int argc, wchar_t* argv[]) {
     if (!StartServiceCtrlDispatcherW(DispatchTable)) {
         DWORD err = GetLastError();
         if (err == ERROR_FAILED_SERVICE_CONTROLLER_CONNECT) {
-            wprintf(L"Error 1063 (ERROR_FAILED_SERVICE_CONTROLLER_CONNECT): este binario es un servicio Win32.
-"
-                    L"Inicialo con 'sc.exe start ReversingLabSvc' o probalo con 'SvcLab.exe --console'.
-");
+            wprintf(L"Error 1063 (ERROR_FAILED_SERVICE_CONTROLLER_CONNECT): este binario es un servicio Win32.\n"
+                    L"Inicialo con 'sc.exe start ReversingLabSvc' o probalo con 'SvcLab.exe --console'.\n");
         }
         return (int)err;
     }
     return 0;
 }
-
+</code></pre>
 
 <hr>
 
-<h2 id="parte-ii-b-laboratorios-avanzados-de-evasion-desofuscacion-ipc-y-kernel">Parte II.B · Laboratorios avanzados de evasión, desofuscación, IPC y kernel (Plantillas 8 a 15)</h2>
-<p>Para acompañar las lecciones especializadas del Bloque 2E, la Rama 2D y la Etapa 6, el curso incluye ocho esqueletos de nivel industrial en la carpeta <code>plantillas_codigo/</code>:</p>
+<h2 id="parte-ii-b-laboratorios-avanzados-de-evasion-desofuscacion-ipc-y-kernel">Parte II.B · Laboratorios avanzados de evasión, desofuscación, IPC y kernel (Plantillas 8 a 16)</h2>
+<p>Para acompañar las lecciones especializadas del Bloque 2E, la Rama 2D y la Etapa 6, el curso incluye nueve esqueletos y módulos de nivel industrial en la carpeta <code>plantillas_codigo/</code>:</p>
 
 <h3 id="plantilla-8-evasion-peb-syscall-lab-c-practica-para-2-15-2-28-y-evasion-defensiva">Plantilla 8 · <code>evasion_peb_syscall_lab.c</code> (Práctica para 2.15, 2.28 y evasión defensiva)</h3>
 <p>Implementa resolución dinámica de exports en memoria mediante recorrido del PEB (<code>InMemoryOrderModuleList</code>), hashing de cadenas con <strong>ROR13</strong>, extracción de SSN e invocación por <strong>indirect syscalls</strong> (evitando trampas de API hooking), y detección/neutralización de hardware breakpoints mediante un manejador <strong>VEH</strong>:</p>
@@ -545,8 +542,7 @@ DWORD HashROR13A(const char* s) {
 
 LONG WINAPI VehHandler(PEXCEPTION_POINTERS pEx) {
     if (pEx-&gt;ExceptionRecord-&gt;ExceptionCode == EXCEPTION_SINGLE_STEP) {
-        printf("[!] Hardware Breakpoint detectado en DR0=%p
-", (void*)pEx-&gt;ContextRecord-&gt;Dr0);
+        printf("[!] Hardware Breakpoint detectado en DR0=%p\n", (void*)pEx-&gt;ContextRecord-&gt;Dr0);
         pEx-&gt;ContextRecord-&gt;Dr0 = pEx-&gt;ContextRecord-&gt;Dr1 = 0;
         pEx-&gt;ContextRecord-&gt;Dr2 = pEx-&gt;ContextRecord-&gt;Dr3 = pEx-&gt;ContextRecord-&gt;Dr7 = 0;
         return EXCEPTION_CONTINUE_EXECUTION;
@@ -588,7 +584,7 @@ int main(void) {
 <p>Driver de kernel educativo que combina el registro de un <strong>Minifiltro de Filesystem</strong> (<code>FltRegisterFilter</code> con <code>FLT_REGISTRATION</code>) para interceptar <code>IRP_MJ_CREATE</code> y <code>IRP_MJ_WRITE</code>, con callbacks de seguridad <strong><code>ObRegisterCallbacks</code></strong> sobre <code>*PsProcessType</code> despojando el derecho <code>PROCESS_VM_WRITE</code>:</p>
 <pre><code class="lenguaje-c">// Archivo: plantillas_codigo/minifilter_obcallback_min.c
 // Compilar con WDK x64 Driver Environment:
-// cl /W4 /WX /Gz /kernel /I"%WDKContentRoot%\Include\wdf\kmdf.15" minifilter_obcallback_min.c fltMgr.lib
+// cl /W4 /WX /Gz /kernel /I"%WDKContentRoot%\Include\wdf\kmdf\1.15" minifilter_obcallback_min.c fltMgr.lib
 #include &lt;fltKernel.h&gt;
 
 OB_PREOP_CALLBACK_STATUS PreOpenProcess(PVOID RegistrationContext, POB_PRE_OPERATION_INFORMATION Info) {
@@ -609,67 +605,48 @@ OB_PREOP_CALLBACK_STATUS PreOpenProcess(PVOID RegistrationContext, POB_PRE_OPERA
 <h3 id="plantilla-14-dump-cil-jit-js-practica-para-2-35-y-3-1">Plantilla 14 · <code>dump_cil_jit.js</code> (Práctica para 2.35 y 3.1)</h3>
 <p>Script de Frida que intercepta el compilador JIT de .NET (<code>clrjit.dll!CILJit::compileMethod</code>), volcando el bytecode CIL de cada método en claro en el momento exacto en que es descifrado en memoria viva antes de compilarse a x64.</p>
 
-<h3 id="plantilla-15-auditar-callbacks-wdbg-y-sleigh-minivm-practica-para-6-7-y-2-34">Plantilla 15 · <code>auditar_callbacks.wdbg</code> y <code>sleigh_minivm/</code> (Práctica para 6.7 y 2.34)</h3>
-<p>Herramientas de extensión: script de WinDbg para recorrer y reportar todos los callbacks de creación de procesos (<code>PspCreateProcessNotifyRoutine</code>), callbacks de objetos y telemetría <code>ETWti</code>; y módulo completo de SLEIGH para Ghidra (<code>minivm.ldefs</code>, <code>minivm.pspec</code>, <code>minivm.cspec</code>, <code>minivm.slaspec</code>) para decompilar bytecode virtualizado a C legible:</p>
-<pre><code class="language-text">$$ auditar_callbacks.wdbg — Script de auditoría de callbacks y telemetría de Kernel en WinDbg KDNET (Lección 6.7)
+<h3 id="plantilla-15-auditar-callbacks-wdbg-practica-para-6-7">Plantilla 15 · <code>auditar_callbacks.wdbg</code> (Práctica para 6.7)</h3>
+<p>Script de WinDbg KDNET para recorrer y reportar todos los callbacks de creación de procesos (<code>PspCreateProcessNotifyRoutine</code>), callbacks de objetos (<code>ObRegisterCallbacks</code> sobre <code>PsProcessType</code>) y telemetría <code>ETWti</code> usando <code>#FIELD_OFFSET</code> de los símbolos PDB:</p>
+<pre><code class="language-text">$$ auditar_callbacks.wdbg — Auditoría de callbacks y ETWti (Lección 6.7)
 $$ Ejecución: $$>&lt;auditar_callbacks.wdbg
 
-.printf "
-========================================================================
-"
-.printf "[+] 1. AUDITORIA DE CALLS EN PspCreateProcessNotifyRoutine (x64)
-"
-.printf "========================================================================
-"
-
-$$ Cada slot es un puntero _EX_FAST_REF (8 bytes); en x64 se desreferencia con máscara &amp; ~0xF
+.printf "\n==============================================================\n"
+.printf "[+] 1. CALLBACKS EN PspCreateProcessNotifyRoutine (x64)\n"
+.printf "==============================================================\n"
 r $t0 = nt!PspCreateProcessNotifyRoutine
 .for (r $t1 = 0; @$t1 &lt; 0x40; r $t1 = @$t1 + 1) {
     r $t2 = poi(@$t0 + @$t1 * 8) &amp; 0xfffffffffffffff0
     .if (@$t2 != 0) {
         r $t3 = poi(@$t2 + 8)
-        .printf "[PspCreateProcess Slot %02d] Bloque=%p -&gt; Callback=%p : ", @$t1, @$t2, @$t3
+        .printf "[Slot %02d] Bloque=%p -&gt; Callback=%p : ", @$t1, @$t2, @$t3
         ln @$t3
     }
 }
 
-.printf "
-========================================================================
-"
-.printf "[+] 2. AUDITORIA DE CALLBACKS DE OBJETOS (ObRegisterCallbacks sobre PsProcessType)
-"
-.printf "========================================================================
-"
-
+.printf "\n==============================================================\n"
+.printf "[+] 2. CALLBACKS DE OBJETOS (ObRegisterCallbacks / PsProcessType)\n"
+.printf "==============================================================\n"
 r $t4 = poi(nt!PsProcessType)
-.printf "[*] PsProcessType en: %p
-", @$t4
-$$ En Windows 10/11 x64, CallbackListHead reside en el offset +0xC8 de _OBJECT_TYPE
-!list -t nt!_LIST_ENTRY.Flink -x "r $t5 = @$extret; .printf "[ObCallback: %p] PreOp=%p PostOp=%p : ", @$t5, poi(@$t5+0x28), poi(@$t5+0x30); ln poi(@$t5+0x28)" (@$t4 + 0xc8)
+.printf "[*] PsProcessType en: %p\n", @$t4
+!list -t nt!_LIST_ENTRY.Flink -x "r $t5 = @$extret; .printf \"[ObCb: %p] Pre=%p Post=%p : \", @$t5, poi(@$t5+0x28), poi(@$t5+0x30); ln poi(@$t5+0x28)" (@$t4 + 0xc8)
 
-.printf "
-========================================================================
-"
-.printf "[+] 3. AUDITORIA DE TELEMETRIA ETWti (Microsoft-Windows-Threat-Intelligence)
-"
-.printf "========================================================================
-"
-
+.printf "\n==============================================================\n"
+.printf "[+] 3. TELEMETRIA ETWti (Threat-Intelligence)\n"
+.printf "==============================================================\n"
 r $t6 = poi(nt!EtwThreatIntProvRegHandle)
 .if (@$t6 == 0) {
-    .printf "[-] El proveedor ETWti no se encuentra registrado en este arranque.
-"
+    .printf "[-] ETWti no registrado en este arranque.\n"
 } .else {
-    .printf "[+] Handle de registro ETWti: %p
-", @$t6
-    r $t7 = poi(@$t6 + 0x10)
-    .printf "[+] _ETW_GUID_ENTRY en: %p
-", @$t7
+    .printf "[+] RegEntry ETWti: %p\n", @$t6
+    dt nt!_ETW_REG_ENTRY @$t6 GuidEntry
+    r $t7 = poi(@$t6 + @@(#FIELD_OFFSET(nt!_ETW_REG_ENTRY, GuidEntry)))
+    .printf "[+] _ETW_GUID_ENTRY: %p\n", @$t7
     dt nt!_ETW_GUID_ENTRY @$t7 ProviderEnableInfo
 }
-.printf "
-[+] Fin de la auditoria de vectores de kernel.
-"</code></pre>
+.printf "\n[+] Fin de la auditoria de vectores de kernel.\n"</code></pre>
+
+<h3 id="plantilla-16-sleigh-minivm-practica-para-2-34">Plantilla 16 · <code>sleigh_minivm/</code> (Práctica para 2.34)</h3>
+<p>Módulo completo de procesador SLEIGH para Ghidra (<code>minivm.ldefs</code>, <code>minivm.pspec</code>, <code>minivm.cspec</code> y <code>minivm.slaspec</code>, incluyendo <code>OP_CMP</code> para <code>acc == zext(imm8)</code>) destinado a modelar y descompilar bytecode de máquinas virtuales educativas hacia pseudocódigo C legible.</p>
 
 <hr>
 <h2 id="parte-iii-plantillas-del-tomo-iii">Parte III · Laboratorios del Tomo III (Plantillas 17 a 21 · Ruta 4)</h2>
@@ -680,7 +657,7 @@ r $t6 = poi(nt!EtwThreatIntProvRegHandle)
 <tr><td><strong>17a</strong></td><td><code>plantilla_17a_clang_cfi.cpp</code></td><td><a href="guia/t3-01-llvm-clang-cl.html">Módulo 1</a></td><td>Clang Forward-Edge CFI (<code>-fsanitize=cfi -flto</code>) y trampa <code>ud2</code> (<code>0xC000001D</code>) ante vtable hijacking.</td></tr>
 <tr><td><strong>17b</strong></td><td><code>plantilla_17b_msvc_cfg.c</code></td><td><a href="guia/t3-01-llvm-clang-cl.html">Módulo 1</a></td><td>Microsoft Control Flow Guard (<code>/guard:cf</code>) y despacho por <code>guard_dispatch_icall</code> / fast-fail <code>0xC0000409</code>.</td></tr>
 <tr><td><strong>18</strong></td><td><code>plantilla_18_rust_lto/</code></td><td><a href="guia/t3-01-llvm-clang-cl.html">Módulo 1</a></td><td>Binario Rust endurecido (<code>lto="fat"</code>, <code>panic="abort"</code>, <code>strip=true</code>) + <code>reconstruct_slices.py</code> para Ghidra.</td></tr>
-<tr><td><strong>19</strong></td><td><code>plantilla_19_auditar_lpac.ps1</code></td><td><a href="guia/t3-02-contenedores-lpac.html">Módulo 2</a></td><td>Auditoría user-mode de tokens AppContainer/LPAC (bit <code>0x20</code> en <code>TokenFlags</code> y SIDs <code>S-1-15-3-*</code>).</td></tr>
+<tr><td><strong>19</strong></td><td><code>plantilla_19_auditar_lpac.ps1</code></td><td><a href="guia/t3-02-contenedores-lpac.html">Módulo 2</a></td><td>Auditoría user-mode de tokens AppContainer/LPAC (<code>S-1-15-2-2</code>, <code>WIN://NOALLAPPPKG</code> y SIDs <code>S-1-15-3-*</code>).</td></tr>
 <tr><td><strong>20</strong></td><td><code>plantilla_20_cet_shadow_stack.c</code></td><td><a href="guia/t3-03-hardware-isa-cet.html">Módulo 3</a></td><td>Detección y prueba de Intel CET Shadow Stack (<code>/CETCOMPAT</code>, <code>RDSSP</code>/<code>INCSSP</code> y <code>#CP</code> <code>0xC00006A6</code>).</td></tr>
 <tr><td><strong>21</strong></td><td><code>plantilla_21_ghidra_ollama.py</code></td><td><a href="guia/t3-04-ia-local-ghidra.html">Módulo 4</a></td><td>Puente PyGhidra ↔ Ollama 100 % offline con fallback regex y validación por falsabilidad.</td></tr>
 </tbody></table></div>

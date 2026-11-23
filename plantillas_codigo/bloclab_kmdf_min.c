@@ -25,8 +25,8 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) 
 
 NTSTATUS BlocLabEvtDeviceAdd(WDFDRIVER Driver, PWDFDEVICE_INIT DeviceInit) {
     UNREFERENCED_PARAMETER(Driver);
-    DECLARE_CONST_UNICODE_STRING(ntDeviceName, L"\Device\BlocLab");
-    DECLARE_CONST_UNICODE_STRING(symbolicLink, L"\DosDevices\BlocLab");
+    DECLARE_CONST_UNICODE_STRING(ntDeviceName, L"\\Device\\BlocLab");
+    DECLARE_CONST_UNICODE_STRING(symbolicLink, L"\\DosDevices\\BlocLab");
 
     NTSTATUS status = WdfDeviceInitAssignName(DeviceInit, &ntDeviceName);
     if (!NT_SUCCESS(status)) return status;

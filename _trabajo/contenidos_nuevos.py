@@ -58,7 +58,7 @@ BLOQUE_ARBOL_TRIAGE = """
   │     ├─► ¿Es archivo de datos / captura de mensajes? ──► Lección 4.5 (Formatos y protocolos)
   │     └─► ¿Es código máquina sin cabecera (posición independiente)? ──► Lección 2.23 (Shellcode)
   │
-  ├─► ¿Es PE32 (0x10B, 32 bits) o PE32+ (0x20B, 64 bits)? (Lecciones 1.4 y 2.5)
+  ├─► ¿Es PE32 (0x10B, 32 bits) o PE32+ (0x20B, 64 bits)? (Lecciones 1.4 y 2.4)
   │     ├─► 32 bits (x86): argumentos en stack (cdecl/stdcall) o ECX/EDX (fastcall/thiscall);
   │     │                  en Windows x64 corre bajo WOW64 (ver Lección 2D.2).
   │     └─► 64 bits (x64): argumentos en RCX, RDX, R8, R9 + shadow space de 32 bytes.
@@ -131,7 +131,7 @@ BLOQUE_ARBOL_TRIAGE = """
 <th>Acción inmediata y lección de referencia</th>
 </tr></thead><tbody>
 <tr><td><strong>Principiante</strong></td><td>Imports claros (<code>scanf</code>, <code>printf</code>, <code>MessageBoxW</code>) y strings visibles en <code>.rdata</code></td><td>Binario C/C++ sin empaquetar ni ofuscar</td><td>Buscar la string clave con <code>Shift+F12</code>, saltar por xref (<code>X</code>) y aplicar el ciclo de 5 pasos (<a href="02-ida.html">2.7</a>, <a href="04-metodo.html">4.1</a>).</td></tr>
-<tr><td><strong>Principiante</strong></td><td>Las strings de éxito y error están en el <strong>mismo bloque básico</strong> sin salto condicional entre ellas</td><td>Selección sin salto (<em>branchless</em>) producida por el compilador (<code>-O2</code>)</td><td>Buscar una instrucción <code>CMOVcc</code> (<code>cmovne</code>/<code>cmove</code>) que elige qué puntero de cadena pasar a <code>puts</code>/<code>printf</code> (<a href="02-flujo.html">2.4</a>, <a href="02-optimizaciones.html">2.8</a>, <a href="04-metodo.html">4.1</a>).</td></tr>
+<tr><td><strong>Principiante</strong></td><td>Las strings de éxito y error están en el <strong>mismo bloque básico</strong> sin salto condicional entre ellas</td><td>Selección sin salto (<em>branchless</em>) producida por el compilador (<code>-O2</code>)</td><td>Buscar una instrucción <code>CMOVcc</code> (<code>cmovne</code>/<code>cmove</code>) que elige qué puntero de cadena pasar a <code>puts</code>/<code>printf</code> (<a href="02-flujo.html">2.3</a>, <a href="02-optimizaciones.html">2.8</a>, <a href="04-metodo.html">4.1</a>).</td></tr>
 <tr><td><strong>Principiante</strong></td><td>Importa <code>mscoree.dll</code> (<code>_CorExeMain</code>) o contiene metadatos <code>.NET</code> / marcador <code>.net bundle</code></td><td>Aplicación administrada .NET (IL, ReadyToRun o Single-File)</td><td>Abrir en <strong>ILSpy</strong> o <strong>dnSpyEx</strong> para leer C# e IL antes de tocar un desensamblador nativo (<a href="03-dotnet-runtime.html">3.1</a>, <a href="03-dotnet-il.html">3.2</a>).</td></tr>
 <tr><td><strong>Intermedio</strong></td><td>Secciones <code>UPX0</code> (<code>RawSize = 0</code>) y <code>UPX1</code> (entropía &gt; 7,5, permisos <code>W+X</code>), pocos imports</td><td>Ejecutable empaquetado con UPX</td><td>Llegar al OEP (<em>ESP trick</em> en x86 o breakpoint de memoria en ejecución sobre <code>UPX0</code> en x64), dumpear y reconstruir IAT con Scylla (<a href="02-packers.html">2.17</a>).</td></tr>
 <tr><td><strong>Intermedio</strong></td><td>Mi breakpoint en <code>main</code> nunca se alcanza, o una variable global ya llega alterada al entrar a <code>main</code></td><td>Código ejecutado antes del entry point principal</td><td>Revisar el directorio <strong>TLS (<code>AddressOfCallBacks</code>)</strong> en PE-bear/IDA y poner breakpoint en cada callback (<a href="02-tls.html">2.11</a>, <a href="02-anti-analisis.html">2.15</a>).</td></tr>
@@ -145,7 +145,7 @@ BLOQUE_ARBOL_TRIAGE = """
 
 
 PAGINA_HILO_Y_PLANTILLAS = """<h1 id="hilo-conductor-multi-nivel-y-kit-de-plantillas-c-c">Hilo conductor multi-nivel y kit de plantillas C/C++</h1>
-<aside class="callout nota"><p class="callout-titulo">Propósito de esta sección transversal</p><p>Conectar de forma práctica los tres niveles del curso (Principiante, Intermedio y Avanzado). En la <strong>Parte I</strong> vemos cómo un único programa de validación (desde el <code>check.c</code> básico de la Etapa 1 hasta el componente <code>BlocLab</code> de las Etapas 2C, 2D y 6) cambia en el desensamblador y en el debugger a medida que evoluciona. En la <strong>Parte II</strong> tenés <strong>7 plantillas mínimas en C y C++</strong> listas para copiar y compilar en tu VM para practicar todas las lecciones intermedias y avanzadas sin depender de muestras externas.</p></aside>
+<aside class="callout nota"><p class="callout-titulo">Propósito de esta sección transversal</p><p>Conectar de forma práctica todos los niveles del curso (Principiante, Intermedio, Avanzado y Especialista). En la <strong>Parte I</strong> vemos cómo un único programa de validación (desde el <code>check.c</code> básico de la Etapa 1 hasta el componente <code>BlocLab</code> de las Etapas 2C, 2D y 6) cambia en el desensamblador y en el debugger a medida que evoluciona. En la <strong>Parte II</strong> tenés el <strong>kit completo de plantillas y laboratorios</strong> en <code>plantillas_codigo/</code> (Plantillas 1 a 16 de Tomos I y II + Plantillas 17a/17b a 21 del <a href="tomo3.html">Tomo III</a>) listos para compilar y analizar en tu VM.</p></aside>
 
 <h2 id="parte-i-el-hilo-conductor-un-mismo-binario-a-través-de-los-tres-niveles">Parte I · El hilo conductor: un mismo binario a través de los tres niveles</h2>
 <p>Una de las dificultades más comunes al estudiar reversing es sentir que cada tema nuevo (optimizaciones, TLS callbacks, packers, C++ con vtables, named pipes o drivers KMDF) pertenece a un mundo desconectado del anterior. Para unirlos, sigamos <strong>la misma regla de negocio</strong> en sus tres estadios de evolución:</p>
@@ -153,7 +153,7 @@ PAGINA_HILO_Y_PLANTILLAS = """<h1 id="hilo-conductor-multi-nivel-y-kit-de-planti
 
 <h3 id="estadio-1-nivel-principiante-check-v1-c-con-o0-frente-a-o2">Estadio 1 · Nivel Principiante: <code>check_v1.c</code> con <code>-O0</code> frente a <code>-O2</code> (Etapas 1, 2A y 4.1)</h3>
 <p>En el nivel Principiante escribimos la función en C puro y comparamos qué genera el compilador en x64 sin optimizaciones (<code>-O0</code> / <code>/Od</code>) frente a compilación optimizada (<code>-O2</code>):</p>
-<pre><code class="lenguaje-c">// Regla base en C (Lecciones 1.5, 2.4, 2.8 y 4.1)
+<pre><code class="lenguaje-c">// Regla base en C (Lecciones 1.5, 2.3, 2.8 y 4.1)
 int validar_pares(int a, int b) {
     if (a &gt; 50 || b &lt; 50) return 0;
     return ((a + b) * 4) == 480;
@@ -167,8 +167,8 @@ validar_pares:                                validar_pares:
   jg    short fallo                             cmp   edx, 32h          ; ¿b &lt; 50? (EDX = b)
   cmp   dword ptr [rsp+10h], 32h ; ¿b &lt; 50?     jl    short salir       ; si b &lt; 50, retorna 0
   jl    short fallo                             lea    ecx, [rcx+rdx]    ; ecx = a + b (con LEA, 2.2)
-  mov   eax, dword ptr [rsp+8]                  cmp   ecx, 78h          ; ¡480 / 4 = 120 (0x78)!
-  add   eax, dword ptr [rsp+10h] ; eax = a+b    sete  al                ; AL = 1 si (a+b)==120 (2.4)
+  cmp   eax, 78h                ; ¡480 / 4 = 120 (0x78)!
+  add   eax, dword ptr [rsp+10h] ; eax = a+b    sete  al                ; AL = 1 si (a+b)==120 (2.3)
   shl   eax, 2                   ; eax *= 4   salir:
   cmp   eax, 1E0h                ; ¿== 480?     ret
   jne   short fallo
@@ -179,7 +179,7 @@ fallo:
   ret</code></pre>
 <p><strong>Qué aprende el alumno al comparar ambos listados:</strong></p>
 <ul>
-<li>Con <code>-O0</code> (izquierda) cada variable baja al <em>shadow space</em> (<code>[rsp+8]</code>, <code>[rsp+10h]</code>, <a href="guia/01-memoria.html">1.2</a> y <a href="guia/02-llamadas.html">2.5</a>) y la multiplicación por 4 se ve como <code>shl eax, 2</code> seguida de <code>cmp eax, 1E0h</code>.</li>
+<li>Con <code>-O0</code> (izquierda) cada variable baja al <em>shadow space</em> (<code>[rsp+8]</code>, <code>[rsp+10h]</code>, <a href="guia/01-memoria.html">1.2</a> y <a href="guia/02-llamadas.html">2.4</a>) y la multiplicación por 4 se ve como <code>shl eax, 2</code> seguida de <code>cmp eax, 1E0h</code>.</li>
 <li>Con <code>-O2</code> (derecha) el compilador aplica reducción algebraica (<a href="guia/02-optimizaciones.html">2.8</a>): en lugar de multiplicar <code>(a + b) * 4</code> y comparar contra <code>480</code>, suma con <code>lea ecx, [rcx+rdx]</code> y compara directamente contra <code>120</code> (<code>0x78 = 480 / 4</code>), usando <code>sete al</code> en vez de un salto condicional. Si en <code>main</code> se elige entre <code>"Correcto"</code> e <code>"Incorrecto"</code>, <code>-O2</code> carga ambas direcciones con <code>lea</code> y selecciona una con <code>cmovne</code> (<a href="guia/04-metodo.html">4.1</a>).</li>
 </ul>
 
@@ -203,7 +203,7 @@ fallo:
 <p>En el nivel Avanzado, la misma verificación vive dentro de una arquitectura realista de Windows:</p>
 <ul>
 <li><strong>Polimorfismo C++, RTTI, SSO y Excepciones (<a href="guia/02-cpp-profundo.html">2.18</a> y <a href="guia/2d-11-excepciones.html">2D.11</a>):</strong> un objeto derivado <code>ValidadorBloc</code> implementa el método virtual <code>verificar(const std::string&amp; etiqueta, const MensajeCLSF* m)</code>. En el listado vemos <code>mov rax, [rcx] ; call qword ptr [rax+8]</code>. Inspeccionando <code>vtable[-1]</code> en <code>.rdata</code> encontramos el <code>_RTTICompleteObjectLocator</code> (con RVAs en x64) que lleva al nombre <code>.?AVValidadorBloc@@</code>. Si los parámetros violan el rango, lanza una excepción C++ despachada por <code>__CxxFrameHandler4</code> a través de <code>.pdata</code> y <code>.xdata</code>.</li>
-<li><strong>Protocolo binario <code>CLSF</code> sobre Named Pipe (<a href="guia/04-formatos-protocolos.html">4.5</a> y <a href="guia/2d-10-ipc.html">2D.10</a>):</strong> en lugar de pedir números por consola con <code>scanf</code>, un proceso servidor crea <code>\\.\pipe\BlocLabPipe</code> (con <code>FILE_FLAG_FIRST_PIPE_INSTANCE</code> y <code>PIPE_REJECT_REMOTE_CLIENTS</code>) y recibe una trama <code>CLSF</code> cuyos campos en offset <code>0x08</code> y <code>0x0A</code> transportan <code>a</code> y <code>b</code> en little-endian.</li>
+<li><strong>Protocolo binario <code>CLSF</code> sobre Named Pipe (<a href="guia/04-formatos-protocolos.html">4.5</a> y <a href="guia/2d-10-ipc.html">2D.10</a>):</strong> en lugar de pedir números por consola con <code>scanf</code>, un proceso servidor crea <code>\\\\.\\pipe\\BlocLabPipe</code> (con <code>FILE_FLAG_FIRST_PIPE_INSTANCE</code> y <code>PIPE_REJECT_REMOTE_CLIENTS</code>) y recibe una trama <code>CLSF</code> cuyos campos en offset <code>0x08</code> y <code>0x0A</code> transportan <code>a</code> y <code>b</code> en little-endian.</li>
 <li><strong>Auditoría de memoria y Kernel (<a href="guia/02-windbg-heap.html">2.19</a>, <a href="guia/02-patch-diffing.html">2.20</a> y <a href="guia/6-02-kmdf-ioctl.html">6.2</a>):</strong> si el parser copia el cuerpo del mensaje sin validar <code>body_len</code> contra el tamaño del buffer reservado en el heap, diagnosticamos el desborde con <strong>Full Page Heap</strong> y <strong>WinDbg TTD</strong> (<code>!heap -p -a</code> y <code>g-</code>), comparamos el binario vulnerable (<code>v1</code>) contra el corregido (<code>v2</code>) con <strong>BinDiff / Version Tracking</strong>, y verificamos cómo el servidor consulta la versión del subsistema mediante <code>DeviceIoControl(IOCTL_BLOCLAB_QUERY_VERSION = 0x80006000)</code> hacia el driver KMDF de laboratorio.</li>
 </ul>
 
@@ -222,10 +222,10 @@ fallo:
 
 <hr>
 
-<h2 id="parte-ii-kit-de-5-plantillas-de-código-mínimo-boilerplates-listos-para-compilar">Parte II · Kit Completo de 15 Plantillas y Laboratorios Prácticos (Troncal y Avanzado)</h2>
-<p>Todas las prácticas del curso están pensadas para ejecutarse sobre <strong>programas propios en tu VM aislada</strong> (Etapa 0). Para que no tengas que escribir desde cero cada escenario técnico, acá tenés siete esqueletos autocontenidos de ~35 líneas en C y C++ estándar (también guardados como archivos sueltos en la carpeta <code>plantillas_codigo/</code> del paquete HTML). Compilalos en la VM con <strong>Visual Studio Developer Command Prompt (<code>cl.exe</code>)</strong> o con <strong>MinGW-w64 (<code>gcc</code> / <code>g++</code>)</strong>.</p>
+<h2 id="parte-ii-kit-de-5-plantillas-de-código-mínimo-boilerplates-listos-para-compilar">Parte II · Kit Completo de Plantillas y Laboratorios Prácticos (Plantillas 1 a 16)</h2>
+<p>Todas las prácticas del curso están pensadas para ejecutarse sobre <strong>programas propios en tu VM aislada</strong> (Etapa 0). A continuación se documentan las <strong>16 plantillas base y avanzadas</strong> de los Tomos I y II en <code>plantillas_codigo/</code> (complementadas por las Plantillas 17a/17b a 21 del <a href="tomo3.html">Tomo III</a>). Compilalas en la VM con <strong>Visual Studio Developer Command Prompt (<code>cl.exe</code>)</strong>, <strong><code>clang-cl.exe</code></strong>, <strong><code>cargo</code></strong> o <strong>MinGW-w64</strong>.</p>
 
-<h3 id="plantilla-1-check-evolucion-c-práctica-para-1-5-2-4-2-8-2-10-2-11-2-15-2-17-y-4-1">Plantilla 1 · <code>check_evolucion.c</code> (Práctica para 1.5, 2.4, 2.8, 2.10, 2.11, 2.15, 2.17 y 4.1)</h3>
+<h3 id="plantilla-1-check-evolucion-c-práctica-para-1-5-2-4-2-8-2-10-2-11-2-15-2-17-y-4-1">Plantilla 1 · <code>check_evolucion.c</code> (Práctica para 1.5, 2.3, 2.8, 2.10, 2.11, 2.15, 2.17 y 4.1)</h3>
 <p>Un único archivo en C que podés compilar en modo Principiante (por defecto) o en modo Intermedio (pasando <code>/DMODO_INTERMEDIO</code> o <code>-DMODO_INTERMEDIO</code>), lo que activa un <strong>TLS Callback</strong> que comprueba <code>IsDebuggerPresent()</code> y una rutina de descifrado <strong>XOR</strong> sobre el mensaje de éxito:</p>
 <pre><code class="lenguaje-c">// Archivo: plantillas_codigo/check_evolucion.c
 // Compilar Principiante (MSVC): cl /Zi /Od check_evolucion.c /Fe:check_v1_O0.exe
@@ -494,8 +494,8 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) 
 
 NTSTATUS BlocLabEvtDeviceAdd(WDFDRIVER Driver, PWDFDEVICE_INIT DeviceInit) {
     UNREFERENCED_PARAMETER(Driver);
-    DECLARE_CONST_UNICODE_STRING(ntDeviceName, L"\\Device\\BlocLab");
-    DECLARE_CONST_UNICODE_STRING(symbolicLink, L"\\DosDevices\\BlocLab");
+    DECLARE_CONST_UNICODE_STRING(ntDeviceName, L"\\\\Device\\\\BlocLab");
+    DECLARE_CONST_UNICODE_STRING(symbolicLink, L"\\\\DosDevices\\\\BlocLab");
 
     NTSTATUS status = WdfDeviceInitAssignName(DeviceInit, &amp;ntDeviceName);
     if (!NT_SUCCESS(status)) return status;
@@ -625,7 +625,7 @@ static VOID WINAPI SvcLabMain(DWORD dwArgc, LPWSTR* lpszArgv) {
 
 int wmain(int argc, wchar_t* argv[]) {
     if (argc &gt; 1 &amp;&amp; wcscmp(argv[1], L"--console") == 0) {
-        wprintf(L"[SvcLab] Modo diagnóstico de consola OK. Para usar con el SCM, registralo con sc.exe create.\n");
+        wprintf(L"[SvcLab] Modo diagnóstico de consola OK. Para usar con el SCM, registralo con sc.exe create.\\n");
         return 0;
     }
     SERVICE_TABLE_ENTRYW DispatchTable[] = {
@@ -635,8 +635,8 @@ int wmain(int argc, wchar_t* argv[]) {
     if (!StartServiceCtrlDispatcherW(DispatchTable)) {
         DWORD err = GetLastError();
         if (err == ERROR_FAILED_SERVICE_CONTROLLER_CONNECT) {
-            wprintf(L"Error 1063 (ERROR_FAILED_SERVICE_CONTROLLER_CONNECT): este binario es un servicio Win32.\n"
-                    L"Inicialo con 'sc.exe start ReversingLabSvc' o probalo con 'SvcLab.exe --console'.\n");
+            wprintf(L"Error 1063 (ERROR_FAILED_SERVICE_CONTROLLER_CONNECT): este binario es un servicio Win32.\\n"
+                    L"Inicialo con 'sc.exe start ReversingLabSvc' o probalo con 'SvcLab.exe --console'.\\n");
         }
         return (int)err;
     }
@@ -646,8 +646,8 @@ int wmain(int argc, wchar_t* argv[]) {
 
 <hr>
 
-<h2 id="parte-ii-b-laboratorios-avanzados-de-evasion-desofuscacion-ipc-y-kernel">Parte II.B · Laboratorios avanzados de evasión, desofuscación, IPC y kernel (Plantillas 8 a 15)</h2>
-<p>Para acompañar las lecciones especializadas del Bloque 2E, la Rama 2D y la Etapa 6, el curso incluye ocho esqueletos de nivel industrial en la carpeta <code>plantillas_codigo/</code>:</p>
+<h2 id="parte-ii-b-laboratorios-avanzados-de-evasion-desofuscacion-ipc-y-kernel">Parte II.B · Laboratorios avanzados de evasión, desofuscación, IPC y kernel (Plantillas 8 a 16)</h2>
+<p>Para acompañar las lecciones especializadas del Bloque 2E, la Rama 2D y la Etapa 6, el curso incluye nueve esqueletos y módulos de nivel industrial en la carpeta <code>plantillas_codigo/</code>:</p>
 
 <h3 id="plantilla-8-evasion-peb-syscall-lab-c-practica-para-2-15-2-28-y-evasion-defensiva">Plantilla 8 · <code>evasion_peb_syscall_lab.c</code> (Práctica para 2.15, 2.28 y evasión defensiva)</h3>
 <p>Implementa resolución dinámica de exports en memoria mediante recorrido del PEB (<code>InMemoryOrderModuleList</code>), hashing de cadenas con <strong>ROR13</strong>, extracción de SSN e invocación por <strong>indirect syscalls</strong> (evitando trampas de API hooking), y detección/neutralización de hardware breakpoints mediante un manejador <strong>VEH</strong>:</p>
@@ -665,7 +665,7 @@ DWORD HashROR13A(const char* s) {
 
 LONG WINAPI VehHandler(PEXCEPTION_POINTERS pEx) {
     if (pEx-&gt;ExceptionRecord-&gt;ExceptionCode == EXCEPTION_SINGLE_STEP) {
-        printf("[!] Hardware Breakpoint detectado en DR0=%p\n", (void*)pEx-&gt;ContextRecord-&gt;Dr0);
+        printf("[!] Hardware Breakpoint detectado en DR0=%p\\n", (void*)pEx-&gt;ContextRecord-&gt;Dr0);
         pEx-&gt;ContextRecord-&gt;Dr0 = pEx-&gt;ContextRecord-&gt;Dr1 = 0;
         pEx-&gt;ContextRecord-&gt;Dr2 = pEx-&gt;ContextRecord-&gt;Dr3 = pEx-&gt;ContextRecord-&gt;Dr7 = 0;
         return EXCEPTION_CONTINUE_EXECUTION;
@@ -707,7 +707,7 @@ int main(void) {
 <p>Driver de kernel educativo que combina el registro de un <strong>Minifiltro de Filesystem</strong> (<code>FltRegisterFilter</code> con <code>FLT_REGISTRATION</code>) para interceptar <code>IRP_MJ_CREATE</code> y <code>IRP_MJ_WRITE</code>, con callbacks de seguridad <strong><code>ObRegisterCallbacks</code></strong> sobre <code>*PsProcessType</code> despojando el derecho <code>PROCESS_VM_WRITE</code>:</p>
 <pre><code class="lenguaje-c">// Archivo: plantillas_codigo/minifilter_obcallback_min.c
 // Compilar con WDK x64 Driver Environment:
-// cl /W4 /WX /Gz /kernel /I"%WDKContentRoot%\Include\wdf\kmdf\1.15" minifilter_obcallback_min.c fltMgr.lib
+// cl /W4 /WX /Gz /kernel /I"%WDKContentRoot%\\Include\\wdf\\kmdf\\1.15" minifilter_obcallback_min.c fltMgr.lib
 #include &lt;fltKernel.h&gt;
 
 OB_PREOP_CALLBACK_STATUS PreOpenProcess(PVOID RegistrationContext, POB_PRE_OPERATION_INFORMATION Info) {
@@ -728,55 +728,54 @@ OB_PREOP_CALLBACK_STATUS PreOpenProcess(PVOID RegistrationContext, POB_PRE_OPERA
 <h3 id="plantilla-14-dump-cil-jit-js-practica-para-2-35-y-3-1">Plantilla 14 · <code>dump_cil_jit.js</code> (Práctica para 2.35 y 3.1)</h3>
 <p>Script de Frida que intercepta el compilador JIT de .NET (<code>clrjit.dll!CILJit::compileMethod</code>), volcando el bytecode CIL de cada método en claro en el momento exacto en que es descifrado en memoria viva antes de compilarse a x64.</p>
 
-<h3 id="plantilla-15-auditar-callbacks-wdbg-y-sleigh-minivm-practica-para-6-7-y-2-34">Plantilla 15 · <code>auditar_callbacks.wdbg</code> y <code>sleigh_minivm/</code> (Práctica para 6.7 y 2.34)</h3>
-<p>Herramientas de extensión: script de WinDbg para recorrer y reportar todos los callbacks de creación de procesos (<code>PspCreateProcessNotifyRoutine</code>), callbacks de objetos y telemetría <code>ETWti</code>; y módulo completo de SLEIGH para Ghidra (<code>minivm.ldefs</code>, <code>minivm.pspec</code>, <code>minivm.cspec</code>, <code>minivm.slaspec</code>) para decompilar bytecode virtualizado a C legible:</p>
-<pre><code class="language-text">$$ auditar_callbacks.wdbg — Script de auditoría de callbacks y telemetría de Kernel en WinDbg KDNET (Lección 6.7)
+<h3 id="plantilla-15-auditar-callbacks-wdbg-practica-para-6-7">Plantilla 15 · <code>auditar_callbacks.wdbg</code> (Práctica para 6.7)</h3>
+<p>Script de WinDbg KDNET para recorrer y reportar todos los callbacks de creación de procesos (<code>PspCreateProcessNotifyRoutine</code>), callbacks de objetos (<code>ObRegisterCallbacks</code> sobre <code>PsProcessType</code>) y telemetría <code>ETWti</code> usando <code>#FIELD_OFFSET</code> de los símbolos PDB:</p>
+<pre><code class="language-text">$$ auditar_callbacks.wdbg — Auditoría de callbacks y ETWti (Lección 6.7)
 $$ Ejecución: $$>&lt;auditar_callbacks.wdbg
 
-.printf "\n========================================================================\n"
-.printf "[+] 1. AUDITORIA DE CALLS EN PspCreateProcessNotifyRoutine (x64)\n"
-.printf "========================================================================\n"
-
-$$ Cada slot es un puntero _EX_FAST_REF (8 bytes); en x64 se desreferencia con máscara &amp; ~0xF
+.printf "\\n==============================================================\\n"
+.printf "[+] 1. CALLBACKS EN PspCreateProcessNotifyRoutine (x64)\\n"
+.printf "==============================================================\\n"
 r $t0 = nt!PspCreateProcessNotifyRoutine
 .for (r $t1 = 0; @$t1 &lt; 0x40; r $t1 = @$t1 + 1) {
     r $t2 = poi(@$t0 + @$t1 * 8) &amp; 0xfffffffffffffff0
     .if (@$t2 != 0) {
         r $t3 = poi(@$t2 + 8)
-        .printf "[PspCreateProcess Slot %02d] Bloque=%p -&gt; Callback=%p : ", @$t1, @$t2, @$t3
+        .printf "[Slot %02d] Bloque=%p -&gt; Callback=%p : ", @$t1, @$t2, @$t3
         ln @$t3
     }
 }
 
-.printf "\n========================================================================\n"
-.printf "[+] 2. AUDITORIA DE CALLBACKS DE OBJETOS (ObRegisterCallbacks sobre PsProcessType)\n"
-.printf "========================================================================\n"
-
+.printf "\\n==============================================================\\n"
+.printf "[+] 2. CALLBACKS DE OBJETOS (ObRegisterCallbacks / PsProcessType)\\n"
+.printf "==============================================================\\n"
 r $t4 = poi(nt!PsProcessType)
-.printf "[*] PsProcessType en: %p\n", @$t4
-$$ En Windows 10/11 x64, CallbackListHead reside en el offset +0xC8 de _OBJECT_TYPE
-!list -t nt!_LIST_ENTRY.Flink -x "r $t5 = @$extret; .printf \"[ObCallback: %p] PreOp=%p PostOp=%p : \", @$t5, poi(@$t5+0x28), poi(@$t5+0x30); ln poi(@$t5+0x28)" (@$t4 + 0xc8)
+.printf "[*] PsProcessType en: %p\\n", @$t4
+!list -t nt!_LIST_ENTRY.Flink -x "r $t5 = @$extret; .printf \\"[ObCb: %p] Pre=%p Post=%p : \\", @$t5, poi(@$t5+0x28), poi(@$t5+0x30); ln poi(@$t5+0x28)" (@$t4 + 0xc8)
 
-.printf "\n========================================================================\n"
-.printf "[+] 3. AUDITORIA DE TELEMETRIA ETWti (Microsoft-Windows-Threat-Intelligence)\n"
-.printf "========================================================================\n"
-
+.printf "\\n==============================================================\\n"
+.printf "[+] 3. TELEMETRIA ETWti (Threat-Intelligence)\\n"
+.printf "==============================================================\\n"
 r $t6 = poi(nt!EtwThreatIntProvRegHandle)
 .if (@$t6 == 0) {
-    .printf "[-] El proveedor ETWti no se encuentra registrado en este arranque.\n"
+    .printf "[-] ETWti no registrado en este arranque.\\n"
 } .else {
-    .printf "[+] Handle de registro ETWti: %p\n", @$t6
-    r $t7 = poi(@$t6 + 0x10)
-    .printf "[+] _ETW_GUID_ENTRY en: %p\n", @$t7
+    .printf "[+] RegEntry ETWti: %p\\n", @$t6
+    dt nt!_ETW_REG_ENTRY @$t6 GuidEntry
+    r $t7 = poi(@$t6 + @@(#FIELD_OFFSET(nt!_ETW_REG_ENTRY, GuidEntry)))
+    .printf "[+] _ETW_GUID_ENTRY: %p\\n", @$t7
     dt nt!_ETW_GUID_ENTRY @$t7 ProviderEnableInfo
 }
-.printf "\n[+] Fin de la auditoria de vectores de kernel.\n"</code></pre>
+.printf "\\n[+] Fin de la auditoria de vectores de kernel.\\n"</code></pre>
+
+<h3 id="plantilla-16-sleigh-minivm-practica-para-2-34">Plantilla 16 · <code>sleigh_minivm/</code> (Práctica para 2.34)</h3>
+<p>Módulo completo de procesador SLEIGH para Ghidra (<code>minivm.ldefs</code>, <code>minivm.pspec</code>, <code>minivm.cspec</code> y <code>minivm.slaspec</code>, incluyendo <code>OP_CMP</code> para <code>acc == zext(imm8)</code>) destinado a modelar y descompilar bytecode de máquinas virtuales educativas hacia pseudocódigo C legible.</p>
 
 """
 
 
 PAGINA_CHEAT_SHEETS = """<h1 id="hojas-de-referencia-rápida-por-nivel-cheat-sheets">Hojas de referencia rápida por nivel (Cheat Sheets)</h1>
-<p>Estas tres hojas condensan las tablas, fórmulas, desplazamientos de memoria, constantes mágicas y comandos de depuración de todo el curso, organizadas por nivel (<strong>Principiante</strong>, <strong>Intermedio</strong> y <strong>Avanzado</strong>) para tenerlas abiertas al lado del desensamblador o impresas en el escritorio.</p>
+<p>Estas siete hojas condensan las tablas, fórmulas, desplazamientos de memoria, constantes mágicas y comandos de depuración de todo el curso, organizadas por nivel (<strong>Principiante</strong>, <strong>Intermedio</strong> y <strong>Avanzado</strong>) para tenerlas abiertas al lado del desensamblador o impresas en el escritorio.</p>
 
 <h2 id="hoja-1-nivel-principiante-etapas-0-1-2a-3-y-4-base">Hoja 1 · Nivel Principiante (Etapas 0, 1, 2A, 3 y 4 base)</h2>
 
@@ -803,7 +802,7 @@ PAGINA_CHEAT_SHEETS = """<h1 id="hojas-de-referencia-rápida-por-nivel-cheat-she
 </tbody></table></div>
 <p><strong>Regla de oro en x64:</strong> Escribir en un subregistro de <strong>32 bits</strong> (p. ej. <code>mov eax, 1</code>) <strong>pone en cero los 32 bits superiores</strong> de <code>RAX</code>. Escribir en <strong>16 u 8 bits</strong> (<code>ax</code>, <code>al</code>) <strong>conserva intactos</strong> los bits restantes.</p>
 
-<h3 id="1-2-flags-y-saltos-condicionales-tras-cmp-op1-op2-lección-2-4">1.2 Flags y saltos condicionales tras <code>CMP op1, op2</code> (Lección 2.4)</h3>
+<h3 id="1-2-flags-y-saltos-condicionales-tras-cmp-op1-op2-lección-2-4">1.2 Flags y saltos condicionales tras <code>CMP op1, op2</code> (Lección 2.3)</h3>
 <div class="tabla"><table>
 <thead><tr>
 <th>Relación lógica (<code>op1</code> vs <code>op2</code>)</th>
@@ -819,7 +818,7 @@ PAGINA_CHEAT_SHEETS = """<h1 id="hojas-de-referencia-rápida-por-nivel-cheat-she
 <tr><td>Menor o igual (<code>op1 &lt;= op2</code>)</td><td><code>JBE</code> / <code>JNA</code></td><td><code>JLE</code> / <code>JNG</code></td><td>Sin signo: <code>CF = 1 o ZF = 1</code> · Con signo: <code>ZF = 1 o SF != OF</code></td></tr>
 </tbody></table></div>
 
-<h3 id="1-3-conversión-va-rva-file-offset-y-convenciones-de-llamada-lecciones-1-2-1-4-y-2-5">1.3 Conversión VA &harr; RVA &harr; File Offset y convenciones de llamada (Lecciones 1.2, 1.4 y 2.5)</h3>
+<h3 id="1-3-conversión-va-rva-file-offset-y-convenciones-de-llamada-lecciones-1-2-1-4-y-2-5">1.3 Conversión VA &harr; RVA &harr; File Offset y convenciones de llamada (Lecciones 1.2, 1.4 y 2.4)</h3>
 <pre><code class="lenguaje-text">RVA         = VA_en_memoria - ImageBase_actual
 File Offset = RVA - VirtualAddress_sección + PointerToRawData_sección
 VA_en_IDA   = Base_en_IDA + (VA_en_x64dbg - Base_en_x64dbg)   [Sincronización rápida con ASLR]</code></pre>
@@ -1244,8 +1243,8 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) 
 
 NTSTATUS BlocLabEvtDeviceAdd(WDFDRIVER Driver, PWDFDEVICE_INIT DeviceInit) {
     UNREFERENCED_PARAMETER(Driver);
-    DECLARE_CONST_UNICODE_STRING(ntDeviceName, L"\\Device\\BlocLab");
-    DECLARE_CONST_UNICODE_STRING(symbolicLink, L"\\DosDevices\\BlocLab");
+    DECLARE_CONST_UNICODE_STRING(ntDeviceName, L"\\\\Device\\\\BlocLab");
+    DECLARE_CONST_UNICODE_STRING(symbolicLink, L"\\\\DosDevices\\\\BlocLab");
 
     NTSTATUS status = WdfDeviceInitAssignName(DeviceInit, &ntDeviceName);
     if (!NT_SUCCESS(status)) return status;
@@ -1374,7 +1373,7 @@ static VOID WINAPI SvcLabMain(DWORD dwArgc, LPWSTR* lpszArgv) {
 
 int wmain(int argc, wchar_t* argv[]) {
     if (argc > 1 && wcscmp(argv[1], L"--console") == 0) {
-        wprintf(L"[SvcLab] Modo diagnóstico de consola OK. Para usar con el SCM, registralo con sc.exe create.\n");
+        wprintf(L"[SvcLab] Modo diagnóstico de consola OK. Para usar con el SCM, registralo con sc.exe create.\\n");
         return 0;
     }
     SERVICE_TABLE_ENTRYW DispatchTable[] = {
@@ -1384,8 +1383,8 @@ int wmain(int argc, wchar_t* argv[]) {
     if (!StartServiceCtrlDispatcherW(DispatchTable)) {
         DWORD err = GetLastError();
         if (err == ERROR_FAILED_SERVICE_CONTROLLER_CONNECT) {
-            wprintf(L"Error 1063 (ERROR_FAILED_SERVICE_CONTROLLER_CONNECT): este binario es un servicio Win32.\n"
-                    L"Inicialo con 'sc.exe start ReversingLabSvc' o probalo con 'SvcLab.exe --console'.\n");
+            wprintf(L"Error 1063 (ERROR_FAILED_SERVICE_CONTROLLER_CONNECT): este binario es un servicio Win32.\\n"
+                    L"Inicialo con 'sc.exe start ReversingLabSvc' o probalo con 'SvcLab.exe --console'.\\n");
         }
         return (int)err;
     }

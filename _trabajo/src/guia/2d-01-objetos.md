@@ -58,17 +58,18 @@ bloc_lab.exe (PID 4312)   Integrity: Medium       ← editor de texto propio de 
 Lectura: proceso propio de integridad **Medium**, con `SeDebugPrivilege` **presente pero apagado** (no está usando debug de otros procesos ahora). Los handles muestran el documento que abriste, su **propia** clave de configuración y un **mutex** de instancia única. En un análisis real, el nombre del mutex o una ruta son **pistas** a corroborar, no evidencia por sí solos.
 
 :::{aviso} Los offsets de `nt!_EPROCESS` cambian entre builds: nunca los fijes
-A diferencia de los primeros campos del PEB, la estructura `_EPROCESS` es opaca y el kernel **reorganiza sus campos entre versiones de Windows**. Un controlador que asuma offsets estáticos fijos fallará o provocará Bugchecks al actualizar el sistema operativo (por ejemplo, el desplazamiento de `Protection` a `+0x8FA` y de `MitigationFlags` a `+0xA58` en Windows 11 24H2 frente a `+0x87A` y `+0x9D8` en 23H2, o frente a compilaciones históricas de Windows 10 como 1507–1809 donde `UniqueProcessId` residía en `+0x2E0` y `Token` en `+0x358`). En x64 (consistente con la Hoja 6 de referencia rápida):
+A diferencia de los primeros campos del PEB, la estructura `_EPROCESS` es opaca y el kernel **reorganiza sus campos entre versiones de Windows**. Un controlador que asuma offsets estáticos fijos fallará o provocará Bugchecks al actualizar el sistema operativo: mientras que entre Windows 10 2004–22H2 (Build 19045) y Windows 11 21H2–23H2 (Build 22631) los primeros campos se mantuvieron en `+0x440` / `+0x4B8`, en Windows 11 24H2 (Build 26100 GA) Microsoft reordenó `_EPROCESS` desplazando `UniqueProcessId` a `+0x1D0` y `Token` a `+0x248` (además de compilaciones Insider Pre-GA de la rama 24H2 donde solo se habían corrido los campos superiores a `+0x8FA` / `+0xA58`). En x64 (consistente con la Hoja 6 de referencia rápida):
 
-| Campo (`nt!_EPROCESS`) | Win10 1507–1809 | Win10 2004–22H2 (Build 19045) | Win11 21H2–23H2 (Build 22631) | Win11 24H2 (Build 26100) |
+| Campo (`nt!_EPROCESS`) | Win10 1507–1809 | Win10 2004–22H2 (Build 19045) | Win11 21H2–23H2 (Build 22631) | Win11 24H2 (Build 26100 GA / Pre-GA) |
 |---|---|---|---|---|
-| `UniqueProcessId` | `+0x2E0` | `+0x440` | `+0x440` | `+0x440` |
-| `ActiveProcessLinks` | `+0x2E8` | `+0x448` | `+0x448` | `+0x448` |
-| `Token` (`_EX_FAST_REF`) | `+0x358` | `+0x4B8` | `+0x4B8` | `+0x4B8` |
-| `Protection` (`_PS_PROTECTION`) | `+0x6CA` | `+0x87A` | `+0x87A` | `+0x8FA` |
-| `MitigationFlags` / `Flags2` | `+0x828` | `+0x9D0` | `+0x9D8` | `+0xA58` |
+| `UniqueProcessId` | `+0x2E0` | `+0x440` | `+0x440` | `+0x1D0` (`+0x440` pre-GA) |
+| `ActiveProcessLinks` | `+0x2E8` | `+0x448` | `+0x448` | `+0x1D8` (`+0x448` pre-GA) |
+| `Token` (`_EX_FAST_REF`) | `+0x358` | `+0x4B8` | `+0x4B8` | `+0x248` (`+0x4B8` pre-GA) |
+| `ImageFileName` (`UCHAR[15]`) | `+0x450` | `+0x5A8` | `+0x5A8` | `+0x338` (`+0x5A8` pre-GA) |
+| `Protection` (`_PS_PROTECTION`) | `+0x6CA` | `+0x87A` | `+0x87A` | `+0x5FA` (`+0x8FA` pre-GA) |
+| `MitigationFlags` / `Flags2` | `+0x828` | `+0x9D0` / `+0x9D4` | `+0x9D8` / `+0x9DC` | `+0x750` / `+0x754` (`+0xA58` pre-GA) |
 
-Nunca asumas un offset fijo: verificá el build o corré `dt nt!_EPROCESS UniqueProcessId ActiveProcessLinks Token Protection MitigationFlags` contra los símbolos (`.pdb`) de `ntoskrnl.exe` de **esa** máquina, o utilizá las macros dinámicas `#FIELD_OFFSET`.
+Nunca asumas un offset fijo: verificá siempre el build con `vertarget` o corré `dt nt!_EPROCESS UniqueProcessId ActiveProcessLinks Token ImageFileName Protection MitigationFlags MitigationFlags2` contra los símbolos (`.pdb`) de `ntoskrnl.exe` de esa máquina, o utilizá la expresión dinámica `@@(#FIELD_OFFSET(nt!_EPROCESS, Campo))`.
 :::
 
 ## Práctica segura

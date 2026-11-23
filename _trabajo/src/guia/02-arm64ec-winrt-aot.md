@@ -73,12 +73,13 @@ En el espacio de kernel, la estructura `_TOKEN` (`nt!_TOKEN`) contiene campos es
 3. **`TokenCapabilities` (`TOKEN_INFORMATION_CLASS = 30`):** Apunta a una estructura `TOKEN_GROUPS` que contiene el arreglo de SIDs de permisos o *Capabilities* asignados explícitamente (`SID_AND_ATTRIBUTES` con atributos `SE_GROUP_ENABLED`).
 
 ```text
-Estructura de Seguridad del Token en WinDbg:
-dt nt!_TOKEN <Direccion_Token>
-   +0x0a0 UserAndGroups    : Ptr64 _SID_AND_ATTRIBUTES
-   +0x100 RestrictedSids   : Ptr64 _SID_AND_ATTRIBUTES
-   +0x118 Capabilities     : Ptr64 _SID_AND_ATTRIBUTES  <--- Arreglo de SIDs de permisos
-   +0x120 TokenFlags       : Uint4                      <--- Bit 0x20 activo en LPAC
+$$ Inspección simbólica en WinDbg (los offsets varían entre builds de Windows):
+dt nt!_TOKEN <Direccion_Token> UserAndGroups RestrictedSids Capabilities TokenFlags
+$$ Ejemplo verificado en Win11 24H2 (Build 26100 x64):
+$$   +0x098 UserAndGroups  : Ptr64 _SID_AND_ATTRIBUTES
+$$   +0x0a0 RestrictedSids : Ptr64 _SID_AND_ATTRIBUTES
+$$   +0x0c8 TokenFlags     : Uint4B   (bit 0x20 activo = TOKEN_IS_LESS_RESTRICTED / LPAC)
+$$   +0x318 Capabilities   : Ptr64 _SID_AND_ATTRIBUTES  <--- Arreglo de SIDs de permisos
 ```
 
 #### SIDs de Capacidades Conocidos (Well-Known Capability SIDs)
@@ -117,7 +118,7 @@ En .NET 7, 8 y 9+, las aplicaciones pueden compilarse con la opción `PublishAot
 - **Sección `.hydrated` / `.rdata`:** Sección de solo lectura donde el compilador ubica las estructuras estáticas del runtime y los datos iniciales precomputados. Al cargar el binario, el runtime de Native AOT no parsea metadatos; "hidrata" directamente las estructuras de tipos (`MethodTable`) desde esta sección hacia la memoria virtual.
 
 ### Reconstrucción del Árbol de Tipos (`MethodTable` / `EEType`) sin Metadatos ECMA-335
-Cada objeto administrado en el heap contiene en el offset **`-0x08`** (en arquitecturas x64) un puntero a su descriptor de tipo: la estructura **`MethodTable`** (históricamente denominada `EEType`):
+Cada objeto administrado en el heap contiene en el offset **`+0x00`** (la propia referencia al objeto en x64 apunta directamente al descriptor; lo que reside en **`-0x08`** es el `ObjHeader` / *SyncBlockIndex*) un puntero a su descriptor de tipo: la estructura **`MethodTable`** (históricamente denominada `EEType`):
 
 | Offset (x64) | Campo en `MethodTable` | Tipo | Significado para el Reverser |
 | :--- | :--- | :--- | :--- |

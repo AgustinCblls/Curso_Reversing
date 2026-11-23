@@ -208,7 +208,7 @@ Podés: (1) seguir el RTTI desde `vtable[-1]` hasta el nombre de la clase en un 
 :::
 
 :::{nota} Lo que queda fuera
-La reconstrucción completa de layouts con herencia virtual (vbtable, `vtordisp`), la jerarquía completa de `ClassHierarchyDescriptor`, `std::unordered_map`, `std::shared_ptr` y otros contenedores, las variantes del ABI Itanium por plataforma (por ejemplo ARM) y el formato de las tablas de excepciones de GCC no se desarrollan. Los layouts descritos para MSVC deben verificarse en cada versión, y los del ABI Itanium en cada plataforma y toolchain.
+La reconstrucción completa de layouts con herencia virtual (vbtable, `vtordisp`), la jerarquía completa de `ClassHierarchyDescriptor`, `std::unordered_map` y otros contenedores no cubiertos arriba, las variantes del ABI Itanium por plataforma (por ejemplo ARM) y el formato de las tablas de excepciones de GCC no se desarrollan. Los layouts descritos para MSVC deben verificarse en cada versión, y los del ABI Itanium en cada plataforma y toolchain.
 :::
 
 ## Fuentes de esta lección

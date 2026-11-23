@@ -41,7 +41,8 @@ r $t6 = poi(nt!EtwThreatIntProvRegHandle)
 } .else {
     .printf "[+] Handle de registro ETWti: %p\n", @$t6
     dt nt!_ETW_REG_ENTRY @$t6 GuidEntry
-    r $t7 = poi(@$t6 + 0x10)
+    $$ En x64 moderno GuidEntry suele residir en +0x20 (+0x10 en builds heredadas); resolver via PDB:
+    r $t7 = poi(@$t6 + @@(#FIELD_OFFSET(nt!_ETW_REG_ENTRY, GuidEntry)))
     .printf "[+] _ETW_GUID_ENTRY en: %p\n", @$t7
     dt nt!_ETW_GUID_ENTRY @$t7 ProviderEnableInfo
 }

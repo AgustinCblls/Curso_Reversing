@@ -26,24 +26,24 @@
 <nav class="migas" aria-label="Ubicación"><a href="../00_EMPEZAR_AQUI.html">Inicio</a><span aria-hidden="true">›</span><a href="../tomo3.html">Tomo III · Frontera Moderna</a><span aria-hidden="true">›</span><span>Tomo III · Módulo 4: Reversing Aumentado por IA Local (Ollama y PyGhidra)</span></nav>
 <h1 id="t3m4-módulo-4-reversing-aumentado-por-ia-local-ollama-pyghidra-y-el-principio-de-falsabilidad">Módulo 4 · Reversing Aumentado por IA Local: Ollama, PyGhidra y el Principio de Falsabilidad</h1>
 <div class="meta-nivel"><span class="nivel-badge especialista">Especialista</span> <span><strong>Ruta 4 · Tomo III (Frontera Moderna)</strong></span> <span class="meta-sep">·</span> <span>Requiere Etapas 0–4, Bloque 2E y Tomo II</span></div>
-<p><em>(Tomo III (52 págs. totales) · Prerrequisito: Tomo I, Lección 2.31, págs. 240–242 y Lección 2.9, págs. 115–120)</em></p>
+<p><em>(Tomo III · Prerrequisitos: Tomo I, Lecciones 2.9, 2.16, 2.31 y 5.3)</em></p>
 <hr>
 <h2 id="t3m4-4-1-el-principio-de-soberanía-y-confidencialidad-en-ingeniería-inversa">4.1 El Principio de Soberanía y Confidencialidad en Ingeniería Inversa</h2>
 <p>La incorporación de modelos de lenguaje extensos (LLMs) al flujo de trabajo del analista de sistemas operativos y malware representa el mayor salto en productividad desde la introducción de los descompiladores basados en desofuscación intermedia (P-Code en Ghidra o microcódigo en Hex-Rays).</p>
 <p>Sin embargo, en el ejercicio profesional de la ingeniería inversa defensiva rige una regla infranqueable: <strong>el principio de soberanía y confidencialidad estricta</strong>.</p>
-<pre><code>                   RIESGOS DE EXFILTRACIÓN EN REVERSING POR NUBE
-                   
-  [ Binario Bajo Análisis / 0-Day / Malware Propietario ]
-              │
-              ├── (API en la Nube: ChatGPT / Claude / Gemini) ──&gt; [ Servidor Externo de Terceros ]
-              │                                                             │
-              │                                                             ├── Violación de NDA
-              │                                                             ├── Fuga de 0-Day a Telemetría
-              │                                                             └── Ruptura de Cadena de Custodia
-              │
-              └── (Inferencia 100% Local: Ollama en localhost) ─&gt; [ GPU Local (VRAM Aislada) ]
-                                                                            │
-                                                                            └── Confidencialidad Absoluta (Offline)</code></pre>
+<pre><code>          RIESGOS DE EXFILTRACIÓN EN REVERSING POR NUBE
+
+ [ Binario Bajo Análisis / 0-Day / Malware Propietario ]
+       │
+       ├─ (API Nube: ChatGPT / Claude / Gemini)
+       │     └─&gt; [ Servidor Externo de Terceros ]
+       │           ├─ Violación de NDA
+       │           ├─ Fuga de 0-Day a Telemetría
+       │           └─ Ruptura de Cadena de Custodia
+       │
+       └─ (Inferencia 100 % Local: Ollama en localhost)
+             └─&gt; [ GPU Local (VRAM Aislada) ]
+                   └─ Confidencialidad Absoluta (Offline)</code></pre>
 <h3 id="t3m4-por-qué-está-prohibido-enviar-pseudocódigo-a-nubes-comerciales">Por Qué Está Prohibido Enviar Pseudocódigo a Nubes Comerciales</h3>
 <ol><li><strong>Acuerdos de Confidencialidad (NDA) y Respuesta a Incidentes:</strong> Durante una investigación forense corporativa, el código descompilado extraído de memoria puede contener claves criptográficas propietarias, tokens de sesión o secretos industriales. Transmitir estos volcados a servidores de terceros viola las cláusulas contractuales de secreto profesional y las regulaciones de protección de datos (GDPR, HIPAA, leyes locales).</li><li><strong>Filtración de Vulnerabilidades de Día Cero (0-Days):</strong> Si el reverser está analizando un binario en busca de una falla crítica aún no parcheada, enviar el fragmento vulnerable a un proveedor de IA expone la investigación a los sistemas de telemetría, indexación y moderación del proveedor antes de que el parche oficial esté disponible.</li><li><strong>Pérdida de la Cadena de Custodia en Informes Periciales:</strong> En litigios judiciales o peritajes forenses, un tribunal puede impugnar un peritaje si no se puede demostrar que la evidencia binaria permaneció confinada dentro de un entorno informático controlado y estanco.</li></ol>
 <p>Por estos motivos, la metodología moderna de la obra exige que <strong>toda asistencia por inteligencia artificial se ejecute exclusivamente sobre infraestructura local, offline y autocontenida</strong>.</p>
@@ -73,25 +73,24 @@
 <hr>
 <h2 id="t3m4-4-3-desarrollo-del-puente-pyghidra-modelo-local-plantilla-21">4.3 Desarrollo del Puente PyGhidra ↔ Modelo Local (Plantilla 21)</h2>
 <p>El corazón práctico de este módulo es el script <a href="../plantillas_codigo/plantilla_21_ghidra_ollama.py"><code>plantillas_codigo/plantilla_21_ghidra_ollama.py</code></a>, el cual automatiza el enriquecimiento del proyecto de Ghidra:</p>
-<pre><code>                   PIPELINE DEL PUENTE PYGHIDRA ↔ OLLAMA LOCAL
-                   
-   [ Proyecto en Ghidra ]
-             │
-   1. Iterar funciones con prefijo 'FUN_*'
-   2. Descompilar a C mediante DecompInterface
-             │
-             ▼
-   [ Prompt Estructurado con Pseudocódigo C ] ──&gt; HTTP POST (localhost:11434) ──&gt; [ Ollama: Qwen 2.5 Coder ]
-                                                                                           │
-                                                                                  Respuesta JSON
-                                                                                           │
-   [ Parser Robusto con Fallback Regex ] &lt;─────────────────────────────────────────────────┘
-             │
-   3. Validar sintaxis de nombres (sin espacios, caracteres C válidos)
-   4. Aplicar cambios en la Base de Datos de Ghidra:
-        ├── function.setName("ai_rc4_crypt_stream")
-        ├── function.setComment("Implementación de stream cipher RC4...")
-        └── createBookmark("Heuristica_IA")</code></pre>
+<pre><code>             PIPELINE DEL PUENTE PYGHIDRA ↔ OLLAMA LOCAL
+
+ [ Proyecto en Ghidra ]
+       │  1. Iterar funciones con prefijo 'FUN_*'
+       │  2. Descompilar a C vía DecompInterface
+       ▼
+ [ Prompt JSON con Pseudocódigo C ]
+       │  HTTP POST http://127.0.0.1:11434/api/generate
+       ▼
+ [ Ollama Local: qwen2.5-coder ] ──&gt; Respuesta JSON
+                                           │
+ [ Parser con Fallback Regex ] &lt;───────────┘
+       │
+       ├─ 3. Validar sintaxis de identificador C
+       └─ 4. Aplicar en Base de Datos de Ghidra:
+             ├─ function.setName("ai_rc4_crypt_stream")
+             ├─ function.setComment("Stream cipher RC4...")
+             └─ createBookmark("Heuristica_IA")</code></pre>
 <h3 id="t3m4-el-prompt-estructurado-y-el-formato-json-forzado">El Prompt Estructurado y el Formato JSON Forzado</h3>
 <p>Para evitar que el modelo responda con preámbulos conversacionales (<em>«Sure, here is what this function does...»</em>), el <em>System Prompt</em> define un contrato estricto:</p>
 <pre><code class="lenguaje-text">Eres un analista senior de ingeniería inversa en Windows. 
@@ -111,16 +110,18 @@ Formato requerido:
 try:
     data = json.loads(response_text)
 except json.JSONDecodeError:
-    # Intento 2: Fallback por expresión regular aislando el primer bloque entre llaves
+    // Intento 2: Fallback por expresión regular aislando el bloque JSON
     match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', response_text, re.DOTALL)
-    if not match:
-        match = re.search(r'\{.*\}', response_text, re.DOTALL)
     if match:
-        data = json.loads(match.group(0))
+        data = json.loads(match.group(1))
     else:
-        # Descartar sin alterar el proyecto de Ghidra
-        print("[!] No se pudo parsear JSON. Función descartada.")
-        return</code></pre>
+        match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        if match:
+            data = json.loads(match.group(0))
+        else:
+            # Descartar sin alterar el proyecto de Ghidra
+            print("[!] No se pudo parsear JSON. Función descartada.")
+            return</code></pre>
 <hr>
 <h2 id="t3m4-4-4-el-principio-de-falsabilidad-la-ia-propone-el-binario-confirma">4.4 El Principio de Falsabilidad: La IA Propone, el Binario Confirma</h2>
 <p>El error más peligroso que puede cometer un reverser novato es <strong>aceptar ciegamente las sugerencias de un modelo de lenguaje</strong>.</p>
@@ -128,7 +129,7 @@ except json.JSONDecodeError:
 <h4 id="t3m4-caso-1-confundir-un-prng-lineal-con-criptografía-simétrica-rc4-aes">Caso 1: Confundir un PRNG Lineal con Criptografía Simétrica (RC4/AES)</h4>
 <ul><li><strong>Lo que ve el LLM:</strong> Un bucle con operaciones <code>^</code>, <code>&lt;&lt;</code>, <code>&gt;&gt;</code> y una constante hexadecimal grande (<code>0x5BD1E995</code> o <code>0x9E3779B9</code>).</li><li><strong>Sugerencia Alucinada:</strong> <code>rc4_encrypt_block</code> o <code>aes_round_key</code>.</li><li><strong>Falsación Empírica:</strong> El reverser inspecciona las referencias cruzadas. La función no recibe claves de sesión, no interactúa con buffers de red ni almacena estados S-Box de 256 bytes. Es simplemente un generador pseudoaleatorio lineal (LCG) o un hash Murmur para una tabla de dispersión interna.</li></ul>
 <h4 id="t3m4-caso-2-confundir-un-checksum-de-integridad-adler32-crc32-con-una-función-hash-criptográfica-md5-sha">Caso 2: Confundir un Checksum de Integridad (Adler32/CRC32) con una Función Hash Criptográfica (MD5/SHA)</h4>
-<ul><li><strong>Lo que ve el LLM:</strong> Dos acumuladores de 16 bits combinados en una palabra de 32 bits con divisiones modulares <code>65521</code>.</li><li><strong>Sugerencia Alucinada:</strong> <code>md5_transform_block</code>.</li><li><strong>Falsación Empírica:</strong> La presencia de la constante <code>65521</code> (el mayor número primo menor que $2^{16}$) es la firma matemática indiscutible del algoritmo <strong>Adler-32</strong> (usado en zlib/DEFLATE). No tiene relación con MD5 ni con hashing criptográfico.</li></ul>
+<ul><li><strong>Lo que ve el LLM:</strong> Dos acumuladores de 16 bits combinados en una palabra de 32 bits con divisiones modulares <code>65521</code>.</li><li><strong>Sugerencia Alucinada:</strong> <code>md5_transform_block</code>.</li><li><strong>Falsación Empírica:</strong> La presencia de la constante <code>65521</code> (el mayor número primo menor que 2<sup>16</sup>, es decir, <code>65.536</code>) es la firma matemática indiscutible del algoritmo <strong>Adler-32</strong> (usado en zlib/DEFLATE). No tiene relación con MD5 ni con hashing criptográfico.</li></ul>
 <h4 id="t3m4-caso-3-alucinar-actividad-de-comando-y-control-c2-en-un-parser-de-registro-local">Caso 3: Alucinar Actividad de Comando y Control (C2) en un Parser de Registro Local</h4>
 <ul><li><strong>Lo que ve el LLM:</strong> Un bucle que concatena cadenas y formatea buffers de texto con parámetros hexadecimales.</li><li><strong>Sugerencia Alucinada:</strong> <code>beacon_c2_telemetry</code>.</li><li><strong>Falsación Empírica:</strong> Al auditar la tabla de importaciones (IAT) y las Xrefs, la función no invoca <code>HttpSendRequestW</code>, <code>WinHttpSendRequest</code> ni <code>WSASend</code>. Solo invoca a <code>RegQueryValueExW</code> y <code>RegSetValueExW</code>. La función es simplemente una rutina de guardado de configuración local.</li></ul>
 <hr>
@@ -146,16 +147,16 @@ except json.JSONDecodeError:
 <hr>
 <h2 id="t3m4-4-5-resumen-de-las-5-plantillas-del-tomo-iii">4.5 Resumen de las 5 Plantillas del Tomo III</h2>
 <p>Con el desarrollo de los Módulos 1 a 4, el catálogo de plantillas de la obra queda formalmente extendido:</p>
-<pre><code>===================================================================================================
-Plantilla  | Archivo / Directorio                      | Módulo | Propósito y Técnica
----------------------------------------------------------------------------------------------------
-17a        | plantilla_17a_clang_cfi.cpp               | Mód. 1 | Demostración de Clang CFI puro (trap ud2)
-17b        | plantilla_17b_msvc_cfg.c (.exe verificado)| Mód. 1 | Microsoft kCFG (/guard:cf, GuardFlags 0x10017500)
-18         | plantilla_18_rust_lto/                    | Mód. 1 | Rust stripped (panic=abort, reconstruct_slices.py)
-19         | plantilla_19_auditar_lpac.ps1             | Mód. 2 | Auditoría PowerShell de SIDs S-1-15-3-* y LPAC
-20         | plantilla_20_cet_shadow_stack.c (.exe)    | Mód. 3 | Intel CET Shadow Stack (_rdsspq, /CETCOMPAT)
-21         | plantilla_21_ghidra_ollama.py             | Mód. 4 | Puente PyGhidra ↔ Ollama local con fallback regex
-===================================================================================================</code></pre>
+<div class="tabla"><table>
+<thead><tr><th>Plantilla</th><th>Archivo / Directorio</th><th>Módulo</th><th>Propósito y Técnica</th></tr></thead>
+<tbody>
+<tr><td><strong>17a</strong></td><td><code>plantilla_17a_clang_cfi.cpp</code></td><td>Mód. 1</td><td>Demostración de Clang CFI puro (<code>-fsanitize=cfi</code>, trap <code>ud2</code>)</td></tr>
+<tr><td><strong>17b</strong></td><td><code>plantilla_17b_msvc_cfg.c</code> (<code>.exe</code> verificado)</td><td>Mód. 1</td><td>Microsoft kCFG (<code>/guard:cf</code>, <code>GuardFlags 0x10017500</code>)</td></tr>
+<tr><td><strong>18</strong></td><td><code>plantilla_18_rust_lto/</code></td><td>Mód. 1</td><td>Rust stripped (<code>panic=abort</code>, <code>reconstruct_slices.py</code>)</td></tr>
+<tr><td><strong>19</strong></td><td><code>plantilla_19_auditar_lpac.ps1</code></td><td>Mód. 2</td><td>Auditoría PowerShell de SIDs <code>S-1-15-3-*</code> y LPAC</td></tr>
+<tr><td><strong>20</strong></td><td><code>plantilla_20_cet_shadow_stack.c</code> (<code>.exe</code>)</td><td>Mód. 3</td><td>Intel CET Shadow Stack (<code>_rdsspq</code>, <code>/CETCOMPAT</code>)</td></tr>
+<tr><td><strong>21</strong></td><td><code>plantilla_21_ghidra_ollama.py</code></td><td>Mód. 4</td><td>Puente PyGhidra ↔ Ollama local con fallback regex</td></tr>
+</tbody></table></div>
 <div class="pager"><a href="t3-03-hardware-isa-cet.html">← Anterior: Tomo III · Módulo 3</a><a href="t3-05-plantillas-y-laboratorios.html">Siguiente: Tomo III · Módulo 5 →</a></div>
 </main>
 <footer class="pie">

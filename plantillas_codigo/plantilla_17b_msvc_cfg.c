@@ -8,14 +8,15 @@
 // Mecánica en Desensamblador:
 //   Antes de cualquier llamada indirecta (*call_target)(...), el código invoca:
 //   mov   rax, <dir_destino>
-//   call  qword ptr [__guard_dispatch_icall_fptr] ; Valida RAX en bitmap del PE
-//   call  rax                                     ; Salto real
+//   call  qword ptr [__guard_dispatch_icall_fptr] ; Valida RAX en bitmap y hace jmp rax
+//   (si falla: int 0x29 con RCX = 0x0A = FAST_FAIL_GUARD_ICALL_CHECK_FAILURE)
 // ==============================================================================
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 // Tipo de puntero a función para la tabla de despacho
 typedef void (*COMMAND_HANDLER)(const char* argument);
@@ -36,8 +37,8 @@ void DangerousInternalFunction(const char* argument) {
 
 void DispatchCommand(COMMAND_HANDLER handler, const char* arg) {
     printf("[*] Despachando llamada indirecta a través de puntero a función...\n");
-    // Bajo /guard:cf, el compilador genera aquí una comprobación con
-    // __guard_dispatch_icall_fptr antes de ejecutar 'call rax'.
+    // Bajo /guard:cf, el compilador invoca __guard_dispatch_icall_fptr
+    // para validar el bitmap antes de saltar al destino (jmp rax).
     handler(arg);
 }
 
@@ -57,7 +58,7 @@ int main(int argc, char* argv[]) {
         COMMAND_HANDLER corrupted = (COMMAND_HANDLER)((ULONG_PTR)HandleHelp + 3); // Destino desalineado
         DispatchCommand(corrupted, "Intento de explotación");
     } else {
-        printf("\n[i] Para forzar la interrupción por CFG (__fastfail 0x2A), ejecute con: --simulate-hijack\n");
+        printf("\n[i] Para forzar la interrupción por CFG (__fastfail 0x0A), ejecute con: --simulate-hijack\n");
     }
 
     return 0;

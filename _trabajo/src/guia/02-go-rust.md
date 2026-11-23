@@ -18,23 +18,44 @@ Go y Rust producen binarios **estáticos y grandes**, con su propio *runtime* ad
 
 ## Go: el runtime que se deja leer
 
-- **`gopclntab` (pclntab):** una tabla que mapea direcciones a **nombres de función**, pensada para los *stack traces*. Aunque el binario esté «stripeado», esta tabla suele estar: recuperás casi todos los nombres. Es el primer paso siempre.
-- **`moduledata`:** la estructura raíz del runtime; desde ahí se llega a la pclntab y a las tablas de tipos.
-- **Tipos (`_type`/rtype):** Go guarda descriptores de tipo para reflexión; con ellos recuperás nombres de structs y campos.
-- **Interfaces (`itab`):** una interfaz es un par `(itab, data)`; el `itab` tiene el tipo concreto y la **tabla de métodos**. Reconocer este par te dice qué método se llama en un despacho dinámico.
-- **Strings:** `(puntero, longitud)`, **sin terminador NUL**. En el listado vas a ver una carga de puntero seguida de una longitud inmediata.
-- **Convención de llamada:** hasta Go 1.16 los argumentos iban por **stack**; desde **Go 1.17** hay ABI por **registros** (amd64). Saber la versión cambia cómo leés los argumentos.
+- **`gopclntab` (pclntab) y sus magic bytes:** la *Program Counter Line Table* (`.gopclntab` o `.rodata`) asocia cada dirección virtual con nombre de función, archivo `.go` y línea porque el GC y `runtime.panic` la requieren incluso en binarios «stripeados». Herramientas como **GoReSym** (Mandiant), `go_parser` (IDA) o Ghidra 11+ leen el magic al inicio de la tabla para recuperar 2.000+ símbolos (`0xFFFFFFFB` en Go 1.2, `0xFFFFFFFA` en Go 1.16, `0xFFFFFFF0` en Go 1.18+ y `0xFFFFFFF1` en Go 1.20+).
+- **`moduledata`:** la estructura raíz del runtime; desde ahí se llega a la `pclntab` y a las tablas de tipos.
+- **Tipos (`_type`/rtype) e Interfaces (`itab`):** Go guarda descriptores de tipo para reflexión y pares `(itab, data)` donde `itab` apunta al tipo concreto y a su tabla de métodos.
+- **Strings (16 bytes en x64, sin NUL):** par inmutable `struct { const char* str; ptrdiff_t len; }` que se identifica al instante en desensamblado:
+  ```text
+  lea rax, [rip + 0x2A150]   ; Puntero al buffer en .rodata
+  mov rbx, 0x18              ; Longitud exacta: 24 bytes (sin 0x00 final)
+  ```
+- **Convención de llamada (Go 1.17+ ABI):** hasta Go 1.16 los argumentos iban por **stack**; desde **Go 1.17** en amd64 las funciones internas pasan argumentos y retornos en **9 registros enteros ordenados**: `RAX`, `RBX`, `RCX`, `RDI`, `RSI`, `R8`, `R9`, `R10`, `R11`, pasando a la pila solo los excedentes.
+- **Prólogo de comprobación de pila (`R14`):** en x64 el puntero a la goroutine activa (`g`) viaja en `R14`; casi toda función abre verificando el límite de stack:
+  ```text
+  cmp rsp, qword ptr [r14 + 0x10] ; Comprueba limite de stack de goroutine
+  jbe runtime.morestack           ; Asigna segmento nuevo si falta espacio
+  ```
 
 Herramienta clave: **GoReSym** (Mandiant) recupera pclntab, tipos y metadatos y los exporta para IDA/Ghidra.
 
 ## Rust: manglado, monomorfización y traits
 
-- **Name mangling:** dos esquemas. El **legacy** (estilo Itanium, `_ZN...E` con longitudes y un hash) y el **v0** (`_R...`, RFC 2603). Se desmanglan con **`rustfilt`** (o el soporte de Ghidra/IDA).
+- **Name mangling:** dos esquemas: el **legacy** (Itanium, `_ZN...E` con hash final) y el **v0** desde Rust 1.59+ (`_R...`, [RFC 2603](https://rust-lang.github.io/rfcs/2603-rust-symbol-name-mangling-v0.html)), donde símbolos como `_RNvNtCs1234_7mi_app4auth14verificar_pass` se demanglan con **`rustfilt`** a `mi_app::auth::verificar_pass`.
 - **Monomorfización:** los genéricos no existen en runtime: el compilador genera **una copia por cada tipo** usado. Por eso un `Vec<T>` aparece muchas veces, una por `T`: no te confundas creyendo que son funciones distintas.
 - **Trait objects (`dyn Trait`):** un *fat pointer* = **puntero a datos + puntero a vtable**. La vtable trae *drop*, tamaño, alineación y los métodos. Es el despacho dinámico de Rust y se lee parecido a una vtable de C++ (2.18).
 - **Strings y colecciones:** `&str` es `(ptr, len)` UTF-8; `String` es `(ptr, len, cap)`; `Vec<T>` igual. **Sin NUL**.
-- **`Option`/`Result`:** con *niche optimization*, un `Option<&T>` no ocupa un byte extra: usa el valor `0` (puntero nulo) como `None`.
-- **Los *panics* son oráculos:** en modo seguro, Rust inyecta antes de indexar un array/slice una llamada a `core::panicking::panic_bounds_check` (y a `panic_fmt`/`panic` en otros casos), muchas veces con el `file:line` del fuente embebido. Esas comprobaciones te **revelan la longitud esperada de los buffers** y marcan dónde empieza cada acceso a datos: un regalo para reconstruir estructuras.
+- **`Result<T, E>`, `Option<T>` y *Niche Optimization*:**
+  - Cuando el tipo interno admite todos los patrones de bits (`Option<u32>`), Rust reserva un byte discriminante (*tag*) y valida antes de usar el campo (`cmp byte ptr [rsp+0x18], 1 ; jne fallo`):
+    ```text
+    struct Option_u32 {
+        uint8_t  tag;   // 0 = None, 1 = Some
+        uint32_t valor; // Valido unicamente si tag == 1
+    };
+    ```
+  - Con **optimización de nicho** (*Niche / Null-Pointer Optimization*, [The Rustonomicon](https://doc.rust-lang.org/nomicon/repr-rust.html)), para tipos garantizados no nulos (`&T`, `Box<T>`, `fn()`, `NonZeroU32`) el compilador **elimina el byte `tag`**: `Some(&T)` es el puntero válido y `None` es `0x0`, por lo que en ASM verás un chequeo de puntero nulo clásico en lugar de leer un byte de tag:
+    ```text
+    test rax, rax     ; Comprueba si Option<&T> o Option<Box<T>> es nulo
+    jz es_none        ; Si es cero, equivale a la rama None
+    ; ... continua en Some(&T) usando RAX directamente como puntero
+    ```
+- **Los *panics* son oráculos:** antes de indexar slices/arrays o al abortar, Rust llama a `core::panicking::panic_bounds_check` o `panic_fmt` pasando el `file.rs:line` en `.rdata`, lo que revela longitudes esperadas de buffers y límites de estructuras.
 
 ## Layouts Internos en Memoria (Go y Rust x64)
 
@@ -127,7 +148,7 @@ Podés: (1) recuperar nombres de un Go «stripeado» con la pclntab; (2) leer un
 
 - [github.com/mandiant/GoReSym](https://github.com/mandiant/GoReSym) — recuperar pclntab, tipos y metadatos de Go (conocimiento externo).
 - [go.dev · runtime/symtab.go](https://go.dev/src/runtime/symtab.go) — formato de la pclntab y moduledata.
-- [RFC 2603 · Rust symbol mangling v0](https://rust-lang.github.io/rfcs/2603-rust-symbol-name-mangling-v0.html) y [rustfilt](https://github.com/luser/rustfilt).
+- [RFC 2603 · Rust symbol mangling v0](https://rust-lang.github.io/rfcs/2603-rust-symbol-name-mangling-v0.html), [rustfilt](https://github.com/luser/rustfilt) y [The Rustonomicon: Alternative Representations](https://doc.rust-lang.org/nomicon/repr-rust.html) (niche optimization).
 - [2.13 Huella de compilador](02-huella-compilador.html) (identificación) y [2.18 C++ profundo](02-cpp-profundo.html) (vtables y layouts).
 
 :::{nota} Capas de esta lección

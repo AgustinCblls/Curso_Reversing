@@ -29,23 +29,22 @@
 <hr>
 <h2 id="t3m6-6-1-bitácora-de-cierre-y-lecciones-de-laboratorio">6.1 Bitácora de Cierre y Lecciones de Laboratorio</h2>
 <p>La culminación técnica del <strong>Tomo III</strong> de <em>«Reversing en Windows — Edición Libre y Abierta»</em> consolida una serie de principios operativos que distinguen a la práctica moderna de la ingeniería inversa en sistemas Windows 11 (2026+) de las aproximaciones tradicionales:</p>
-<pre><code>                  EVOLUCIÓN DEL ENFOQUE DE REVERSING EN WINDOWS
-                  
-    ENFOQUE CLÁSICO (2010–2020)              FRONTERA MODERNA (TOMO III - 2026+)
-┌──────────────────────────────────────┐   ┌──────────────────────────────────────────┐
-│ Compilación monolítica con MSVC      │──&gt;│ Backend LLVM, Clang-cl, ThinLTO e ICF    │
-│ Desensamblado guiado por strings \0  │──&gt;│ Fat pointers de Rust (ptr+len) en .rdata │
-│ Excepciones SEH en pila de usuario   │──&gt;│ Shadow Stack por hardware (Intel CET)    │
-│ Procesos y permisos por ACLs / DACLs │──&gt;│ Contenedores LPAC y Capability SIDs      │
-│ Análisis manual artesanal o nube     │──&gt;│ IA local offline soberana y falsable     │
-└──────────────────────────────────────┘   └──────────────────────────────────────────┘</code></pre>
+<div class="tabla"><table>
+<thead><tr><th>Enfoque Clásico (2010–2020)</th><th>Frontera Moderna (Tomo III · 2026+)</th></tr></thead>
+<tbody>
+<tr><td>Compilación monolítica con MSVC</td><td>Backend LLVM, <code>clang-cl</code>, ThinLTO e ICF</td></tr>
+<tr><td>Desensamblado guiado por strings <code>\0</code></td><td>Fat pointers de Rust (<code>ptr+len</code>) en <code>.rdata</code></td></tr>
+<tr><td>Excepciones SEH en pila de usuario</td><td>Shadow Stack por hardware (Intel CET)</td></tr>
+<tr><td>Procesos y permisos por ACLs / DACLs</td><td>Contenedores LPAC y Capability SIDs</td></tr>
+<tr><td>Análisis manual artesanal o nube</td><td>IA local offline soberana y falsable</td></tr>
+</tbody></table></div>
 <h3 id="t3m6-síntesis-de-lecciones-de-laboratorio-fase-3">Síntesis de Lecciones de Laboratorio (Fase 3):</h3>
 <ol><li><strong>La Divergencia entre Clang CFI y Microsoft kCFG:</strong></li></ol>
 <p>La ingeniería inversa de código compilado con <code>clang-cl</code> exige reconocer que las protecciones indirectas no siempre dependen del kernel de Windows ni de la tabla <code>GuardCFFunctionTable</code>. Clang CFI embebe comprobaciones inline basadas en firmas hash que terminan en trampas <code>ud2</code> (<code>0F 0B</code>), eludiendo por completo la maquinaria tradicional de <code>guard_dispatch_icall</code>.</p>
 <ol start="2"><li><strong>La Desaparición del Byte Nulo en Binarios Rust Stripped:</strong></li></ol>
 <p>La combinación de <code>panic = "abort"</code> y <code>strip = true</code> impone un cambio radical en la fase de reconocimiento de cadenas. Sin metadatos <code>.pdata</code> ni delimitadores <code>0x00</code>, el analista debe rastrear fat pointers <code>(ptr, len)</code> pasados en pares de registros o aplicar algoritmos heurísticos sobre la sección <code>.rdata</code> (como el implementado en <a href="../plantillas_codigo/plantilla_18_rust_lto/reconstruct_slices.py"><code>reconstruct_slices.py</code></a>).</p>
 <ol start="3"><li><strong>La Eficacia de la Auditoría User-Mode sobre Contenedores LPAC:</strong></li></ol>
-<p>No es obligatorio contar con un depurador de kernel conectado por KDNET para diagnosticar el confinamiento de un proceso moderno. Mediante la API de Win32 (<code>OpenProcessToken</code> y <code>GetTokenInformation</code>), el reverser puede extraer el bit <code>0x20</code> de <code>TokenFlags</code> y mapear los SIDs de capacidad <code>S-1-15-3-*</code>, determinando con certeza matemática el perímetro defensivo de una aplicación.</p>
+<p>No es obligatorio contar con un depurador de kernel conectado por KDNET para diagnosticar el confinamiento de un proceso moderno. Mediante la API de Win32 (<code>OpenProcessToken</code> y <code>GetTokenInformation</code>), el reverser puede confirmar primariamente la presencia de <code>S-1-15-2-2</code> (<code>ALL RESTRICTED APPLICATION PACKAGES</code>) y el atributo de seguridad <code>WIN://NOALLAPPPKG</code> (dejando el bit <code>0x20</code> en <code>TokenFlags</code> como verificación complementaria en builds compatibles) junto con los SIDs de capacidad <code>S-1-15-3-*</code>, determinando con certeza matemática el perímetro defensivo de una aplicación.</p>
 <ol start="4"><li><strong>El Shadow Stack de Intel como Barrera de Silicio:</strong></li></ol>
 <p>La prueba empírica sobre hardware físico demostró que la protección de la dirección de retorno ya no es una abstracción de software emulada. Cuando CET está activo, el procesador confronta cada <code>RET</code> con la cima de una pila secundaria inaccesible mediante instrucciones <code>MOV</code> ordinarias, elevando una excepción <code>#CP</code> (<code>0xC00006A6</code>) inmediata ante cualquier intento de desvío por ROP.</p>
 <ol start="5"><li><strong>El Imperativo Ético y Práctico de la IA Soberana:</strong></li></ol>
@@ -60,12 +59,12 @@
 <th>Páginas Base</th>
 <th>Estado Editorial</th>
 </tr></thead><tbody>
-<tr><td><strong>Tomo I</strong></td><td><em>Fundamentos, Arquitectura PE, Flujo, Criptografía y Práctica Instrumental (Etapas 0 a 5)</em></td><td><strong>468 págs.</strong></td><td>Aprobado / En Imprenta (Partes A y B)</td></tr>
-<tr><td><strong>Tomo II</strong></td><td><em>Kernel de Windows, Subsistemas Internos, RPC/COM, Hyper-V y Mitigaciones VBS (Etapa 6 y Rama 2D)</em></td><td><strong>200 págs.</strong></td><td>Aprobado / En Imprenta</td></tr>
-<tr><td><strong>Tomo III</strong></td><td><em>LLVM, Rust, Contenedores LPAC, Hardware ISA (CET) y Reversing Aumentado por IA Local</em></td><td><strong>52 págs.</strong></td><td>Cerrado / Fases 1, 2 y 3 Verificadas</td></tr>
-<tr><td><strong>TOTAL</strong></td><td><strong>Trilogía Consolidada de Ingeniería Inversa en Windows</strong></td><td><strong>720 págs.</strong></td><td><strong>Obra Completa y Reproducible</strong></td></tr>
+<tr><td><strong>Tomo I</strong></td><td><em>Fundamentos, Arquitectura PE, Flujo, Criptografía y Práctica Instrumental (Etapas 0 a 5)</em></td><td><strong>462 págs.</strong></td><td>Aprobado / En Imprenta (Partes A y B)</td></tr>
+<tr><td><strong>Tomo II</strong></td><td><em>Kernel de Windows, Subsistemas Internos, RPC/COM, Hyper-V y Mitigaciones VBS (Etapa 6 y Rama 2D)</em></td><td><strong>198 págs.</strong></td><td>Aprobado / En Imprenta</td></tr>
+<tr><td><strong>Tomo III</strong></td><td><em>LLVM, Rust, Contenedores LPAC, Hardware ISA (CET) y Reversing Aumentado por IA Local</em></td><td><strong>54 págs.</strong></td><td>Cerrado / Fases 1, 2 y 3 Verificadas</td></tr>
+<tr><td><strong>TOTAL</strong></td><td><strong>Trilogía Consolidada de Ingeniería Inversa en Windows</strong></td><td><strong>714 págs.</strong></td><td><strong>Obra Completa y Reproducible</strong></td></tr>
 </tbody></table></div>
-<blockquote><p><em>Nota de Mantenimiento Metodológico:</em> Conforme a lo declarado en la pág. 9 del Tomo I y ratificado en la especificación del Tomo III, los pendientes históricos relativos a tutoriales complementarios de IDA y laboratorios de explotación avanzada en ring-3 permanecen abiertos para futuras revisiones monográficas, manteniendo la integridad y coherencia documental de toda la colección.</p></blockquote>
+<blockquote><p><em>Nota de Mantenimiento Metodológico:</em> Conforme a lo declarado en la Apertura y Declaración de Alcance del Tomo I y ratificado en la especificación del Tomo III, los pendientes históricos relativos a tutoriales complementarios de IDA y laboratorios de explotación avanzada en ring-3 permanecen abiertos para futuras revisiones monográficas, manteniendo la integridad y coherencia documental de toda la colección.</p></blockquote>
 <hr>
 <div style="page-break-before: always;"></div>
 <h2 id="t3m6-colofón-editorial-y-técnico">Colofón Editorial y Técnico</h2>
@@ -77,7 +76,7 @@
 <p>La composición tipográfica de los textos se realizó utilizando familias tipográficas optimizadas para lectura técnica prolongada: <em>Inter</em> para el cuerpo general de texto, <em>JetBrains Mono</em> para listados de código de máquina y bloques de desensamblado, y <em>Fira Code</em> para diagramas estructurales en ASCII y tablas de verdad.</p>
 <p>La compilación y verificación de las plantillas de código se llevó a cabo en una estación de trabajo con Windows 11 Enterprise (versión 24H2, build 26100), utilizando el compilador LLVM/Clang v17.0+, el compilador Microsoft Visual C++ v19.51 (MSVC x64), el compilador Rustc v1.78+, el framework de desensamblado Ghidra v11.1+ y el motor de inferencia local Ollama ejecutando el modelo <code>qwen2.5-coder:14b</code>.</p>
 <hr>
-<p>El volumen consta de <strong>52 páginas numeradas</strong>, equivalentes a <strong>26 hojas físicas impresas a doble faz</strong>, diseñadas para garantizar un encuadernado perfecto en espiral metálico <em>Ring Wire 3:1</em> (14.3 mm).</p>
+<p>El volumen consta de <strong>54 páginas numeradas</strong>, equivalentes a <strong>27 hojas físicas impresas a doble faz</strong>, diseñadas para garantizar un encuadernado perfecto en espiral metálico <em>Ring Wire 3:1</em> (14.3 mm).</p>
 <p>La paridad par estricta de este documento garantiza la correcta alternancia de márgenes interiores (lomo) y exteriores en imprenta profesional.</p>
 <hr>
 <p><em>«La ingeniería inversa no consiste en descifrar secretos ajenos,</em> <em>sino en comprender las leyes fundamentales del cómputo y la memoria,</em> <em>reclamando la soberanía sobre el software que ejecutamos en nuestras propias máquinas.»</em></p>

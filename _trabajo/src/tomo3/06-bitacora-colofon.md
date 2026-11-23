@@ -6,18 +6,13 @@
 
 La culminación técnica del **Tomo III** de *«Reversing en Windows — Edición Libre y Abierta»* consolida una serie de principios operativos que distinguen a la práctica moderna de la ingeniería inversa en sistemas Windows 11 (2026+) de las aproximaciones tradicionales:
 
-```
-                  EVOLUCIÓN DEL ENFOQUE DE REVERSING EN WINDOWS
-                  
-    ENFOQUE CLÁSICO (2010–2020)              FRONTERA MODERNA (TOMO III - 2026+)
-┌──────────────────────────────────────┐   ┌──────────────────────────────────────────┐
-│ Compilación monolítica con MSVC      │──>│ Backend LLVM, Clang-cl, ThinLTO e ICF    │
-│ Desensamblado guiado por strings \0  │──>│ Fat pointers de Rust (ptr+len) en .rdata │
-│ Excepciones SEH en pila de usuario   │──>│ Shadow Stack por hardware (Intel CET)    │
-│ Procesos y permisos por ACLs / DACLs │──>│ Contenedores LPAC y Capability SIDs      │
-│ Análisis manual artesanal o nube     │──>│ IA local offline soberana y falsable     │
-└──────────────────────────────────────┘   └──────────────────────────────────────────┘
-```
+| Enfoque Clásico (2010–2020) | Frontera Moderna (Tomo III · 2026+) |
+|---|---|
+| Compilación monolítica con MSVC | Backend LLVM, `clang-cl`, ThinLTO e ICF |
+| Desensamblado guiado por strings `\0` | Fat pointers de Rust (`ptr+len`) en `.rdata` |
+| Excepciones SEH en pila de usuario | Shadow Stack por hardware (Intel CET) |
+| Procesos y permisos por ACLs / DACLs | Contenedores LPAC y Capability SIDs |
+| Análisis manual artesanal o nube | IA local offline soberana y falsable |
 
 ### Síntesis de Lecciones de Laboratorio (Fase 3):
 
@@ -28,7 +23,7 @@ La culminación técnica del **Tomo III** de *«Reversing en Windows — Edició
    La combinación de `panic = "abort"` y `strip = true` impone un cambio radical en la fase de reconocimiento de cadenas. Sin metadatos `.pdata` ni delimitadores `0x00`, el analista debe rastrear fat pointers `(ptr, len)` pasados en pares de registros o aplicar algoritmos heurísticos sobre la sección `.rdata` (como el implementado en [`reconstruct_slices.py`](plantillas_codigo/plantilla_18_rust_lto/reconstruct_slices.py)).
 
 3. **La Eficacia de la Auditoría User-Mode sobre Contenedores LPAC:**  
-   No es obligatorio contar con un depurador de kernel conectado por KDNET para diagnosticar el confinamiento de un proceso moderno. Mediante la API de Win32 (`OpenProcessToken` y `GetTokenInformation`), el reverser puede extraer el bit `0x20` de `TokenFlags` y mapear los SIDs de capacidad `S-1-15-3-*`, determinando con certeza matemática el perímetro defensivo de una aplicación.
+   No es obligatorio contar con un depurador de kernel conectado por KDNET para diagnosticar el confinamiento de un proceso moderno. Mediante la API de Win32 (`OpenProcessToken` y `GetTokenInformation`), el reverser puede confirmar primariamente la presencia de `S-1-15-2-2` (`ALL RESTRICTED APPLICATION PACKAGES`) y el atributo de seguridad `WIN://NOALLAPPPKG` (dejando el bit `0x20` en `TokenFlags` como verificación complementaria en builds compatibles) junto con los SIDs de capacidad `S-1-15-3-*`, determinando con certeza matemática el perímetro defensivo de una aplicación.
 
 4. **El Shadow Stack de Intel como Barrera de Silicio:**  
    La prueba empírica sobre hardware físico demostró que la protección de la dirección de retorno ya no es una abstracción de software emulada. Cuando CET está activo, el procesador confronta cada `RET` con la cima de una pila secundaria inaccesible mediante instrucciones `MOV` ordinarias, elevando una excepción `#CP` (`0xC00006A6`) inmediata ante cualquier intento de desvío por ROP.
@@ -44,12 +39,12 @@ Con la entrega de este volumen, la trilogía completa de *«Reversing en Windows
 
 | Volumen | Denominación y Enfoque | Páginas Base | Estado Editorial |
 |---|---|---|---|
-| **Tomo I** | *Fundamentos, Arquitectura PE, Flujo, Criptografía y Práctica Instrumental (Etapas 0 a 5)* | **468 págs.** | Aprobado / En Imprenta (Partes A y B) |
-| **Tomo II** | *Kernel de Windows, Subsistemas Internos, RPC/COM, Hyper-V y Mitigaciones VBS (Etapa 6 y Rama 2D)* | **200 págs.** | Aprobado / En Imprenta |
-| **Tomo III**| *LLVM, Rust, Contenedores LPAC, Hardware ISA (CET) y Reversing Aumentado por IA Local* | **52 págs.** | Cerrado / Fases 1, 2 y 3 Verificadas |
-| **TOTAL** | **Trilogía Consolidada de Ingeniería Inversa en Windows** | **720 págs.** | **Obra Completa y Reproducible** |
+| **Tomo I** | *Fundamentos, Arquitectura PE, Flujo, Criptografía y Práctica Instrumental (Etapas 0 a 5)* | **462 págs.** | Aprobado / En Imprenta (Partes A y B) |
+| **Tomo II** | *Kernel de Windows, Subsistemas Internos, RPC/COM, Hyper-V y Mitigaciones VBS (Etapa 6 y Rama 2D)* | **198 págs.** | Aprobado / En Imprenta |
+| **Tomo III**| *LLVM, Rust, Contenedores LPAC, Hardware ISA (CET) y Reversing Aumentado por IA Local* | **54 págs.** | Cerrado / Fases 1, 2 y 3 Verificadas |
+| **TOTAL** | **Trilogía Consolidada de Ingeniería Inversa en Windows** | **714 págs.** | **Obra Completa y Reproducible** |
 
-> *Nota de Mantenimiento Metodológico:* Conforme a lo declarado en la pág. 9 del Tomo I y ratificado en la especificación del Tomo III, los pendientes históricos relativos a tutoriales complementarios de IDA y laboratorios de explotación avanzada en ring-3 permanecen abiertos para futuras revisiones monográficas, manteniendo la integridad y coherencia documental de toda la colección.
+> *Nota de Mantenimiento Metodológico:* Conforme a lo declarado en la Apertura y Declaración de Alcance del Tomo I y ratificado en la especificación del Tomo III, los pendientes históricos relativos a tutoriales complementarios de IDA y laboratorios de explotación avanzada en ring-3 permanecen abiertos para futuras revisiones monográficas, manteniendo la integridad y coherencia documental de toda la colección.
 
 ---
 
@@ -81,8 +76,8 @@ de inferencia local Ollama ejecutando el modelo `qwen2.5-coder:14b`.
 
 ---
 
-El volumen consta de **52 páginas numeradas**, equivalentes a  
-**26 hojas físicas impresas a doble faz**,  
+El volumen consta de **54 páginas numeradas**, equivalentes a  
+**27 hojas físicas impresas a doble faz**,  
 diseñadas para garantizar un encuadernado perfecto en espiral metálico *Ring Wire 3:1* (14.3 mm).
 
 La paridad par estricta de este documento garantiza la correcta alternancia  

@@ -1,29 +1,26 @@
 # Módulo 2 · Contenedores, Aislamiento Moderno (LPAC, MSIX) y la Frontera WSL2
-*(Tomo III (52 págs. totales) · Prerrequisito: Tomo I, Lección 2.35, págs. 259–260 y Tomo II, Anexo Hyper-V, págs. 158–159)*
+*(Tomo III · Prerrequisitos: Tomo I, Lección 2.35 y Tomo II, Lección 2D.16 Hyper-V / VMBus)*
 
 ---
 
 ## 2.1 Anatomía de Contenedores de Aplicaciones: AppContainer frente a LPAC
 
-En la Lección 2.35 de Tomo I (págs. 259–260) se introdujo el concepto de proceso en sandbox bajo el modelo UWP (Universal Windows Platform) y el flag `TokenIsAppContainer` en el objeto de token primario. Sin embargo, para auditar la seguridad de aplicaciones modernas empaquetadas (MSIX) y software altamente restringido (como los procesos de renderizado de Microsoft Edge, visores de documentos de Office y plugins de terceros), el reverser debe dominar la distinción operativa entre un **AppContainer estándar** y un **Less Privileged AppContainer (LPAC)**.
+En el Tomo I (Lección 2.35) se introdujo el concepto de proceso en sandbox bajo el modelo UWP (Universal Windows Platform) y el flag `TokenIsAppContainer` en el objeto de token primario. Sin embargo, para auditar la seguridad de aplicaciones modernas empaquetadas (MSIX) y software altamente restringido (como los procesos de renderizado de Microsoft Edge, visores de documentos de Office y plugins de terceros), el reverser debe dominar la distinción operativa entre un **AppContainer estándar** y un **Less Privileged AppContainer (LPAC)**.
 
 ### El Modelo de Seguridad de Paquetes MSIX
 Una aplicación moderna empaquetada no se instala copiando archivos a granel en `Program Files`; reside en directorios de solo lectura protegidos (`C:\Program Files\WindowsApps\...`) y su ejecución está confinada por un perfil de seguridad derivado de su manifiesto (`AppxManifest.xml`):
 
 ```
-                       ARQUITECTURA DE TOKENS EN CONTENEDORES MSIX
-                       
-  [ Token Primario del Usuario ] (SID: S-1-5-21-...)
-              │
-              ├──> [ Atributo TokenIsAppContainer = 1 ]
-              │
-              ├──> [ Package SID ] (S-1-15-2-X-Y-Z...) ───────> Identifica a la aplicación concreta
-              │
-              ├──> [ Capability SIDs ] (S-1-15-3-X-Y-Z...) ───> Permisos explícitos (Cámara, Red...)
-              │
-              └──> [ Tipo de Sandbox ]:
-                     ├── Estándar : Miembro implícito de ALL APPLICATION PACKAGES (S-1-15-2-1)
-                     └── LPAC     : Miembro restringido a ALL RESTRICTED APPLICATION PACKAGES (S-1-15-2-2)
+            ARQUITECTURA DE TOKENS EN CONTENEDORES MSIX
+
+ [ Token Primario del Usuario ] (SID: S-1-5-21-...)
+       │
+       ├─> [ Atributo TokenIsAppContainer = 1 ]
+       ├─> [ Package SID ]     (S-1-15-2-X-Y-Z...) -> App concreta
+       ├─> [ Capability SIDs ] (S-1-15-3-X-Y-Z...) -> Permisos (Red...)
+       └─> [ Tipo de Sandbox ]:
+             ├─ Estándar: ALL APPLICATION PACKAGES (S-1-15-2-1)
+             └─ LPAC    : ALL RESTRICTED APP PACKAGES (S-1-15-2-2)
 ```
 
 ### Derivación Criptográfica de SIDs de Paquete y Capacidades
@@ -81,7 +78,7 @@ Si un analista audita un proceso en sandbox y detecta que este carece del SID `S
 Para auditar un contenedor de aplicación en ejecución no basta con inspeccionar el explorador de procesos convencional. Es necesario auditar las estructuras internas del token a nivel de kernel y contrastar las DACLs a nivel de usuario.
 
 ### A. Inspección en Modo Kernel con WinDbg KDNET
-Como se estudió en la Lección 2D.1 (Tomo II, pág. 64–68), el token de acceso reside en `nt!_EPROCESS->Token`. Al depurar un sistema con un proceso AppContainer/LPAC activo:
+Como se estudió en el Tomo II (Lección 2D.1), el token de acceso reside en `nt!_EPROCESS->Token`. Al depurar un sistema con un proceso AppContainer/LPAC activo:
 
 ```windbg
 $$ 1. Localizar el EPROCESS del proceso en sandbox (ej. SearchHost.exe)
@@ -100,20 +97,25 @@ AppContainer SID: S-1-15-2-53624-2894-3613-...
 TokenFlags:       0x000020a0   <-- NOTAR: Bit 0x20 activo = LPAC habilitado
 Restricted SIDs:  Presentes
 
-$$ 3. Volcar los Capability SIDs asignados en el token
-kd> dt nt!_TOKEN 0xffffb801a3518060 Capabilities
-   +0x0a8 Capabilities : Ptr64 _SID_AND_ATTRIBUTES
-   +0x0b0 CapabilityCount : 0x4
+$$ 3. Volcar los Capability SIDs y flags del token vía símbolos PDB (los offsets varían por build)
+kd> dt nt!_TOKEN 0xffffb801a3518060 UserAndGroups RestrictedSids Capabilities TokenFlags
+   +0x098 UserAndGroups  : 0xffffb801`a3518410 _SID_AND_ATTRIBUTES
+   +0x0a0 RestrictedSids : (null)
+   +0x0c8 TokenFlags     : 0x20a0
+   +0x318 Capabilities   : 0xffffb801`a3518530 _SID_AND_ATTRIBUTES
 
-kd> dx -r2 ((nt!_SID_AND_ATTRIBUTES*)0xffffb801a3518060->Capabilities)[0..3]
+kd> dt nt!_TOKEN 0xffffb801a3518060 CapabilityCount
+   +0x0b0 CapabilityCount : 4
+
+kd> dx -r2 ((nt!_SID_AND_ATTRIBUTES*)((nt!_TOKEN*)0xffffb801a3518060)->Capabilities)[0..3]
     [0] : Sid: S-1-15-3-1 (internetClient)
     [1] : Sid: S-1-15-3-2 (internetClientServer)
     [2] : Sid: S-1-15-3-1024-4053... (Custom Runtime Broker SID)
     [3] : Sid: S-1-15-3-1024-8842... (Audio Capture Capability)
 ```
 
-**Verificación del Bit LPAC:**  
-El campo `TokenFlags` (o el atributo de seguridad en `SecurityAttributes`) expone el bit **`0x00000020`** (`TOKEN_IS_LESS_RESTRICTED` / LPAC indicator). Si este bit está encendido, el kernel bloquea el acceso a cualquier descriptor que no conceda permisos a `S-1-15-2-2`.
+**Verificación real de LPAC en Windows 11 24H2:**  
+Contrastá siempre con **`!token <TokenAddress>`** y comprobá el atributo de seguridad **`WIN://NOALLAPPPKG`** en **`TokenSecurityAttributes`** (`dt nt!_TOKEN <addr> SecurityAttributes` / salida de `!token`), además de verificar si el grupo `S-1-15-2-2` (`ALL RESTRICTED APPLICATION PACKAGES`) figura activo en lugar de `S-1-15-2-1` (y `TokenFlags` bit `0x20` cuando se muestra en compilaciones compatibles). Si `WIN://NOALLAPPPKG` / `S-1-15-2-2` rige el aislamiento, el kernel bloquea el acceso a cualquier descriptor que no conceda permisos explícitos a `S-1-15-2-2`.
 
 ---
 
@@ -160,7 +162,7 @@ El repositorio incluye el script reproducible [`plantillas_codigo/plantilla_19_a
 1. Enumera todos los procesos en ejecución y consulta sus tokens mediante P/Invoke a `OpenProcessToken` y `GetTokenInformation`.
 2. Evalúa si `TokenIsAppContainer` es verdadero.
 3. Decodifica los SIDs de paquete y lista todas las capacidades `S-1-15-3-*` activas.
-4. Determina si el proceso corre en modo LPAC evaluando la presencia del bit `0x20` en `TokenFlags`.
+4. Determina si el proceso corre en modo LPAC detectando primariamente `S-1-15-2-2` (`ALL RESTRICTED APPLICATION PACKAGES`) y el atributo de seguridad `WIN://NOALLAPPPKG` (dejando la lectura del bit `0x20` en `TokenFlags` como comprobación complementaria en builds compatibles).
 5. Mide la superficie de ataque analizando el acceso a los named pipes del sistema.
 
 ---
@@ -168,28 +170,26 @@ El repositorio incluye el script reproducible [`plantillas_codigo/plantilla_19_a
 ## 2.3 WSL2 como Frontera Híbrida de Interoperabilidad (Windows ↔ Linux)
 
 ### Aclaración de Alcance Metodológico
-Siguiendo las restricciones de límites declaradas en la Sección 1.A del Tomo III:
+Siguiendo las restricciones de límites declaradas en la Sección 0 (Apertura y Declaración de Alcance) del Tomo III:
 > *Este apartado **no realiza ingeniería inversa de las llamadas internas del kernel de Linux** (`vmlinux` en ext4.vhdx) ni enseña a programar módulos `.ko`. Su propósito exclusivo es analizar **la frontera de comunicación e intercambio (IPC) entre el espacio de usuario de Windows y el subsistema virtualizado**, dotando al analista de herramientas para interceptar tráfico híbrido y llamadas remotas entre ambos mundos.*
 
 ### La Arquitectura de Micro-VM sobre Hyper-V
 A diferencia de WSL1 (que implementaba un emulador de llamadas de sistema en modo kernel gobernado por `lxcore.sys` y `lxss.sys`), WSL2 corre un kernel Linux real optimizado dentro de una **máquina virtual liviana (*Utility VM*) administrada por Hyper-V**.
 
 ```
-                   FRONTERA DE INTEROPERABILIDAD HÍBRIDA EN WSL2
-                   
-   [ ESPACIO WINDOWS (Host) ]                     [ ESPACIO LINUX (WSL2 Guest) ]
-  ┌─────────────────────────────┐                ┌─────────────────────────────┐
-  │ Proceso PE x64 (App.exe)    │                │ Proceso ELF x64 (daemon)    │
-  └──────────────┬──────────────┘                └──────────────┬──────────────┘
-                 │                                              │
-                 ├── Sockets de Dominio Unix (AF_UNIX) ─────────┤
-                 │   (afunix.sys en Windows ↔ AF_UNIX nativo)   │
-                 │                                              │
-                 ├── Named Pipes Compartidos ───────────────────┤
-                 │   (\\.\pipe\wsl\... vía VMBus)               │
-                 │                                              │
-                 └── Protocolo WSLg (Wayland / RDP Rail) ───────┘
-                     (Renderizado gráfico acelerado por GPU)
+              FRONTERA DE INTEROPERABILIDAD HÍBRIDA EN WSL2
+
+  [ ESPACIO WINDOWS (Host) ]        [ ESPACIO LINUX (WSL2 Guest) ]
+ ┌───────────────────────────┐     ┌──────────────────────────────┐
+ │ Proceso PE x64 (App.exe)  │     │ Proceso ELF x64 (daemon)     │
+ └─────────────┬─────────────┘     └──────────────┬───────────────┘
+               │                                  │
+               ├─ Sockets Unix (AF_UNIX) ─────────┤
+               │  (afunix.sys ↔ AF_UNIX nativo)   │
+               ├─ Named Pipes Compartidos ────────┤
+               │  (\\.\pipe\wsl\... vía VMBus)    │
+               └─ Protocolo WSLg (Wayland / RDP) ─┘
+                  (Gráficos acelerados por GPU)
 ```
 
 ### Mecanismos de Intercambio y Superficie de Reversing

@@ -1,33 +1,32 @@
 # Módulo 3 · ISA de Hardware para Reversing: Intel CET, Stack Spoofing y ARM64EC
-*(Tomo III (52 págs. totales) · Prerrequisito: Tomo I, Lección 5.2.b, págs. 332–335; Tomo I, Lección 2.35.b, págs. 263–264; Tomo II, Lección 2D.11, págs. 131–138)*
+*(Tomo III · Prerrequisitos: Tomo I, Lección 5.2.b y Lección 2.35; Tomo II, Lección 2D.11)*
 
 ---
 
 ## 3.1 Intel CET (Control-flow Enforcement Technology) a Nivel de Opcode
 
-En la Lección 5.2.b de Tomo I (págs. 332–335) se abordaron las defensas clásicas contra la Programación Orientada a Retornos (ROP) basadas en software: los canarios de pila (*GS Cookies* / `__security_check_cookie`) y SafeSEH. Sin embargo, estas mitigaciones no impiden la manipulación de direcciones de retorno cuando un atacante cuenta con primitivas de lectura/escritura arbitraria de memoria.
+En el Tomo I (Lección 5.2.b) se abordaron las defensas clásicas contra la Programación Orientada a Retornos (ROP) basadas en software: los canarios de pila (*GS Cookies* / `__security_check_cookie`) y SafeSEH. Sin embargo, estas mitigaciones no impiden la manipulación de direcciones de retorno cuando un atacante cuenta con primitivas de lectura/escritura arbitraria de memoria.
 
 La respuesta de la microarquitectura moderna (Intel Core de 11.ª generación en adelante y AMD Zen 3+) es **Intel CET**, una tecnología de blindaje respaldada por silicio que introduce una segunda pila aislada: la **Pila Sombra (Shadow Stack)**.
 
 ```
-                  MECÁNICA ATÓMICA DE INTEL CET SHADOW STACK
-                  
+         MECÁNICA ATÓMICA DE INTEL CET SHADOW STACK
+
           Flujo de Ejecución (CALL Target)
-                     │
-         ┌───────────┴───────────┐
-         ▼                       ▼
-  [ Pila Convencional ]   [ Pila Sombra (Hardware) ]
-  RSP ──> [ Return Addr ] SSP ──> [ Return Addr ]
-  (Escribible por código) (SOLO modificable por CPU)
-         │                       │
-         └───────────┬───────────┘
-                     │
-           Retorno de Función (RET)
-                     │
-             ¿ [RSP] == [SSP] ?
-                     ├─── (SÍ: Coinciden) ──> Ejecución Continúa
-                     │
-                     └─── (NO: Manipulado) ─> DISPARO DE EXCEPCIÓN #CP (Hardware Fault)
+                         │
+            ┌────────────┴────────────┐
+            ▼                         ▼
+   [ Pila Convencional ]     [ Pila Sombra (Hardware) ]
+   RSP -> [ Return Addr ]    SSP -> [ Return Addr ]
+   (Escribible por SW)       (Solo modificable por CPU)
+            │                         │
+            └────────────┬────────────┘
+                         │
+               Retorno de Función (RET)
+                         │
+                 ¿ [RSP] == [SSP] ?
+            ├─ (SÍ: Coinciden) ──> Ejecución continúa
+            └─ (NO: Manipulado) -> EXCEPCIÓN #CP (0xC00006A6)
 ```
 
 ### Operación en el Conjunto de Instrucciones (ISA)
@@ -41,7 +40,7 @@ Al analizar binarios compilados con soporte CET en Windows 11 (`/CETCOMPAT` en e
 #### A. `RDSSP reg64` (*Read Shadow Stack Pointer*)
 Lee el valor actual del registro de control `SSP` y lo deposita en un registro de propósito general (ej. `RDSSPQ RAX`). Se utiliza en rutinas de inspección de integridad y telemetría de depuración.
 ```assembly
-; Opcode: F3 0F 1E C8 (con prefijo REX.W)
+; Opcode: F3 48 0F 1E C8 (F3 + prefijo REX.W 48 + 0F 1E /1)
 rdsspq  rax                     ; RAX = Dirección virtual actual de la Pila Sombra
 ```
 
@@ -50,7 +49,7 @@ Avanza el puntero `SSP` un número determinado de marcos (en múltiplos de 8 byt
 * **Por qué existe:** Cuando el sistema operativo desenrolla la pila por una excepción estructurada (SEH) o una llamada a `longjmp`, la pila convencional `RSP` es liberada de golpe saltando varios marcos de llamada. Para mantener la coherencia, el gestor de excepciones de Windows (`ntdll!RtlUnwindEx`) debe avanzar la pila sombra mediante `INCSSP` para descartar los punteros de retorno correspondientes a los marcos abandonados.
 
 ```assembly
-; Opcode: F3 0F 01 EA (con prefijo REX.W)
+; Opcode: F3 49 0F AE EA (F3 + REX.WB 49 + 0F AE /5)
 incsspq r10                     ; R10 = número de frames de 8 bytes a saltar en SSP
 ```
 
@@ -102,7 +101,7 @@ Uno de los errores más frecuentes en la literatura de seguridad consiste en con
 
 ## 3.3 Detección Práctica y Análisis Forense de *Call Stack Spoofing*
 
-En la Lección 2.15 (Tomo I, págs. 156–165) se analizaron técnicas de evasión de telemetría de antivirus y EDRs. Uno de los métodos ofensivos más sofisticados es el **Falseo de la Pila de Llamadas (*Call Stack Spoofing*)**:
+En la Lección 2.15 del Tomo I se analizaron técnicas de evasión de telemetría de antivirus y EDRs. Uno de los métodos ofensivos más sofisticados es el **Falseo de la Pila de Llamadas (*Call Stack Spoofing*)**:
 * Cuando un implante o malware desea invocar una API sospechosa (como `VirtualAlloc` con permisos `PAGE_EXECUTE_READWRITE` o `WriteProcessMemory`), sabe que los sensores EDR inspeccionan la pila de llamadas (*call stack*) para verificar desde dónde provino la invocación.
 * Para evadir la detección, el malware sobreescribe sintéticamente la dirección de retorno en `[RSP]` para que apunte al interior de una DLL legítima del sistema (como `kernelbase.dll` o `ntdll.dll`), simulando ser una función inofensiva de Windows.
 
@@ -110,18 +109,16 @@ En la Lección 2.15 (Tomo I, págs. 156–165) se analizaron técnicas de evasi�
 Un motor de detección robusto o un analista en WinDbg valida la autenticidad del call stack mediante tres pruebas concurrentes:
 
 ```
-                  TRIPLE VALIDACIÓN DE INTEGRIDAD DE STACK
-                  
+             TRIPLE VALIDACIÓN DE INTEGRIDAD DE STACK
+
   [ Dirección de Retorno en Stack: ReturnAddress ]
-             │
-             ├──> 1. Verificación de Código Previo: ¿La instrucción antes de ReturnAddress es CALL?
-             │       (Opcode E8 xx xx xx xx  o  FF /2)
-             │
-             ├──> 2. Desenredo Coherente (UNWIND_INFO):
-             │       ¿RtlVirtualUnwind logra retroceder hasta RtlUserThreadStart sin marcos truncados?
-             │
-             └──> 3. Coherencia Hardware CET:
-                     ¿La dirección en [RSP] coincide exactamente con [SSP]?
+        │
+        ├─> 1. Verificación de Código Previo:
+        │      ¿La instrucción previa es CALL (E8 / FF /2)?
+        ├─> 2. Desenredo Coherente (UNWIND_INFO):
+        │      ¿RtlVirtualUnwind llega hasta RtlUserThreadStart?
+        └─> 3. Coherencia Hardware CET:
+               ¿Coincide exactamente [RSP] con [SSP]?
 ```
 
 #### 1. Verificación de Opcode Invocador (`CALL` vs `JMP`)
@@ -139,7 +136,7 @@ if (caller_site[-5] == 0xE8) {
 ```
 
 #### 2. Desenredo SEH con `UNWIND_INFO`
-Como se estudió en la Lección 2D.11 (Tomo II, págs. 131–138), cada función en x64 posee una entrada en la tabla `.pdata`. El sensor ejecuta `RtlVirtualUnwind` paso a paso: si en algún punto el tamaño del marco de pila no coincide con los códigos de desenredo (`UWOP_ALLOC_SMALL`, `UWOP_PUSH_NONVOL`), el stack se clasifica como sintético.
+Como se estudió en el Tomo II (Lección 2D.11), cada función en x64 posee una entrada en la tabla `.pdata`. El sensor ejecuta `RtlVirtualUnwind` paso a paso: si en algún punto el tamaño del marco de pila no coincide con los códigos de desenredo (`UWOP_ALLOC_SMALL`, `UWOP_PUSH_NONVOL`), el stack se clasifica como sintético.
 
 #### 3. El Fin del Call Stack Spoofing con Intel CET
 Bajo un entorno con CET activo, **el Call Stack Spoofing tradicional es matemáticamente inviable**:
@@ -151,27 +148,26 @@ Bajo un entorno con CET activo, **el Call Stack Spoofing tradicional es matemát
 
 ## 3.4 ARM64EC en el Desensamblador Híbrido
 
-En la Lección 2.35.b de Tomo I (págs. 263–264) se introdujo el concepto de binarios **ARM64EC** (*Emulation Compatible*), la tecnología de Microsoft para permitir que código x64 nativo y código ARM64 convivan dentro del mismo espacio de proceso en dispositivos Windows 11 con procesadores Qualcomm Snapdragon X Elite / ARM64.
+En el Tomo I (Lección 2.35) se introdujo el concepto de binarios **ARM64EC** (*Emulation Compatible*), la tecnología de Microsoft para permitir que código x64 nativo y código ARM64 convivan dentro del mismo espacio de proceso en dispositivos Windows 11 con procesadores Qualcomm Snapdragon X Elite / ARM64.
 
 ### La Anatomía de los Trampolines `$$h` (*Entry Thunks*)
-Cuando una función ARM64EC es invocada desde un módulo x64, la CPU no puede ejecutar directamente las instrucciones ARM64 porque las convenciones de llamada y los registros son distintos:
-* **x64:** Pasa argumentos en `RCX`, `RDX`, `R8`, `R9`.
-* **ARM64:** Pasa argumentos en `X0`, `X1`, `X2`, `X3`, `X4`, `X5`, `X6`, `X7`.
+Cuando una función ARM64EC es invocada desde un módulo x64, los 4 primeros argumentos enteros/puntero ya mapean **1:1** según la ABI oficial de Microsoft ARM64EC (visto en **Tomo I, Lección 2.35**):
+* `RCX → X0`, `RDX → X1`, `R8 → X2`, `R9 → X3` (y registros flotantes/SIMD hacia `V0–V3`).
 
-Para resolver este cruce sin penalización perceptible, el compilador emite un **Entry Thunk** con el sufijo `$$h`:
+El compilador emite un **Entry Thunk** con el sufijo `$$h` para ajustar la frontera ABI: preservar el enlace/marco de pila, alinear argumentos adicionales en stack o registros SIMD y adaptar el retorno hacia la rutina ARM64 nativa (`#FuncionSegura`):
 
 ```assembly
 ; ==============================================================================
-; Desensamblado de Trampolín ARM64EC en IDA Pro / Ghidra
-; Símbolo: #FuncionSegura$$h (Entry Thunk para llamadas desde x64)
+; Desensamblado ilustrativo de Entry Thunk ARM64EC (#FuncionSegura$$h)
+; Nota: RCX->X0, RDX->X1, R8->X2, R9->X3 ya llegan mapeados 1:1 por la ABI
 ; ==============================================================================
-FuncionSegura$$h:
-    ; Mapeo de registros x64 a registros ARM64
-    mov     x0, x1                  ; x1 contiene el RCX mapeado por xtajit64
-    mov     x1, x2                  ; x2 contiene el RDX mapeado
-    mov     x2, x3                  ; x3 contiene el R8 mapeado
-    mov     x3, x4                  ; x4 contiene el R9 mapeado
-    b       #FuncionSegura          ; Salto a la implementación ARM64 nativa
+#FuncionSegura$$h:
+    stp     fp, lr, [sp, #-16]!     ; Preservar frame pointer y link register (x64 retaddr)
+    mov     fp, sp
+    ; ... ajustar argumentos extra en stack / registros SIMD si aplica ...
+    bl      #FuncionSegura          ; Invocar implementación ARM64 nativa (X0..X3 intactos)
+    ldp     fp, lr, [sp], #16       ; Restaurar marco (el retorno queda en X8/X0 según ABI)
+    ret
 ```
 
 ### El Directorio de Metadatos CHPE en el PE Load Config

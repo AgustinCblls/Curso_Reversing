@@ -1,5 +1,5 @@
 # Módulo 4 · Reversing Aumentado por IA Local: Ollama, PyGhidra y el Principio de Falsabilidad
-*(Tomo III (52 págs. totales) · Prerrequisito: Tomo I, Lección 2.31, págs. 240–242 y Lección 2.9, págs. 115–120)*
+*(Tomo III · Prerrequisitos: Tomo I, Lecciones 2.9, 2.16, 2.31 y 5.3)*
 
 ---
 
@@ -10,19 +10,19 @@ La incorporación de modelos de lenguaje extensos (LLMs) al flujo de trabajo del
 Sin embargo, en el ejercicio profesional de la ingeniería inversa defensiva rige una regla infranqueable: **el principio de soberanía y confidencialidad estricta**.
 
 ```
-                   RIESGOS DE EXFILTRACIÓN EN REVERSING POR NUBE
-                   
-  [ Binario Bajo Análisis / 0-Day / Malware Propietario ]
-              │
-              ├── (API en la Nube: ChatGPT / Claude / Gemini) ──> [ Servidor Externo de Terceros ]
-              │                                                             │
-              │                                                             ├── Violación de NDA
-              │                                                             ├── Fuga de 0-Day a Telemetría
-              │                                                             └── Ruptura de Cadena de Custodia
-              │
-              └── (Inferencia 100% Local: Ollama en localhost) ─> [ GPU Local (VRAM Aislada) ]
-                                                                            │
-                                                                            └── Confidencialidad Absoluta (Offline)
+          RIESGOS DE EXFILTRACIÓN EN REVERSING POR NUBE
+
+ [ Binario Bajo Análisis / 0-Day / Malware Propietario ]
+       │
+       ├─ (API Nube: ChatGPT / Claude / Gemini)
+       │     └─> [ Servidor Externo de Terceros ]
+       │           ├─ Violación de NDA
+       │           ├─ Fuga de 0-Day a Telemetría
+       │           └─ Ruptura de Cadena de Custodia
+       │
+       └─ (Inferencia 100 % Local: Ollama en localhost)
+             └─> [ GPU Local (VRAM Aislada) ]
+                   └─ Confidencialidad Absoluta (Offline)
 ```
 
 ### Por Qué Está Prohibido Enviar Pseudocódigo a Nubes Comerciales
@@ -66,25 +66,24 @@ En ingeniería inversa se busca **consistencia y determinismo**, no creatividad 
 El corazón práctico de este módulo es el script [`plantillas_codigo/plantilla_21_ghidra_ollama.py`](plantillas_codigo/plantilla_21_ghidra_ollama.py), el cual automatiza el enriquecimiento del proyecto de Ghidra:
 
 ```
-                   PIPELINE DEL PUENTE PYGHIDRA ↔ OLLAMA LOCAL
-                   
-   [ Proyecto en Ghidra ]
-             │
-   1. Iterar funciones con prefijo 'FUN_*'
-   2. Descompilar a C mediante DecompInterface
-             │
-             ▼
-   [ Prompt Estructurado con Pseudocódigo C ] ──> HTTP POST (localhost:11434) ──> [ Ollama: Qwen 2.5 Coder ]
-                                                                                           │
-                                                                                  Respuesta JSON
-                                                                                           │
-   [ Parser Robusto con Fallback Regex ] <─────────────────────────────────────────────────┘
-             │
-   3. Validar sintaxis de nombres (sin espacios, caracteres C válidos)
-   4. Aplicar cambios en la Base de Datos de Ghidra:
-        ├── function.setName("ai_rc4_crypt_stream")
-        ├── function.setComment("Implementación de stream cipher RC4...")
-        └── createBookmark("Heuristica_IA")
+             PIPELINE DEL PUENTE PYGHIDRA ↔ OLLAMA LOCAL
+
+ [ Proyecto en Ghidra ]
+       │  1. Iterar funciones con prefijo 'FUN_*'
+       │  2. Descompilar a C vía DecompInterface
+       ▼
+ [ Prompt JSON con Pseudocódigo C ]
+       │  HTTP POST http://127.0.0.1:11434/api/generate
+       ▼
+ [ Ollama Local: qwen2.5-coder ] ──> Respuesta JSON
+                                           │
+ [ Parser con Fallback Regex ] <───────────┘
+       │
+       ├─ 3. Validar sintaxis de identificador C
+       └─ 4. Aplicar en Base de Datos de Ghidra:
+             ├─ function.setName("ai_rc4_crypt_stream")
+             ├─ function.setComment("Stream cipher RC4...")
+             └─ createBookmark("Heuristica_IA")
 ```
 
 ### El Prompt Estructurado y el Formato JSON Forzado
@@ -112,16 +111,18 @@ El script de la Plantilla 21 implementa una rutina de tolerancia en dos pasos:
 try:
     data = json.loads(response_text)
 except json.JSONDecodeError:
-    # Intento 2: Fallback por expresión regular aislando el primer bloque entre llaves
+    # Intento 2: Fallback por expresión regular aislando el bloque JSON
     match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', response_text, re.DOTALL)
-    if not match:
-        match = re.search(r'\{.*\}', response_text, re.DOTALL)
     if match:
-        data = json.loads(match.group(0))
+        data = json.loads(match.group(1))
     else:
-        # Descartar sin alterar el proyecto de Ghidra
-        print("[!] No se pudo parsear JSON. Función descartada.")
-        return
+        match = re.search(r'\{.*\}', response_text, re.DOTALL)
+        if match:
+            data = json.loads(match.group(0))
+        else:
+            # Descartar sin alterar el proyecto de Ghidra
+            print("[!] No se pudo parsear JSON. Función descartada.")
+            return
 ```
 
 ---
@@ -140,7 +141,7 @@ El error más peligroso que puede cometer un reverser novato es **aceptar ciegam
 #### Caso 2: Confundir un Checksum de Integridad (Adler32/CRC32) con una Función Hash Criptográfica (MD5/SHA)
 * **Lo que ve el LLM:** Dos acumuladores de 16 bits combinados en una palabra de 32 bits con divisiones modulares `65521`.
 * **Sugerencia Alucinada:** `md5_transform_block`.
-* **Falsación Empírica:** La presencia de la constante `65521` (el mayor número primo menor que $2^{16}$) es la firma matemática indiscutible del algoritmo **Adler-32** (usado en zlib/DEFLATE). No tiene relación con MD5 ni con hashing criptográfico.
+* **Falsación Empírica:** La presencia de la constante `65521` (el mayor número primo menor que 2<sup>16</sup>, es decir, `65.536`) es la firma matemática indiscutible del algoritmo **Adler-32** (usado en zlib/DEFLATE). No tiene relación con MD5 ni con hashing criptográfico.
 
 #### Caso 3: Alucinar Actividad de Comando y Control (C2) en un Parser de Registro Local
 * **Lo que ve el LLM:** Un bucle que concatena cadenas y formatea buffers de texto con parámetros hexadecimales.
@@ -170,15 +171,11 @@ Para resguardar la verdad forense, el puente automatizado aplica tres medidas de
 
 Con el desarrollo de los Módulos 1 a 4, el catálogo de plantillas de la obra queda formalmente extendido:
 
-```
-===================================================================================================
-Plantilla  | Archivo / Directorio                      | Módulo | Propósito y Técnica
----------------------------------------------------------------------------------------------------
-17a        | plantilla_17a_clang_cfi.cpp               | Mód. 1 | Demostración de Clang CFI puro (trap ud2)
-17b        | plantilla_17b_msvc_cfg.c (.exe verificado)| Mód. 1 | Microsoft kCFG (/guard:cf, GuardFlags 0x10017500)
-18         | plantilla_18_rust_lto/                    | Mód. 1 | Rust stripped (panic=abort, reconstruct_slices.py)
-19         | plantilla_19_auditar_lpac.ps1             | Mód. 2 | Auditoría PowerShell de SIDs S-1-15-3-* y LPAC
-20         | plantilla_20_cet_shadow_stack.c (.exe)    | Mód. 3 | Intel CET Shadow Stack (_rdsspq, /CETCOMPAT)
-21         | plantilla_21_ghidra_ollama.py             | Mód. 4 | Puente PyGhidra ↔ Ollama local con fallback regex
-===================================================================================================
-```
+| Plantilla | Archivo / Directorio | Módulo | Propósito y Técnica |
+|---|---|---|---|
+| **17a** | `plantilla_17a_clang_cfi.cpp` | Mód. 1 | Demostración de Clang CFI puro (`-fsanitize=cfi`, trap `ud2`) |
+| **17b** | `plantilla_17b_msvc_cfg.c` (`.exe` verificado) | Mód. 1 | Microsoft kCFG (`/guard:cf`, `GuardFlags 0x10017500`) |
+| **18** | `plantilla_18_rust_lto/` | Mód. 1 | Rust stripped (`panic=abort`, `reconstruct_slices.py`) |
+| **19** | `plantilla_19_auditar_lpac.ps1` | Mód. 2 | Auditoría PowerShell de SIDs `S-1-15-3-*` y LPAC |
+| **20** | `plantilla_20_cet_shadow_stack.c` (`.exe`) | Mód. 3 | Intel CET Shadow Stack (`_rdsspq`, `/CETCOMPAT`) |
+| **21** | `plantilla_21_ghidra_ollama.py` | Mód. 4 | Puente PyGhidra ↔ Ollama local con fallback regex |

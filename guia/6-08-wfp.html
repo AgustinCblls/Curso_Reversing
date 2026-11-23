@@ -167,6 +167,41 @@
 
 <ul><li><strong><code>FWP_ACTION_BLOCK</code> (<code>0x00001001</code>):</strong> Bloquea la conexión o descarta el paquete. Si además limpia el bit <code>FWPS_RIGHT_ACTION_WRITE</code> (<code>classifyOut-&gt;rights &amp;= ~1</code>), impide que otro filtro de menor peso en la misma subcapa revierta el bloqueo (<em>hard block</em>).</li><li><strong><code>FWP_ACTION_PERMIT</code> (<code>0x00001002</code>):</strong> Autoriza la operación en esa subcapa.</li><li><strong><code>FWP_ACTION_CONTINUE</code> (<code>0x00002003</code>):</strong> No toma decisión y pasa la evaluación al siguiente filtro.</li><li><strong>Bandera <code>FWPS_CLASSIFY_OUT_FLAG_ABSORB</code> (<code>0x00000001</code> en <code>classifyOut-&gt;flags</code>):</strong> Indica que el callout retiene o clona el paquete (con <code>FwpsAllocateCloneNetBufferList0</code>) para reinjectarlo más tarde (con <code>FwpsInjectTransportSendAsync0</code> / <code>ReceiveAsync0</code>) o descartarlo silenciosamente.</li></ul>
 
+<p>En código C de un controlador WDK (<em>ejemplo ilustrativo</em>), la lectura de metadatos ALE y la escritura en <code>classifyOut</code> siguen este patrón:</p>
+
+<pre><code class="lenguaje-c">void ClassifyCallback(
+    const FWPS_INCOMING_VALUES0* inFixedValues,
+    const FWPS_INCOMING_METADATA_VALUES0* inMetaValues,
+    void* layerData,
+    const void* classifyContext,
+    const FWPS_FILTER0* filter,
+    UINT64 flowContext,
+    FWPS_CLASSIFY_OUT0* classifyOut
+) {
+    // 1. Obtener el PID del proceso desde metadatos ALE
+    UINT64 processId = 0;
+    if (FWPS_IS_METADATA_FIELD_PRESENT(
+            inMetaValues, FWPS_METADATA_FIELD_PROCESS_ID)) {
+        processId = inMetaValues-&gt;processId;
+    }
+
+    // 2. Extraer IP y puerto destino (FWPM_LAYER_ALE_AUTH_CONNECT_V4)
+    UINT32 ipDest = inFixedValues-&gt;incomingValue[
+        FWPS_FIELD_ALE_AUTH_CONNECT_V4_IP_REMOTE_ADDRESS].value.uint32;
+    UINT16 puertoDest = inFixedValues-&gt;incomingValue[
+        FWPS_FIELD_ALE_AUTH_CONNECT_V4_IP_REMOTE_PORT].value.uint16;
+
+    // 3. Decisión defensiva de filtrado:
+    if (puertoDest == 4444) { // Detección de puerto sospechoso
+        classifyOut-&gt;actionType = FWP_ACTION_BLOCK;
+        // Absorbe el paquete para evitar respuesta TCP RST
+        classifyOut-&gt;flags |= FWPS_CLASSIFY_OUT_FLAG_ABSORB;
+        return;
+    }
+
+    classifyOut-&gt;actionType = FWP_ACTION_PERMIT;
+}</code></pre>
+
 <h2 id="4-subcapas-pesos-y-arbitraje-entre-múltiples-filtros">4. Subcapas, pesos y arbitraje entre múltiples filtros</h2>
 
 <p>En una máquina real conviven el Firewall de Windows, un agente EDR y quizás un cliente VPN, todos en la misma capa ALE. WFP ordena la evaluación mediante <strong>subcapas (<em>Sublayers</em>)</strong> y <strong>pesos (<em>Weights</em>)</strong>:</p>
@@ -187,7 +222,7 @@ netsh wfp show state file=C:\Lab\wfpstate.xml
 
 netsh wfp show filters file=C:\Lab\wfpfilters.xml</code></pre>
 
-<p>En el archivo XML generado podés buscar los nodos <code>&lt;callout&gt;</code> y <code>&lt;filter&gt;</code>: cada uno registra su <code>displayData/name</code>, su <code>calloutKey</code> (GUID), la capa (<code>layerKey</code>) y el proveedor (<code>providerKey</code>). Si estás conectado con WinDbg al kernel de la VM (ver <a href="6-03-debug-kernel.html">6.3</a>), podés correlacionar los punteros a <code>classifyFn</code> con el módulo <code>.sys</code> al que pertenecen resolviendo el símbolo más cercano con <code>ln &lt;dir_classifyFn&gt;</code>.</p>
+<p>En el archivo XML generado podés buscar los nodos <code>&lt;callout&gt;</code> y <code>&lt;filter&gt;</code>: cada uno registra su <code>displayData/name</code>, su <code>calloutKey</code> (GUID), la capa (<code>layerKey</code>) y el proveedor (<code>providerKey</code>). Como complemento, la utilidad de diagnóstico <code>wfptool.exe</code> permite consultar filtros activos filtrando por PID de proceso o por capa (por ejemplo, <code>ALE_AUTH_CONNECT_V4</code>). Si estás conectado con WinDbg al kernel de la VM (ver <a href="6-03-debug-kernel.html">6.3</a>), podés correlacionar los punteros a <code>classifyFn</code> con el módulo <code>.sys</code> al que pertenecen resolviendo el símbolo más cercano con <code>ln &lt;dir_classifyFn&gt;</code> y contrastando la tabla de módulos con <code>lm</code>.</p>
 
 <h2 id="ejemplo-trabajado">Ejemplo trabajado</h2>
 

@@ -47,6 +47,7 @@ def inline(text):
 
     text = re.sub(r"`([^`]+)`", guardar, text)
     text = esc(text)
+    text = re.sub(r"&lt;(/?sup)&gt;", r"<\1>", text)
     text = re.sub(r"\*\*((?:(?!\*\*).)+)\*\*", r"<strong>\1</strong>", text)
     text = re.sub(r"(?<!\*)\*([^*\n]+)\*(?!\*)", r"<em>\1</em>", text)
     text = re.sub(
@@ -232,9 +233,10 @@ main { max-width: none; padding: 0; }
 .print-sec h2 { font-size: 13pt; margin-top: 1.4em; color: #1f2428; border-bottom: 1px solid #d9d5cc; padding-bottom: 2pt; }
 .print-sec h3 { font-size: 11.5pt; color: #333; }
 .print-sec pre, .print-sec code, .print-sec pre code { color: #111111 !important; -webkit-text-fill-color: #111111 !important; }
-.print-sec pre { font-size: 8.3pt; white-space: pre-wrap; break-inside: avoid; page-break-inside: avoid; background-color: #f6f8fa !important; border: 1px solid #d0d7de !important; color: #111111 !important; padding: 8px 10px; border-radius: 4px; }
-.print-sec code { font-family: "Cascadia Code", "JetBrains Mono", Consolas, monospace !important; }
+.print-sec pre { font-size: 8.3pt; white-space: pre-wrap; break-inside: avoid; page-break-inside: avoid; background-color: #f6f8fa !important; border: 1px solid #d0d7de !important; color: #111111 !important; padding: 8px 10px; border-radius: 4px; font-variant-ligatures: none !important; font-feature-settings: "liga" 0, "calt" 0 !important; }
+.print-sec code { font-family: "Cascadia Mono", Consolas, "Liberation Mono", monospace !important; font-variant-ligatures: none !important; font-feature-settings: "liga" 0, "calt" 0 !important; }
 .print-sec :not(pre) > code { background-color: #f0f2f5 !important; padding: 1px 4px; border-radius: 3px; border: 1px solid #e1e4e8; }
+.print-sec sup { font-size: 0.72em; vertical-align: super; line-height: 0; }
 .print-sec table { font-size: 8.6pt; width: 100%; border-collapse: collapse; margin: 12px 0; table-layout: auto; }
 .print-sec th, .print-sec td { border: 1px solid #d9d5cc; padding: 6px 8px; text-align: left; }
 .print-sec th { background: #f3f0fa; font-weight: 700; }
@@ -290,7 +292,7 @@ main { max-width: none; padding: 0; }
     <strong>Ficha Técnica de Publicación:</strong><br>
     • <strong>Perfil Académico:</strong> Reversers, analistas de malware y auditores de seguridad de sistemas.<br>
     • <strong>Carga Estimada:</strong> 25 a 35 horas de estudio crítico + 15 a 20 horas de laboratorio práctico.<br>
-    • <strong>Presupuesto Físico:</strong> 52 páginas estándar (26 hojas a doble faz) con paridad par garantizada.<br>
+    • <strong>Presupuesto Físico:</strong> 54 páginas estándar (27 hojas a doble faz) con paridad par garantizada.<br>
     • <strong>Encuadernación:</strong> Anillado metálico Ring Wire 3:1 de 14.3 mm con paridad par garantizada.<br>
     • <strong>Entorno de Verificación:</strong> Windows 11 Enterprise x64 (24H2), MSVC 19.51, LLVM 17+, Rust 1.78+, Ghidra 11.1+ y Ollama.
   </div>
@@ -320,7 +322,7 @@ main { max-width: none; padding: 0; }
       <span class="toc-tit"><a href="#tomo3-mod2">Módulo 2 · Aislamiento por Contenedores: LPAC, MSIX y Frontera WSL2</a></span>
       <span class="toc-pag" data-anchor="tomo3-mod2">páginas pendientes</span>
     </div>
-    <div class="toc-sub">• §2.1 AppContainer vs LPAC | §2.2 Auditoría Forense de Tokens (bit 0x20) | §2.3 WSL2, AF_UNIX y VMBus.</div>
+    <div class="toc-sub">• §2.1 AppContainer vs LPAC | §2.2 Auditoría Forense de Tokens LPAC (S-1-15-2-2 / WIN://NOALLAPPPKG) | §2.3 WSL2, AF_UNIX y VMBus.</div>
 
     <div class="toc-line" style="margin-top: 8pt;">
       <span class="toc-tit"><a href="#tomo3-mod3">Módulo 3 · Extensiones del Hardware ISA: Intel CET, Shadow Stack y ARM64EC</a></span>
@@ -412,7 +414,7 @@ def compilar_pdf_tomo3():
         ]),
         ("Módulo 2 · Aislamiento por Contenedores: LPAC, MSIX y Frontera WSL2", "tomo3-mod2", [
             ("2.1 AppContainer vs LPAC", "tomo3-mod2-2-1-arquitectura-de-contenedores-appcontainer-y-lpac", []),
-            ("2.2 Auditoría Forense de Tokens (bit 0x20)", "tomo3-mod2-2-2-auditor-a-forense-de-tokens-lpac-en-windows-11", []),
+            ("2.2 Auditoría Forense de Tokens LPAC (S-1-15-2-2 / WIN://NOALLAPPPKG)", "tomo3-mod2-2-2-auditor-a-forense-de-tokens-lpac-en-windows-11", []),
             ("2.3 WSL2, AF_UNIX y VMBus", "tomo3-mod2-2-3-wsl2-como-frontera-h-brida-de-interoperabilidad", []),
         ]),
         ("Módulo 3 · Extensiones del Hardware ISA: Intel CET, Shadow Stack y ARM64EC", "tomo3-mod3", [
@@ -465,7 +467,7 @@ def compilar_pdf_tomo3():
         etiquetas = {}
         for i, ancla_id in enumerate(anclas):
             inicio = paginas[ancla_id]
-            fin = total
+            fin = total + 1 if (i == len(anclas) - 1 and total % 2 != 0) else total
             for siguiente in anclas[i + 1:]:
                 if paginas[siguiente] > inicio:
                     fin = paginas[siguiente] - 1
@@ -629,7 +631,7 @@ def compilar_pdf_tomo3():
     print(f"Hojas Físicas:     {hojas} hojas (impresión a doble faz)")
     print(f"Paridad:           {'PAR (CUMPLE REGLA IMPRENTA)' if final_pages % 2 == 0 else 'IMPAR (ERROR)'}")
     print(f"Tamaño:            {size_mb:.2f} MB ({os.path.getsize(salida_pdf):,} bytes)")
-    print(f"Presupuesto:       52 páginas (26 hojas a doble faz)")
+    print(f"Presupuesto:       54 páginas (27 hojas a doble faz)")
     print(f"Evaluación:        CUMPLE REGLAS DE IMPRENTA")
     print("=" * 80 + "\n")
 

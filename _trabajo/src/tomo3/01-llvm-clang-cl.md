@@ -1,5 +1,5 @@
 # Módulo 1 · Compiladores No-MSVC en Windows: LLVM, Clang CFI y Rust Endurecido
-*(Tomo III (52 págs. totales) · Prerrequisito: Tomo I, Lección 2.18, págs. 180–188 y Lección 2.32, págs. 243–247)*
+*(Tomo III · Prerrequisitos: Tomo I, Lección 2.18 y Lección 2.32; Tomo II, Lección 6.6)*
 
 ---
 
@@ -16,17 +16,17 @@ Sin embargo, en el ecosistema moderno de Windows 11 (2026+), una proporción mas
 `clang-cl` no es un compilador independiente con opciones propias estilo UNIX. Es un controlador de compilador (*driver*) diseñado para aceptar las mismas banderas de línea de comandos que `cl.exe` (`/O2`, `/MD`, `/Zi`, `/guard:cf`, `/GL`), pero reemplazando el pipeline clásico de Microsoft por la infraestructura de **LLVM**:
 
 ```
-                               DIAGRAMA DE PIPELINE: CLANG-CL VS. MSVC
-                               
-   [ Código Fuente C/C++ ]
-              │
-              ├─── (cl.exe de MSVC) ──────> [ C1 / C2 Compiler Frontend ] ──> [ UTC / C2 CodeGen ] ──> [ link.exe ] ──> [ PE/COFF ]
-              │                                                                (MSVC Heuristics)
-              │
-              └─── (clang-cl de LLVM) ────> [ Clang AST / Clang Frontend ] ──> [ LLVM IR Optimization ]
-                                                                                         │
-                                                                           [ LLVM Target CodeGen (x86_64) ] ──> [ lld-link ] ──> [ PE/COFF ]
-                                                                                 (LLVM Heuristics)
+                 DIAGRAMA DE PIPELINE: CLANG-CL VS. MSVC
+
+ [ Código Fuente C/C++ ]
+       │
+       ├─ (cl.exe MSVC) ──> [ Frontend C1/C2 ] ──> [ UTC/C2 CodeGen ]
+       │                                                  │
+       │                                            [ link.exe ] ──> [PE]
+       │
+       └─ (clang-cl LLVM) > [ Clang AST ] ───────> [ LLVM IR Opt ]
+                                                          │
+                           [ PE/COFF ] <─ [ lld-link ] <──┴─ [ x86_64 Gen ]
 ```
 
 Para el analista de ingeniería inversa, aunque el binario resultante sea un archivo PE/COFF de 64 bits con dependencias en el CRT de Microsoft (`msvcrt.dll` o `vcruntime140.dll`), **el código de máquina generado responde a una filosofía de optimización enteramente distinta**:
@@ -74,23 +74,24 @@ uint32_t ProcesarBloque(const uint8_t* entrada, size_t longitud, uint32_t clave,
 }
 ```
 
-#### A. Desensamblado Emitido por MSVC (`cl.exe /O2`)
+#### A. Desensamblado Ilustrativo Esperado para MSVC (`cl.exe /O2` en C)
+*(Nota: `Ejemplo ilustrativo` sin binario compilado localmente; símbolo plano C bajo convención Microsoft x64.)*
 ```assembly
 ; ==============================================================================
-; MSVC v19.51 - Flags: /O2 /MD /GS-
+; MSVC x64 (Ejemplo ilustrativo) - Flags: /O2 /MD /GS-
 ; ==============================================================================
-?ProcesarBloque@@YAIPEBE_KIPEAI_E@Z:
+ProcesarBloque:
     test    rcx, rcx                ; Verificar entrada != NULL
     je      loc_ret_zero
     test    rdx, rdx                ; Verificar longitud != 0
     je      loc_ret_zero
 
-    push    rbx                     ; Preservar RBX (no volátil)
-    push    rsi                     ; Preservar RSI (no volátil)
-    push    rdi                     ; Preservar RDI (no volátil)
-    sub     rsp, 20h                ; Asignar marco de pila mínimo
+    push    rbx                     ; Preservar RBX (no volátil, -8)
+    push    rsi                     ; Preservar RSI (no volátil, -8)
+    push    rdi                     ; Preservar RDI (no volátil, -8)
+    sub     rsp, 20h                ; Marco de pila (-32) -> 3 push (18h) + 20h + ret (8h) + shadow (20h) = 60h
 
-    movzx   eax, byte ptr [rsp+48h] ; Cargar 5to argumento (modo) desde el stack
+    movzx   eax, byte ptr [rsp+60h] ; Cargar 5to argumento (modo) desde [RSP+60h]
     mov     esi, r8d                ; ESI = clave (acumulador)
     xor     edi, edi                ; EDI = temp_cs (0)
     xor     r10d, r10d              ; R10 = índice i (0)
@@ -137,12 +138,13 @@ loc_ret_zero:
     ret
 ```
 
-#### B. Desensamblado Emitido por Clang (`clang-cl.exe /O2`)
+#### B. Desensamblado Ilustrativo Esperado para Clang (`clang-cl.exe /O2` en C)
+*(Nota: `Ejemplo ilustrativo` sin binario compilado localmente; función hoja sin stack frame.)*
 ```assembly
 ; ==============================================================================
-; Clang-cl (LLVM 17+) - Flags: /O2 /MD /GS-
+; Clang-cl LLVM 17+ (Ejemplo ilustrativo) - Flags: /O2 /MD /GS-
 ; ==============================================================================
-?ProcesarBloque@@YAIPEBE_KIPEAI_E@Z:
+ProcesarBloque:
     test    rcx, rcx                ; Comprobar puntero entrada
     setne   al
     test    rdx, rdx                ; Comprobar longitud
@@ -151,21 +153,20 @@ loc_ret_zero:
     jz      loc_clang_zero          ; Salto único a salida nula
 
     ; LLVM nota que 'modo' es constante en todo el bucle
-    ; y aplica LOOP UNHOOKING / HOISTING (desdobla el bucle según el modo)
-    movzx   eax, byte ptr [rsp+28h] ; Cargar 5to argumento
+    ; y aplica LOOP UNSWITCHING / HOISTING (desdobla el bucle según el modo)
+    movzx   eax, byte ptr [rsp+28h] ; Cargar 5to argumento (sin prólogo: ret 8h + shadow 20h)
     xor     r10d, r10d              ; R10D = temp_cs (0)
     xor     r11d, r11d              ; R11D = índice i (0)
     cmp     al, 1
     jne     loc_clang_loop_xor
 
-    ; BUCLE 1: Modo Aditivo (Optimizado con LEA sin saltos internos)
+    ; BUCLE 1: Modo Aditivo ((acumulador << 5) + acumulador + byte_val)
 loc_clang_loop_add:
     movzx   eax, byte ptr [rcx+r11]
     add     r10d, eax               ; temp_cs += byte_val
-    ; acumulador * 33 + byte_val (optimización algebraica de Clang):
-    lea     r8d, [r8 + r8*4]        ; R8D = clave * 5
-    lea     r8d, [rax + r8]         ; byte_val + clave
-    shl     eax, 5                  ; cálculo acumulado
+    ; acumulador * 33 + byte_val en x64 sin clobber de registros:
+    imul    r8d, r8d, 33            ; R8D = (acumulador << 5) + acumulador
+    add     r8d, eax                ; R8D = acumulador * 33 + byte_val
     inc     r11
     cmp     r11, rdx
     jne     loc_clang_loop_add
@@ -207,11 +208,11 @@ loc_clang_zero:
 Uno de los mayores puntos de fricción al descompilar binarios de `clang-cl` en IDA Pro o Ghidra reside en la traducción de sentencias condicionales múltiples (`switch/case`).
 
 ### El Enfoque Clásico de MSVC (Repaso de Tomo I, Lección 2.18)
-Como se estudió en la Lección 2.18 (Tomo I, págs. 180–188), MSVC aborda un `switch` mediante dos estrategias predecibles:
+Como se estudió en el Tomo I (Lección 2.18), MSVC aborda un `switch` mediante dos estrategias predecibles:
 * Si los casos son escasos o muy dispersos: una cascada lineal de comparaciones `cmp reg, val` seguida de saltos condicionales `je / jne`, o un árbol binario balanceado de comparaciones `cmp / jg / jl`.
 * Si los casos son densos (ej. valores consecutivos de 0 a 15): una **tabla de saltos indexada** continua:
   ```assembly
-  ; Patrón clásico de MSVC (Tomo I, pág. 182)
+  ; Patrón clásico de MSVC (Tomo I, Lección 2.18)
   cmp     eax, 0Fh
   ja      loc_default
   lea     rcx, cs:JumpTable
@@ -225,15 +226,13 @@ Como se estudió en la Lección 2.18 (Tomo I, págs. 180–188), MSVC aborda un 
 LLVM no trata las tablas de saltos como una opción binaria (o árbol o tabla continua). En su lugar, el módulo `SwitchLowering` de LLVM aplica una combinación de **análisis de densidad de bits**, **particionamiento en clústeres** y **conteo de ceros**:
 
 ```
-                    ÁRBOL DE DECISIÓN DE SWITCH LOWERING EN LLVM
-                    
-   [ Casos del switch C/C++ ]
-               │
-               ├── (Rango <= 64 valores distintos) ──────────> [ Bit-Test Lowering: bt / bts ]
-               │
-               ├── (Densidad local en subgrupos aislados) ────> [ Clustered Jump Tables: árbol + mini-tablas ]
-               │
-               └── (Casos uniformes con retorno escalar) ────> [ Bitmask + tzcnt / bsf Table Lookup ]
+             ÁRBOL DE DECISIÓN: SWITCH LOWERING EN LLVM
+
+ [ Casos del switch C/C++ ]
+       │
+       ├─ (Rango <= 64 valores) ─────> [ Bit-Test Lowering: bt / bts ]
+       ├─ (Subgrupos densos aislados) > [ Clustered Jump Tables ]
+       └─ (Casos con retorno escalar) > [ Bitmask + tzcnt / bsf ]
 ```
 
 #### A. Estrategia 1: Bit Testing con `bt` / `bts`
@@ -271,7 +270,7 @@ DespacharComando:
     ; Bit 11: (12 - 1 = 11)
     ; Bit 32: (33 - 1 = 32)
     ; Bit 51: (52 - 1 = 51)
-    mov     rcx, 0008000000010849h  ; Máscara hexadecimal constante
+    mov     rcx, 0008000100000849h  ; Máscara hexadecimal constante (bits 0,3,6,11,32,51)
     bt      rcx, rax                ; Probar si el bit correspondiente está activo
     jnc     loc_default             ; Si Carry Flag = 0, el caso no existe en el switch
 
@@ -282,7 +281,7 @@ DespacharComando:
 **Impacto en Reversing y Descompiladores:**  
 Para el descompilador de Ghidra o IDA Pro, la instrucción `bt rcx, rax` con una constante hexadecimal de 64 bits suele desorientar el análisis del flujo de control. El descompilador emite pseudocódigo confuso como:
 ```c
-if (((0x800000010849ULL >> (cmd - 1)) & 1) == 0) {
+if (((0x0008000100000849ULL >> (cmd - 1)) & 1) == 0) {
     return -1;
 }
 ```
@@ -385,42 +384,41 @@ Uno de los avances más críticos en mitigaciones de seguridad modernas es el bl
 Existen dos filosofías radicalmente distintas para resolver este problema en Windows:
 
 ### A. El Modelo kCFG de Microsoft (Control Flow Guard)
-Como se estudió en la Lección 5.2.b (Tomo I, págs. 332–335) y en la Lección 6.6 (Tomo II, pág. 47), el CFG de Microsoft se basa en una arquitectura cooperativa entre el compilador, el enlazador y el kernel de Windows:
+Como se estudió en el Tomo I (Lección 5.2.b) y en el Tomo II (Lección 6.6), el CFG de Microsoft se basa en una arquitectura cooperativa entre el compilador, el enlazador y el kernel de Windows:
 1. En tiempo de compilación, `cl.exe /guard:cf` genera una lista con todas las direcciones que son destinos válidos de llamadas indirectas.
 2. `link.exe /guard:cf` empaqueta esta lista en un **mapa de bits de direcciones válidas** dentro del directorio `IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG` del archivo PE.
 3. En ejecución, antes de cada llamada indirecta, el código invoca un puntero a función guardián provisto por `ntdll.dll` (en modo usuario) o por `ntoskrnl.exe` (en modo kernel):
    ```assembly
    ; Patrón de kCFG en MSVC (Plantilla 17b)
    mov     rax, qword ptr [rbx + 10h]               ; RAX = puntero a función indirecta
-   mov     rcx, rbx                                ; RCX = argumento 'this'
-   call    qword ptr [__guard_dispatch_icall_fptr] ; Valida RAX contra el mapa de bits del PE
-   call    rax                                     ; Salto real sólo si es válido
+   mov     rcx, rbx                                 ; RCX = argumento 'this'
+   call    qword ptr [__guard_dispatch_icall_fptr]  ; Valida RAX y salta directo (jmp rax)
    ```
 4. **Debilidad de kCFG:** El mapa de bits es **grueso** (*coarse-grained*): cualquier función cuya dirección haya sido exportada o registrada como destino válido en cualquier parte del binario es considerada un destino legal, incluso si tiene una firma de parámetros completamente diferente.
 
-### B. El Modelo Clang CFI (Forward-Edge Type-Based CFI)
-Clang aborda el problema sin depender de mapas de bits en memoria ni de APIs del sistema operativo. Implementa un esquema de **Integridad Basada en Tipos de Grano Fino** (*Fine-Grained Type-Based CFI*), activado mediante `-fsanitize=cfi` y requiriendo Link-Time Optimization (`-flto`):
+### B. El Modelo Clang CFI (`-fsanitize=cfi`) frente a KCFI (`-fsanitize=kcfi`)
+Clang aborda el problema sin depender de mapas de bits del sistema operativo. Es fundamental distinguir sus dos variantes en LLVM:
+- **LLVM CFI de usuario (`-fsanitize=cfi`, requiere `-flto` y `-fvisibility=hidden`, usado en la Plantilla 17a):** agrupa en tablas contiguas de vtables o jump-tables todos los tipos compatibles y verifica antes de la llamada mediante desplazamiento/rango o *bitset inline* si el puntero de vtable/destino pertenece al conjunto válido (ver §5.2).
+- **LLVM Kernel CFI (`-fsanitize=kcfi`, sin requerir LTO completo):** inserta un hash de tipo de 32 bits inmediatamente antes del prólogo de cada función (`[Target - 4]`) y lo compara justo antes del salto indirecto:
 
 ```
-                   MECANISMO DE CHEQUEO INLINE DE CLANG CFI
-                   
-  [ Puntero a Función / Vtable ]
-              │
-              ├──> 1. Restar 4 o 8 bytes a la dirección destino: [Target - 4]
-              ├──> 2. Cargar el prefijo de hash de tipo inyectado por LLVM
-              ├──> 3. Comparar contra el Hash Canónico del Prototipo (cmp hash, CONST)
-              │
-              ├─── (Coincide: Firma Exacta) ────────> call Target  (Ejecución normal)
-              │
-              └─── (No Coincide: Type Mismatch) ───> ud2          (Undefined Instruction Trap)
+             MECANISMO DE CHEQUEO INLINE (-fsanitize=kcfi)
+
+ [ Puntero a Función ]
+       │
+       ├──> 1. Leer prefijo de 4B antes del prólogo: [Target - 4]
+       ├──> 2. Comparar contra Type Hash (cmp hash, CONST)
+       │
+       ├── (Coincide: Firma Exacta) ──> call Target (Ejecución normal)
+       └── (No Coincide: Mismatch) ───> ud2         (Trap inmediata)
 ```
 
-#### Anatomía en el Desensamblador
-En un binario compilado con `clang-cl` bajo Clang CFI, una llamada a un método virtual no salta a ningún despachador externo de Windows. En su lugar, el código inyecta una comprobación de tipo inmediata seguida de una trampa de CPU:
+#### Anatomía en el Desensamblador (`-fsanitize=kcfi` vs. `-fsanitize=cfi`)
+En `-fsanitize=cfi` (Plantilla 17a) verás verificación de pertenencia de `vtable` en el rango/bitset generado durante el LTO; en `-fsanitize=kcfi`, la verificación lee `[r10 - 04h]` antes de llamar:
 
 ```assembly
 ; ==============================================================================
-; Desensamblado de Clang CFI (Plantilla 17a)
+; Desensamblado ilustrativo de chequeo por hash prefijado (-fsanitize=kcfi)
 ; ==============================================================================
 mov     rax, qword ptr [rcx]           ; RAX = vtable del objeto
 mov     r10, qword ptr [rax + 08h]     ; R10 = puntero al método virtual a invocar
@@ -443,14 +441,14 @@ ud2                                    ; Opcode: 0F 0B -> STATUS_ILLEGAL_INSTRUC
 |---|---|---|
 | **Granularidad** | **Fina (*Fine-grained*):** Exige que el destino coincida en la firma estricta de tipos de la función. | **Gruesa (*Coarse-grained*):** Cualquier función marcada en el mapa de bits es válida. |
 | **Dependencia del S.O.** | **Ninguna:** Todo el chequeo es código emitido por el compilador en el espacio del binario. | **Alta:** Depende del cargador de NT, de `ntdll!LdrpValidateUserCallTarget` o `guard_dispatch_icall`. |
-| **Mecanismo de Parada** | Instrucción de máquina **`ud2`** (`0F 0B`), disparando `STATUS_ILLEGAL_INSTRUCTION`. | Invocación a `int 0x29` con fast-fail `FAST_FAIL_CONTROL_PROTECTION_USER`. |
-| **Requisitos de Compilación**| Requiere **Link-Time Optimization (`-flto`)** y generación de código unificada en LLVM. | Funciona en compilación modular clásica módulo por módulo sin LTO estricto. |
+| **Mecanismo de Parada** | Instrucción de máquina **`ud2`** (`0F 0B`), disparando `STATUS_ILLEGAL_INSTRUCTION`. | Invocación a `int 0x29` (`0xC0000409`) con subcódigo `0x0A` (`FAST_FAIL_GUARD_ICALL_CHECK_FAILURE`). |
+| **Requisitos de Compilación**| Requiere **Link-Time Optimization (`-flto`)** y visibilidad acotada (`-fvisibility=hidden`). | Funciona en compilación modular clásica módulo por módulo sin LTO estricto. |
 
 ---
 
 ## 1.5 Reversing de Binarios Rust Endurecidos (`lto = "fat"`, `panic = "abort"`, `strip = true`)
 
-En la Lección 2.32 (Tomo I, págs. 243–247) se estudiaron las características básicas de los binarios de Rust en Windows: el esquema de nombres *mangling v0* y cómo las cadenas de pánico emitidas por `core::panicking::panic_fmt` permiten al reverser reconstruir los nombres de los archivos `.rs` y los números de línea originales.
+En la Lección 2.32 del Tomo I se estudiaron las características básicas de los binarios de Rust en Windows: el esquema de nombres *mangling v0* y cómo las cadenas de pánico emitidas por `core::panicking::panic_fmt` permiten al reverser reconstruir los nombres de los archivos `.rs` y los números de línea originales.
 
 Sin embargo, cuando un software escrito en Rust se compila con su perfil de producción endurecido al máximo, **todos esos oráculos semánticos desaparecen**.
 
@@ -520,14 +518,13 @@ En Rust:
 * **No existe ningún terminador nulo.**
 
 ```
-                       ANATOMÍA DE SLICES EN RUST (.RDATA)
-                       
+                   ANATOMÍA DE SLICES EN RUST (.RDATA)
+
   Sección .rdata (Blob monolítico continuo sin bytes 0x00):
-  ┌────────────────────────────────────────────────────────────────────────┐
-  │ GET /api/v1/statusPOST /auth/loginAuthorization: Bearer User-Agent:    │
-  └────────────────────────────────────────────────────────────────────────┘
+  ┌──────────────────────────────────────────────────────────────────┐
+  │ GET /api/v1/statusPOST /auth/loginAuthorization: Bearer ...      │
+  └──────────────────────────────────────────────────────────────────┘
     ▲                 ▲                 ▲
-    │                 │                 │
     │ Slice 1:        │ Slice 2:        │ Slice 3:
     │ ptr: .rdata+0   │ ptr: .rdata+18  │ ptr: .rdata+34
     │ len: 18         │ len: 16         │ len: 22
@@ -547,13 +544,18 @@ En el binario compilado:
    ```
 
 ### Script de Laboratorio: Reconstrucción Automatizada de Slices
-Para resolver este problema de forma desatendida en Ghidra, la **Plantilla 18** incluye el script en Python [`reconstruct_slices.py`](plantillas_codigo/plantilla_18_rust_lto/reconstruct_slices.py), el cual automatiza el desempaquetado de cadenas:
+Para resolver este problema de forma desatendida, la **Plantilla 18** incluye [`reconstruct_slices.py`](plantillas_codigo/plantilla_18_rust_lto/reconstruct_slices.py) con **dos modos complementarios**:
 
-1. **Algoritmo del Script:**
-   * Escanea las instrucciones `lea reg1, [mem_rdata]` que apunten a secciones de solo lectura.
-   * Verifica si la instrucción subsiguiente o adyacente es un `mov reg2, imm_val` donde `imm_val` sea un valor entero razonable de longitud (`1 ≤ len ≤ 1024`).
-   * Extrae los bytes en el rango `[mem_rdata, mem_rdata + imm_val]`.
-   * Si los bytes corresponden a texto ASCII/UTF-8 válido, invoca la API de Ghidra (`createAsciiString`) forzando la longitud exacta sin requerir terminador nulo, y asigna un comentario en el desensamblado con el texto recuperado.
+1. **Modo CLI standalone (extractor heurístico rápido, mostrado en §5.4):**
+   * Usa `pefile` para localizar la sección `.rdata` y fragmentar secuencias contiguas de bytes ASCII imprimibles (`32 <= data[i] <= 126`) de al menos 4 bytes, sin depender de Ghidra.
+2. **Modo PyGhidra (`run_in_ghidra()`, incluido en el archivo del repositorio):**
+   * Recorre las instrucciones buscando pares `LEA reg1, [mem_rdata]` seguidos de `MOV reg2, imm_val` (`1 <= len <= 512`), lee el rango `[mem_rdata, mem_rdata + len]`, crea el literal de longitud exacta mediante `createAsciiString(target_addr, length)` (sin exigir terminador `0x00`) y anota un comentario en el desensamblado (`setPlateComment`):
+   ```python
+   # Fragmento mínimo PyGhidra (ver plantilla_18_rust_lto/reconstruct_slices.py)
+   if is_printable_ascii(buf):
+       createAsciiString(target_addr, length)
+       setPlateComment(instr.getAddress(), f'[Rust Slice &str] "{text}" (len={length})')
+   ```
 
 ---
 

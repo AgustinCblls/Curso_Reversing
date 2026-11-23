@@ -45,8 +45,8 @@ macro update_flags(result) {
 
 # Opcode 4: OP_CMP imm
 :CMP imm8 is op=4; imm8 {
-    local tmp:4 = acc - zext(imm8);
-    update_flags(tmp);
+    local y:4 = zext(imm8);
+    zf = (acc == y);
 }
 
 # Opcode 5: OP_MBA imm (Identidad MBA: acc + imm)

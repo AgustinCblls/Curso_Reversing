@@ -74,8 +74,7 @@ static VOID WINAPI SvcLabMain(DWORD dwArgc, LPWSTR* lpszArgv) {
 
 int wmain(int argc, wchar_t* argv[]) {
     if (argc > 1 && wcscmp(argv[1], L"--console") == 0) {
-        wprintf(L"[SvcLab] Modo diagnóstico de consola OK. Para usar con el SCM, registralo con sc.exe create.
-");
+        wprintf(L"[SvcLab] Modo diagnóstico de consola OK. Para usar con el SCM, registralo con sc.exe create.\n");
         return 0;
     }
     SERVICE_TABLE_ENTRYW DispatchTable[] = {
@@ -85,10 +84,8 @@ int wmain(int argc, wchar_t* argv[]) {
     if (!StartServiceCtrlDispatcherW(DispatchTable)) {
         DWORD err = GetLastError();
         if (err == ERROR_FAILED_SERVICE_CONTROLLER_CONNECT) {
-            wprintf(L"Error 1063 (ERROR_FAILED_SERVICE_CONTROLLER_CONNECT): este binario es un servicio Win32.
-"
-                    L"Inicialo con 'sc.exe start ReversingLabSvc' o probalo con 'SvcLab.exe --console'.
-");
+            wprintf(L"Error 1063 (ERROR_FAILED_SERVICE_CONTROLLER_CONNECT): este binario es un servicio Win32.\n"
+                    L"Inicialo con 'sc.exe start ReversingLabSvc' o probalo con 'SvcLab.exe --console'.\n");
         }
         return (int)err;
     }

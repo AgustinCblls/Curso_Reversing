@@ -118,11 +118,12 @@ El proceso de arranque moderno desde el encendido de la máquina hasta la primer
 
 Cuando `winload.efi` invoca la función de arranque del kernel (`nt!KiSystemStartup`), el hardware ya no tiene acceso a los servicios de UEFI (se ha llamado a `ExitBootServices`). La única vía por la cual el cargador transfiere información vital al kernel es mediante un puntero único pasado en el registro **`RCX`**: la estructura **`LOADER_PARAMETER_BLOCK`**.
 
-### Offsets Críticos de `LOADER_PARAMETER_BLOCK` en x64:
-- **`+0x010` `LoadOrderListHead` (`LIST_ENTRY`):** Lista doblemente enlazada de estructuras `KLDR_DATA_TABLE_ENTRY` que enumera todos los módulos y drivers cargados en memoria por `winload.efi` (incluyendo `ntoskrnl.exe`, `hal.dll`, `kd.dll` y drivers de arranque).
-- **`+0x050` `MemoryDescriptorListHead` (`LIST_ENTRY`):** Mapa de memoria física del sistema clasificado por tipos (memoria utilizable, memoria reservada por firmware, memoria ACPI).
-- **`+0x098` `Extension` (`Ptr64 _LOADER_PARAMETER_EXTENSION`):** Puntero a la extensión del bloque de arranque. En Windows 10/11 modernos, este campo contiene las estructuras de configuración de **VBS/HVCI**, el estado de inicialización de **Hyper-V** y los metadatos de integridad de código (*Code Integrity*).
-- **`+0x0A0` `BootDriverListHead` (`LIST_ENTRY`):** Lista ordenada de controladores de arranque que deben ser inicializados por `IoInitSystem` antes de montar el sistema de archivos raíz.
+### Offsets Críticos de `LOADER_PARAMETER_BLOCK` en x64 (Win10 22H2 / Win11 23H2–24H2):
+Los primeros 16 bytes (`+0x000..+0x00F`) contienen `OsMajorVersion`, `OsMinorVersion`, `Size` y `OsLoaderSecurityVersion` (4 `ULONG`s). A partir de `+0x010` se ubican las cabezas de lista:
+- **`+0x010` `LoadOrderListHead` (`_LIST_ENTRY`):** Lista doblemente enlazada de `_KLDR_DATA_TABLE_ENTRY` que enumera los módulos y drivers cargados en memoria por `winload.efi` (`ntoskrnl.exe`, `hal.dll`, `kd.dll` y drivers de arranque).
+- **`+0x020` `MemoryDescriptorListHead` (`_LIST_ENTRY`):** Lista de descriptores `_MEMORY_ALLOCATION_DESCRIPTOR` con el mapa de memoria física clasificado por tipos.
+- **`+0x030` `BootDriverListHead` (`_LIST_ENTRY`):** Lista de nodos `_BOOT_DRIVER_LIST_ENTRY` a inicializar en el arranque (seguida en `+0x040` por `EarlyLaunchListHead`, `+0x050` por `CoreDriverListHead`, `+0x060` por `CoreExtensionsDriverListHead` y `+0x070` por `TpmCoreDriverListHead`).
+- **`+0x0F0` `Extension` (`Ptr64 _LOADER_PARAMETER_EXTENSION`):** Puntero a la extensión del bloque de arranque (en Windows 7 residía en `+0x098`; en Windows 10 22H2 y Windows 11 23H2/24H2 reside en `+0x0F0`). Contiene la configuración de **VBS/HVCI**, estado de **Hyper-V** y metadatos de integridad de código (*Code Integrity*).
 
 ### Inspección en WinDbg durante el Arranque Temprano
 Si estás depurando una máquina virtual con WinDbg y configuras un breakpoint inicial (`sxe ibp` o `break` antes del kernel):
@@ -148,3 +149,41 @@ Los bootkits modernos (como BlackLotus o Bootkm) buscan infectar la cadena de ar
    - Ganchos sobre **`LocateProtocol`** o **`OpenProtocol`**: interceptan la carga de protocolos para devolver punteros a rutinas modificadas.
    - Ganchos sobre **`ExitBootServices`**: capturan el momento exacto en que `winload.efi` va a transferir el control al kernel. En este punto, el bootkit parchea en memoria viva las rutinas de validación de firmas de `winload.efi` o inyecta código en `ntoskrnl!KiSystemStartup` para deshabilitar DSE antes de que el kernel arranque.
 4. **Verificación Defensiva:** En sistemas corporativos, la integridad de esta cadena se audita mediante **Measured Boot** (el chip TPM registra los hashes SHA-256 de cada componente de arranque en los registros PCR 0 a 7, permitiendo a la red verificar remotamente que ningún binario EFI fue alterado).
+
+## Práctica
+
+1. En una copia en solo lectura de un binario EFI legítimo (por ejemplo, una aplicación EFI propia compilada con EDK2 o `bootmgfw.efi` tomado de una ISO/VM limpia), abrilo en IDA o Ghidra seleccionando subsistema EFI/PE x64 y cargando las cabeceras/tipos UEFI.
+2. Identificá el punto de entrada `EfiMain(ImageHandle, SystemTable)`, localizá dónde se guarda `RDX` en la variable global `gST` y seguí la desreferencia en offset **`+0x60`** hacia `EFI_BOOT_SERVICES` (`gBS`), anotando llamadas por offset como `LocateProtocol` (`+0x140`).
+3. En WinDbg conectado desde el arranque temprano de la VM (`sxe ibp`), inspeccioná `dt nt!_LOADER_PARAMETER_BLOCK @rcx` y comprobá los offsets de `LoadOrderListHead` y `Extension` en el build concreto de Windows.
+
+## Entregable
+
+Diagrama de la cadena de confianza (`SEC/PEI/DXE/BDS -> bootmgfw.efi -> winload.efi -> KiSystemStartup`), captura de análisis estático identificando `SystemTable` y `BootServices (+0x60)` en una app EFI benigna, y tabla de campos de `_LOADER_PARAMETER_BLOCK` verificados con el PDB del sistema.
+
+## Repaso
+
+?? ¿Qué recibe `EfiMain` en los registros `RCX` y `RDX` según la ABI UEFI x64 y qué offset apunta a `EFI_BOOT_SERVICES`?
+!! `RCX` recibe `EFI_HANDLE ImageHandle` y `RDX` recibe el puntero a `EFI_SYSTEM_TABLE` (`gST`). Dentro de `EFI_SYSTEM_TABLE` en x64, el campo `BootServices` (`gBS`) reside exactamente en el desplazamiento `+0x60`.
+
+?? ¿Qué ocurre en la transición marcada por `ExitBootServices()` y cómo obtiene el kernel el inventario de memoria y módulos cargados?
+!! Al invocar `gBS->ExitBootServices()`, `winload.efi` toma control exclusivo de la memoria física y los servicios de tiempo de arranque UEFI dejan de estar disponibles. Por eso el cargador pasa al punto de entrada `nt!KiSystemStartup` el puntero a `LOADER_PARAMETER_BLOCK` en `RCX`, con las listas de módulos cargados, mapa de memoria y configuración VBS/CI.
+
+?? ¿Por qué los desplazamientos internos de `LOADER_PARAMETER_BLOCK` como `Extension` cambian entre Windows 7 y Windows 10/11?
+!! Porque Microsoft agregó cabezas de lista adicionales para drivers tempranos, ELAM y soporte TPM (`EarlyLaunchListHead`, `CoreDriverListHead`, `TpmCoreDriverListHead`), desplazando `Extension` desde `+0x098` en versiones antiguas hasta `+0x0F0` en Windows 10 22H2 y Windows 11 23H2/24H2; siempre debe confirmarse contra el PDB del build.
+
+?? ¿Por qué un bootkit suele enganchar `ExitBootServices` y cómo detecta *Measured Boot* una manipulación en la cadena de arranque?
+!! Enganchar `ExitBootServices` le permite intervenir justo cuando `winload.efi` ya mapeó `ntoskrnl.exe` pero antes de cederle la ejecución, para desactivar DSE o inyectar hooks previos a PatchGuard. Con *Measured Boot*, el firmware y el cargador miden los hashes SHA-256 de cada etapa en los registros PCR 0–7 del TPM, haciendo detectable cualquier alteración ante atestación remota.
+
+:::{nota} Puerta optativa
+Podés explicar cada etapa desde el firmware DXE hasta `KiSystemStartup`, localizar `gST` y `BootServices (+0x60)` en el desensamblado de un binario `.efi`, leer los campos clave de `LOADER_PARAMETER_BLOCK` en WinDbg y explicar cómo *Secure Boot* y *Measured Boot* (TPM PCRs) protegen e inventarían esa secuencia.
+:::
+
+## Fuentes
+
+- UEFI Forum: *UEFI Specification* (capítulos sobre `EFI_SYSTEM_TABLE` y `EFI_BOOT_SERVICES` / `ExitBootServices`) y proyecto abierto EDK2 (`MdePkg`).
+- Microsoft Learn: [Windows UEFI Firmware Overview](https://learn.microsoft.com/en-us/windows-hardware/drivers/bringup/boot-and-uefi), [Secure the Windows boot process](https://learn.microsoft.com/en-us/windows/security/operating-system-security/system-security/secure-the-windows-10-boot-process).
+- Símbolos oficiales de Windows: `ntoskrnl.pdb` (`nt!_LOADER_PARAMETER_BLOCK`, `nt!_KLDR_DATA_TABLE_ENTRY`) y Russinovich, M., Solomon, D., & Ionescu, A., *Windows Internals*.
+
+:::{nota} Etiquetas
+**Núcleo conceptual:** cadena de arranque, traspaso firmware-SO e integridad de carga. **Conocimiento externo:** convención UEFI x64, estructura `LOADER_PARAMETER_BLOCK` (Win10/11) y arquitectura de bootkits / Measured Boot. **Ejemplo ilustrativo:** listado ensamblador `EfiMain` y diagrama de arranque. **Laboratorio verificado:** no; offsets de `LOADER_PARAMETER_BLOCK` sujetos a verificación por PDB.
+:::

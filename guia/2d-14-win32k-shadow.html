@@ -91,7 +91,7 @@ kd&gt; dps poi(nt!KeServiceDescriptorTableShadow + 0x20) L20</code></pre>
 <p>Procesos altamente expuestos a contenido no confiable (como los procesos de renderizado de Google Chrome, Microsoft Edge y sandboxes de visualización) activan esta mitigación para auto-despojarse permanentemente del derecho de invocar llamadas a la tabla sombra. Si un exploit intenta invocar cualquier syscall gráfica (<code>0x1000+</code>), el despachador de kernel intercepta la transición y devuelve acceso denegado.</p>
 
 <h3 id="4-1-mecanismo-interno-en-kiconverttoguithread-y-eprocess">4.1. Mecanismo Interno en <code>KiConvertToGuiThread</code> y <code>_EPROCESS</code></h3>
-<p>Cuando un proceso habilita esta política mediante <code>SetProcessMitigationPolicy(ProcessSystemCallDisablePolicy, ...)</code> o al ser creado por un broker mediante el atributo <code>PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY</code> con la bandera <code>PROCESS_CREATION_MITIGATION_POLICY_WIN32K_SYSTEM_CALL_DISABLE_ALWAYS_ON</code>, el kernel activa el bit <strong><code>DisableWin32kSystemCalls</code></strong> (bit <code>0x04</code>) dentro del campo <code>MitigationFlags</code> de la estructura <code>nt!_EPROCESS</code>.</p>
+<p>Cuando un proceso habilita esta política mediante <code>SetProcessMitigationPolicy(ProcessSystemCallDisablePolicy, ...)</code> o al ser creado por un broker mediante el atributo <code>PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY</code> con la bandera <code>PROCESS_CREATION_MITIGATION_POLICY_WIN32K_SYSTEM_CALL_DISABLE_ALWAYS_ON</code>, el kernel activa el bit <strong><code>DisableWin32kSystemCalls</code></strong> (bit 12 / máscara <code>0x1000</code>) dentro del campo <code>MitigationFlags</code> de la estructura <code>nt!_EPROCESS</code>.</p>
 <p>El bloqueo no ocurre parcheando la tabla SSDT Shadow, sino cortando de raíz la transición del hilo en <code>PsConvertToGuiThread</code> / <code>KiConvertToGuiThread</code>:</p>
 <ol>
   <li>Un hilo no-GUI (cuyo <code>KTHREAD-&gt;ServiceTable</code> apunta a <code>KeServiceDescriptorTable</code>) intenta invocar cualquier syscall del rango <code>0x1000..0x1FFF</code> (por ejemplo, <code>NtUserCreateWindowEx</code> o <code>NtGdiBitBlt</code>).</li>
@@ -116,9 +116,28 @@ BOOL EnableWin32kLockdown(void) {
 <h3 id="4-2-verificacion-en-windbg-de-la-mitigacion-en-procesos-sandbox">4.2. Verificación en WinDbg de la Mitigación en Procesos Sandbox</h3>
 <p><em>Nota de entorno:</em> <code>Laboratorio verificado: no; requiere VM/toolchain</code>. En procesos de renderizado de navegadores basados en Chromium (<code>msedge.exe --type=renderer</code> o <code>chrome.exe</code>), la verificación del bit en la estructura <code>_EPROCESS</code> muestra:</p>
 
-<pre><code class="lenguaje-text">kd&gt; dt nt!_EPROCESS &lt;EPROCESS_RENDERER&gt; MitigationFlagsValues.DisableWin32kSystemCalls
-   +0x9d0 MitigationFlagsValues : 
-      +0x000 DisableWin32kSystemCalls : 0y1</code></pre>
+<pre><code class="lenguaje-text">kd&gt; dt nt!_EPROCESS &lt;EPROCESS_RENDERER&gt; MitigationFlagsValues
+   +0x9d0 MitigationFlagsValues : ...   (verificar offset exacto con PDB del build)
+      Pos 12 (máscara 0x1000) DisableWin32kSystemCalls : 0y1</code></pre>
+<p>Confirmá siempre el offset y la posición exacta del campo de bits en el build objetivo ejecutando <code>dt nt!_EPROCESS MitigationFlagsValues</code> contra <code>ntoskrnl.pdb</code>.</p>
+
+<h2 id="práctica">Práctica</h2>
+<ol>
+  <li>En una VM con símbolos PDB en WinDbg (kernel), listá los descriptores de <code>nt!KeServiceDescriptorTableShadow</code> (<code>dq nt!KeServiceDescriptorTableShadow L8</code>) e identificá el puntero base de la tabla #1 correspondiente a <code>win32k</code>.</li>
+  <li>Compilá un programa propio mínimo de consola que invoque <code>SetProcessMitigationPolicy(ProcessSystemCallDisablePolicy, ...)</code> con <code>DisallowWin32kSystemCalls = 1</code>, luego intente crear una ventana GUI (<code>CreateWindowExW</code>) y verificá el código de fallo retornado.</li>
+  <li>Compará en WinDbg los flags <code>MitigationFlagsValues.DisableWin32kSystemCalls</code> entre tu proceso de prueba (o un renderer de Chromium/Edge) y un proceso GUI común (como <code>notepad.exe</code>).</li>
+</ol>
+
+<h2 id="entregable">Entregable</h2>
+<p>Esquema de despacho de syscalls gráficas (<code>0x1000+</code> &rarr; <code>PsConvertToGuiThread</code> &rarr; <code>KeServiceDescriptorTableShadow[1]</code>), salida de <code>dt nt!_EPROCESS MitigationFlagsValues</code> verificada contra el PDB del build analizado y breve explicación defensiva de por qué <code>KeUserModeCallback</code> exige revalidar objetos tras volver de Ring 3.</p>
+
+<h2 id="repaso">Repaso</h2>
+<details class="qa"><summary>¿Cómo distingue el despachador de syscalls (<code>KiSystemCall64</code>) una syscall nativa de <code>ntoskrnl</code> de una gráfica de <code>win32k</code>?</summary><div class="respuesta"><p>Por el número de servicio (SSN): los servicios estándar del ejecutivo usan índices <code>0x0000..0x0FFF</code> (tabla #0 en <code>KeServiceDescriptorTable</code>), mientras que las syscalls de GDI/USER llevan encendido el bit <code>0x1000</code> (tabla #1 de <code>KeServiceDescriptorTableShadow</code>).</p></div></details>
+<details class="qa"><summary>¿Qué hace <code>nt!PsConvertToGuiThread</code> cuando un hilo normal ejecuta su primera syscall gráfica?</summary><div class="respuesta"><p>Primero verifica si la mitigación <code>DisableWin32kSystemCalls</code> está activa; si se permite, asocia un objeto <code>_W32THREAD</code>, expande el stack de kernel del hilo para alojar la complejidad gráfica y apunta <code>KTHREAD-&gt;ServiceTable</code> hacia <code>KeServiceDescriptorTableShadow</code>.</p></div></details>
+<details class="qa"><summary>¿Por qué <code>nt!KeUserModeCallback</code> ha sido históricamente una fuente frecuente de vulnerabilidades de kernel (UAF)?</summary><div class="respuesta"><p>Porque invierte el flujo de control: suspende la ejecución en kernel, salta a <code>ntdll!KiUserCallbackDispatcher</code> en Ring 3 y retorna mediante <code>NtCallbackReturn</code>. Durante esa ventana en usuario, el proceso puede destruir o liberar ventanas u objetos GDI; si al volver el driver no revalida bloqueos y punteros, incurre en un <em>Use-After-Free</em>.</p></div></details>
+<details class="qa"><summary>¿Cómo bloquea <em>Win32k System Call Lockdown</em> las syscalls gráficas en sandboxes modernos?</summary><div class="respuesta"><p>Activa el bit <code>DisableWin32kSystemCalls</code> en <code>_EPROCESS.MitigationFlagsValues</code>. Cuando un hilo del proceso intenta promoverse en <code>PsConvertToGuiThread</code>, el kernel aborta la conversión y devuelve <code>STATUS_ACCESS_DENIED (0xC0000022)</code> sin modificar la tabla SSDT global del sistema.</p></div></details>
+
+<aside class="callout nota"><p class="callout-titulo">Puerta optativa</p><p>Podés explicar la dualidad SSDT vs. Shadow SSDT, trazar la promoción de un hilo con <code>PsConvertToGuiThread</code>, describir el riesgo de reentrancia en <code>KeUserModeCallback</code> y auditar la mitigación <code>DisableWin32kSystemCalls</code> en <code>_EPROCESS</code> desde WinDbg.</p></aside>
 
 <h2 id="referencias-y-fuentes-tecnicas">Referencias y Fuentes Técnicas</h2>
 <ul>
@@ -126,6 +145,8 @@ BOOL EnableWin32kLockdown(void) {
   <li>Microsoft Learn. (2023). <em>SetProcessMitigationPolicy function</em> (ProcessSystemCallDisablePolicy).</li>
   <li>Russinovich, M., Solomon, D., &amp; Ionescu, A. (2017). <em>Windows Internals, Part 1</em> (7th ed.). Microsoft Press.</li>
 </ul>
+
+<aside class="callout nota"><p class="callout-titulo">Etiquetas</p><p><strong>Núcleo conceptual:</strong> tablas de despacho de sistema y frontera Ring 3/Ring 0. <strong>Conocimiento externo:</strong> arquitectura <code>win32kbase.sys</code>/<code>win32kfull.sys</code>, <code>KeServiceDescriptorTableShadow</code>, <code>KeUserModeCallback</code> y mitigación <code>ProcessSystemCallDisablePolicy</code>. <strong>Ejemplo ilustrativo:</strong> fragmento C <code>EnableWin32kLockdown</code> y salida esquemática de <code>dt nt!_EPROCESS MitigationFlagsValues</code>. <strong>Laboratorio verificado:</strong> no; offsets de bits verificables por build mediante PDB.</p></aside>
 
 </main>
 <footer class="pie">

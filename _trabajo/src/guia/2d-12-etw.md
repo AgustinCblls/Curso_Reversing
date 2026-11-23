@@ -105,26 +105,52 @@ Cada evento individual dentro de los buffers contiene una cabecera estandarizada
 
 ---
 
-## 4. Técnicas de Manipulación y Cegado de ETW (ETW Tampering / Blinding)
+## 4. Identificación estática, manipulación y cegado de ETW
 
-En ciberseguridad defensiva e ingeniería inversa de malware, el análisis de telemetría debe contemplar cómo los atacantes neutralizan la generación de eventos:
+En análisis binario y respuesta a incidentes conviene distinguir tanto la telemetría legítima instrumentada en un ejecutable como las técnicas usadas por malware o drivers abusivos (*ETW Tampering / Blinding*) para silenciar sensores:
 
-### A. Parcheo en Modo Usuario (`ntdll!EtwEventWrite`)
-Cuando un proceso en modo usuario desea impedir que componentes de seguridad reciban eventos (como telemetría de inyección de código o AMSI), recurre a **ETW Patching**:
-1. El proceso localiza la función exportada `ntdll!EtwEventWrite`.
-2. Modifica los permisos de la página de memoria usando `VirtualProtect` a `PAGE_EXECUTE_READWRITE`.
-3. Sobrescribe el prólogo de la función con una instrucción de retorno anticipado:
-   - En x64: `xor eax, eax; ret` (`31 C0 C3`) o simplemente `ret` (`C3`).
-4. Al retornar `0` (`STATUS_SUCCESS`), la aplicación cree que el evento se registró con éxito, pero ningún byte de telemetría llega al despachador de ETW.
+### A. Extracción estática del Provider GUID (`EventRegister`)
+Al buscar referencias cruzadas a `advapi32!EventRegister` (o `ntdll!EtwEventRegister`) en IDA o Ghidra, el primer argumento en x64 señala el GUID de 16 bytes del proveedor y el cuarto guarda el manejador global `REGHANDLE` que usarán todas las llamadas posteriores a `EventWrite` / `EtwEventWrite` *(Hecho confirmado)*:
 
-**Detección Defensiva:**
-Un monitor de integridad lee la imagen limpia de `ntdll.dll` directamente desde el disco (`\SystemRoot\System32\ntdll.dll`) y compara los primeros 16 bytes de `EtwEventWrite` contra los bytes en memoria. Cualquier discordancia (`0xC3` o `0x31 0xC0` en el primer byte) delata un parcheo activo de ETW.
+```text
+lea rcx, [rip + GUID_Provider] ; 1.er arg (RCX): GUID 16B en .rdata
+xor edx, edx                   ; 2.do arg (RDX): EnableCallback
+xor r8d, r8d                   ; 3.er arg (R8) : CallbackContext
+lea r9, [rip + g_RegHandle]    ; 4.to arg (R9) : Puntero a REGHANDLE
+call cs:EventRegister
+```
 
-### B. Cegado en Modo Kernel (ETWti Blinding)
-A nivel de kernel, los controladores de seguridad se alimentan del proveedor **`Microsoft-Windows-Threat-Intelligence`** (Lección 6.7). Para cegar este sensor:
-- Un atacante con primitiva de escritura en kernel (vector BYOVD) localiza el handle de registro apuntado por `nt!EtwThreatIntProvRegHandle`.
-- En la estructura `_ETW_GUID_ENTRY`, manipula el campo `ProviderEnableInfo`, estableciendo la máscara de habilitación a cero (`EnableMask = 0`).
-- Al quedar deshabilitado el proveedor a nivel de hipervisor/kernel, el sensor EDR deja de recibir eventos de inyección de hilos y acceso a memoria sin generar alertas visibles en user mode.
+Leyendo los 16 bytes en `RCX` podés cruzar el GUID contra `logman query providers` en la VM para identificar el proveedor.
+
+### B. Parcheo en modo usuario (`ntdll!EtwEventWrite` / `NtTraceEvent`) y detección
+Cuando un proceso intenta suprimir eventos locales (por ejemplo, telemetría del runtime `.NET CLR` o `AMSI`), recurre a **ETW Patching**:
+1. Localiza la función exportada `ntdll!EtwEventWrite` (o `NtTraceEvent`).
+2. Cambia los permisos de la página con `VirtualProtect` a `PAGE_EXECUTE_READWRITE`.
+3. Sobrescribe el prólogo con retorno inmediato de `STATUS_SUCCESS` (`0`): en x64, `xor eax, eax; ret` (`31 C0 C3` en GAS/NASM o `33 C0 C3` en MSVC/MASM) o directamente `ret` (`C3`).
+
+**Detección defensiva:** un monitor de integridad o analista compara los primeros bytes de `ntdll!EtwEventWrite` en memoria contra la copia intacta en disco (`\SystemRoot\System32\ntdll.dll`), y audita llamadas a `VirtualProtect` sobre regiones de `ntdll`.
+
+### C. `Microsoft-Windows-Threat-Intelligence` (ETWti) y cegado en kernel
+El proveedor **`Microsoft-Windows-Threat-Intelligence` (ETWti)** —GUID `{f4e1897c-bb5d-5668-f1d8-040f4d8dd344}`— instrumenta directamente desde `ntoskrnl.exe` operaciones sensibles de memoria virtual, mapeo de secciones y encolado de APCs para Defender for Endpoint (MDE) y EDRs del programa MVI (Lección 6.7):
+- **Restricción por PPL:** únicamente procesos bajo **Protected Process Light** con firmante antimalware (`PsProtectedSignerAntimalware-Light` o superior) pueden suscribirse mediante `EnableTraceEx2`.
+- **Estructuras en kernel y riesgo BYOVD:** *(Nota de entorno: `Laboratorio verificado: no; requiere VM/toolchain`.)* Con `ntoskrnl.pdb` en WinDbg, el registro vive en `nt!EtwThreatIntProvRegHandle` (`_ETW_REG_ENTRY*`), que apunta vía `GuidEntry` a `_ETW_GUID_ENTRY` y su máscara `ProviderEnableInfo`:
+
+```text
+kd> x nt!EtwThreatIntProvRegHandle
+ffffb609`120489a0 nt!EtwThreatIntProvRegHandle = 0xffffb609`102e3a10
+
+kd> dt nt!_ETW_REG_ENTRY 0xffffb609`102e3a10 GuidEntry
+   +0x020 GuidEntry : 0xffffb609`102f6840 _ETW_GUID_ENTRY
+
+kd> dt nt!_ETW_GUID_ENTRY 0xffffb609`102f6840 Guid ProviderEnableInfo
+   +0x018 Guid               : {f4e1897c-bb5d-5668-f1d8-040f4d8dd344}
+   +0x060 ProviderEnableInfo : _TRACE_ENABLE_INFO
+      +0x000 IsEnabled          : 0x1
+      +0x004 Level              : 0xff ''
+      +0x008 MatchAnyKeyword    : 0x80000000`ffffffff
+```
+
+Si un rootkit o driver vulnerable explotado (BYOVD) limpia `nt!EtwThreatIntProvRegHandle` o escribe `ProviderEnableInfo.IsEnabled = 0` (`EnableMask = 0`), ciega el sensor de kernel sin emitir alertas en modo usuario (aunque versiones modernas aplican chequeos periódicos de integridad sobre este handle).
 
 ---
 
@@ -149,6 +175,6 @@ A nivel de kernel, los controladores de seguridad se alimentan del proveedor **`
 
 ## Fuentes
 
-- Microsoft Learn: [About Event Tracing](https://learn.microsoft.com/en-us/windows/win32/etw/about-event-tracing), [Configuring NT Kernel Logger](https://learn.microsoft.com/en-us/windows/win32/etw/nt-kernel-logger-trace-session), [EVENT_TRACE_PROPERTIES structure](https://learn.microsoft.com/en-us/windows/win32/api/evntrace/ns-evntrace-event_trace_properties).
-- Microsoft Learn: [WMI_BUFFER_HEADER](https://learn.microsoft.com/en-us/windows/win32/etw/event-tracing-portal), [EVENT_RECORD structure](https://learn.microsoft.com/en-us/windows/win32/api/evntcons/ns-evntcons-event_record).
+- Microsoft Learn: [About Event Tracing](https://learn.microsoft.com/en-us/windows/win32/etw/about-event-tracing), [Configuring NT Kernel Logger](https://learn.microsoft.com/en-us/windows/win32/etw/nt-kernel-logger-trace-session), [EVENT_TRACE_PROPERTIES structure](https://learn.microsoft.com/en-us/windows/win32/api/evntrace/ns-evntrace-event_trace_properties), [WMI_BUFFER_HEADER](https://learn.microsoft.com/en-us/windows/win32/etw/event-tracing-portal), [EVENT_RECORD structure](https://learn.microsoft.com/en-us/windows/win32/api/evntcons/ns-evntcons-event_record).
+- Telemetría y arquitectura interna: Baines, J. & Sealighter Project (2021), *Telemetry Source Analysis: Microsoft-Windows-Threat-Intelligence (ETWti)*; Russinovich, M., Solomon, D., & Ionescu, A. (2017), *Windows Internals, Part 1* (7th ed., Microsoft Press).
 - Repositorio y Laboratorio: Plantilla de auditoría en WinDbg en `plantillas_codigo/auditar_callbacks.wdbg`.

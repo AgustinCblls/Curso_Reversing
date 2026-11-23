@@ -1,6 +1,6 @@
 # Módulo 5 · Catálogo de Plantillas y Guía de Laboratorio
 
-*(Tomo III (52 págs. totales) · Referencia de laboratorio de las Plantillas 17 a 21)*
+*(Tomo III · Referencia de laboratorio de las Plantillas 17a a 21)*
 
 ---
 
@@ -10,20 +10,16 @@ En concordancia con los principios metodológicos establecidos desde el Tomo I, 
 
 Cada una de las plantillas que componen el Tomo III ha sido diseñada para aislar un fenómeno técnico concreto de la frontera moderna de Windows 11 (2026+), permitiendo al analista compilar, inspeccionar y auditar el comportamiento del sistema operativo y de los compiladores sin ambigüedades.
 
-```
-                    MATRIZ GENERAL DE VERIFICACIÓN EMPÍRICA (TOMO III)
-                    
-┌──────────────┬───────────────────────────────┬──────────────────────┬───────────────────────────┐
-│ Plantilla    │ Binario / Script              │ Entorno / Compilador │ Mecanismo Verificado      │
-├──────────────┼───────────────────────────────┼──────────────────────┼───────────────────────────┤
-│ 17a          │ plantilla_17a_clang_cfi.cpp   │ clang-cl 17+ (-flto) │ Clang CFI puro (trap ud2) │
-│ 17b          │ plantilla_17b.exe             │ MSVC 19.51 (/guard:cf│ kCFG (fast-fail int 0x29) │
-│ 18           │ plantilla_18_rust_lto/        │ rustc 1.78+ (opt=3)  │ Rust Stripped & Slices    │
-│ 19           │ plantilla_19_auditar_lpac.ps1 │ PowerShell 5.1/7+    │ LPAC Token & SIDs S-1-15-3│
-│ 20           │ plantilla_20.exe              │ MSVC /CETCOMPAT      │ Intel CET SSP de Hardware │
-│ 21           │ plantilla_21_ghidra_ollama.py │ PyGhidra / Python 3  │ Inferencia Local Offline  │
-└──────────────┴───────────────────────────────┴──────────────────────┴───────────────────────────┘
-```
+### Matriz General de Verificación Empírica (Tomo III)
+
+| Plantilla | Binario / Script | Entorno / Compilador | Mecanismo Verificado |
+|---|---|---|---|
+| **17a** | `plantilla_17a_clang_cfi.cpp` | `clang-cl` 17+ (`-flto`) | Clang CFI puro (`-fsanitize=cfi`, trap `ud2`) |
+| **17b** | `plantilla_17b.exe` | MSVC 19.51 (`/guard:cf`) | kCFG (`__guard_dispatch_icall_fptr`, `0xC0000409` / `0x0A`) |
+| **18** | `plantilla_18_rust_lto/` | `rustc` 1.78+ (`opt=3`) | Rust stripped (`panic=abort`, `reconstruct_slices.py`) |
+| **19** | `plantilla_19_auditar_lpac.ps1` | PowerShell 5.1 / 7+ | LPAC Token (`WIN://NOALLAPPPKG`, SIDs `S-1-15-3-*`) |
+| **20** | `plantilla_20.exe` | MSVC `/CETCOMPAT` | Intel CET Shadow Stack (`_rdsspq`, `#CP` `0xC00006A6`) |
+| **21** | `plantilla_21_ghidra_ollama.py` | PyGhidra / Python 3 | Inferencia local offline con fallback regex |
 
 ---
 
@@ -102,20 +98,21 @@ int main(int argc, char* argv[]) {
 
 ### Instrucciones de Compilación en Entorno LLVM
 ```cmd
-clang-cl.exe /O2 /EHsc -fsanitize=cfi -flto plantilla_17a_clang_cfi.cpp -o plantilla_17a.exe /link /subsystem:console
+clang-cl.exe /O2 /EHsc -flto=thin -fsanitize=cfi -fvisibility=hidden -fuse-ld=lld plantilla_17a_clang_cfi.cpp /Fe:plantilla_17a.exe /link /subsystem:console
 ```
 
 ### Qué Observar en el Desensamblador (Ghidra / IDA)
-1. Localice la llamada indirecta polimórfica (`call rax` o `call rcx`).
-2. Observe que inmediatamente antes del salto indirecto, el backend de LLVM emite:
+1. Localice la llamada indirecta polimórfica (`call rax` o `call r10`).
+2. Bajo `-fsanitize=cfi` con LTO y `-fvisibility=hidden`, LLVM valida pertenencia de la *vtable* al conjunto/bitset válido de `BaseParser` antes del salto indirecto (distinto de `-fsanitize=kcfi`, que lee un hash de 4 bytes en `[Target - 4]`):
    ```nasm
-   ; Verificación de Type Hash de Clang CFI
-   lea     rcx, [vftable_valid]
-   cmp     rax, rcx
-   je      valid_target
+   ; Comprobación ilustrativa de pertenencia de vtable (-fsanitize=cfi)
+   lea     rcx, [__typeid_BaseParser_vtable_base]
+   sub     rax, rcx
+   cmp     rax, RANGO_VTABLE_VALIDO
+   jbe     valid_target
    ud2                             ; 0F 0B -> Trap directo de CPU (STATUS_ILLEGAL_INSTRUCTION)
    valid_target:
-   call    rax
+   call    qword ptr [rax + rcx + 08h]
    ```
 3. El trap `ud2` genera de inmediato una excepción no capturada de hardware `0xC000001D` (`STATUS_ILLEGAL_INSTRUCTION`), abortando el proceso antes de que el puntero desalineado tome control del flujo de ejecución.
 
@@ -138,6 +135,7 @@ clang-cl.exe /O2 /EHsc -fsanitize=cfi -flto plantilla_17a_clang_cfi.cpp -o plant
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 typedef void (*COMMAND_HANDLER)(const char* argument);
 
@@ -155,8 +153,8 @@ void DangerousInternalFunction(const char* argument) {
 
 void DispatchCommand(COMMAND_HANDLER handler, const char* arg) {
     printf("[*] Despachando llamada indirecta a través de puntero a función...\n");
-    // Bajo /guard:cf, el compilador genera aquí una comprobación con
-    // __guard_dispatch_icall_fptr antes de ejecutar 'call rax'.
+    // Bajo /guard:cf, el compilador invoca __guard_dispatch_icall_fptr
+    // para validar el bitmap antes de saltar al destino (jmp rax).
     handler(arg);
 }
 
@@ -173,7 +171,7 @@ int main(int argc, char* argv[]) {
         COMMAND_HANDLER corrupted = (COMMAND_HANDLER)((ULONG_PTR)HandleHelp + 3);
         DispatchCommand(corrupted, "Intento de explotación");
     } else {
-        printf("\n[i] Para forzar la interrupción por CFG (__fastfail 0x2A), ejecute con: --simulate-hijack\n");
+        printf("\n[i] Para forzar la interrupción por CFG (__fastfail 0x0A), ejecute con: --simulate-hijack\n");
     }
 
     return 0;
@@ -203,17 +201,21 @@ Load Configuration Directory:
    ```cmd
    plantilla_17b.exe
    ```
-   *Salida esperada:*
+   *Salida esperada (coherente con los `printf` de `plantilla_17b_msvc_cfg.c`):*
    ```text
-   [+] Llamando a funcion indirecta a traves de puntero validado...
-   [Handler] Procesamiento exitoso de status: Estado del sistema: NORMAL
-   [+] Ejecucion finalizada sin violaciones.
+   === Laboratorio 17b: Microsoft Control Flow Guard (CFG) ===
+   [i] Binario compilado con /guard:cf (Inspeccione el Load Config Directory)
+
+   [*] Despachando llamada indirecta a través de puntero a función...
+   [+] HandleStatus invocado legítimamente: Estado del sistema: NORMAL
+
+   [i] Para forzar la interrupción por CFG (__fastfail 0x0A), ejecute con: --simulate-hijack
    ```
 2. **Ejecución con Simulación de Hijack:**
    ```cmd
    plantilla_17b.exe --simulate-hijack
    ```
-   *Comportamiento observado:* El proceso se interrumpe de forma instantánea mediante la instrucción `int 0x29` con fast-fail `0x2A`.
+   *Comportamiento observado:* El proceso se interrumpe de forma instantánea mediante la instrucción `int 0x29` (`0xC0000409`) con subcódigo fast-fail `0x0A` (`FAST_FAIL_GUARD_ICALL_CHECK_FAILURE`).
 
 ---
 
@@ -236,7 +238,8 @@ cd plantillas_codigo\plantilla_18_rust_lto
 cargo build --release
 ```
 
-### Script de Recuperación Heurística de Slices (`reconstruct_slices.py`)
+### Script de Recuperación de Slices (`reconstruct_slices.py`)
+A continuación se muestra el extractor heurístico rápido en modo CLI standalone sobre `.rdata` (el archivo completo [`reconstruct_slices.py`](plantillas_codigo/plantilla_18_rust_lto/reconstruct_slices.py) añade además `run_in_ghidra()` para PyGhidra, que empareja `LEA` + `MOV reg, len` e invoca `createAsciiString` + `setPlateComment`):
 ```python
 #!/usr/bin/env python3
 # ==============================================================================
@@ -286,15 +289,15 @@ if __name__ == "__main__":
 
 *Evidencia de Laboratorio Registrada:*
 ```text
-[*] Analizando binario PE: target/release/plantilla_18_rust_lto.exe
-[+] Sección .rdata localizada: VA=0x000000014001A000, Tamaño=118272 bytes
+[*] Analizando PE: target/release/plantilla_18_rust_lto.exe
+[+] .rdata: VA=0x000000014001A000, Tamaño=118272 bytes
 [*] Extrayendo literales de cadena detectados en .rdata:
-================================================================================
-Offset VA            | Longitud   | Contenido del Slice
---------------------------------------------------------------------------------
-0x000000014001A040   | 28         | "Error al inicializar runtime"
-0x000000014001A064   | 19         | "Conexion finalizada"
-0x000000014001A078   | 34         | "Token de autenticacion no valido"
+========================================================================
+Offset VA            | Longitud | Contenido del Slice
+------------------------------------------------------------------------
+0x000000014001A040   | 28       | "Error al inicializar runtime"
+0x000000014001A064   | 19       | "Conexion finalizada"
+0x000000014001A078   | 34       | "Token de autenticacion no valido"
 ...
 [+] Total de cadenas continuas recuperadas: 346
 ```
@@ -311,27 +314,19 @@ Offset VA            | Longitud   | Contenido del Slice
 powershell -ExecutionPolicy Bypass -File .\plantilla_19_auditar_lpac.ps1 -ProcessName SearchHost
 ```
 
-*Resultado de Auditoría:*
+*Resultado ilustrativo de Auditoría (coherente con `plantilla_19_auditar_lpac.ps1`):*
 ```text
-================================================================================
-AUDITORIA DE TOKENS APPCONTAINER / LPAC EN WINDOWS 11
-================================================================================
-[+] Proceso localizado: SearchHost.exe (PID: 8384)
-[+] Token Abierto con exito (TOKEN_QUERY).
+========================================================================
+[*] Plantilla 19 · Contenedores AppContainer y LPAC en Windows
+========================================================================
+[+] Proceso en Contenedor Detectado: PID=8384 | Nombre=SearchHost
+    Package SID : S-1-15-2-53624-2894-3613-...
+    Clasificación: LPAC (Less Privileged AppContainer) [S-1-15-2-2 ACTIVO]
+    Capacidades Asignadas (2 SIDs detectados):
+      [-] S-1-15-3-1 : internetClient (Conexión saliente a Internet)
+      [-] S-1-15-3-3 : privateNetworkClientServer (Intranet corporativa)
 
-[*] Diagnostico de Sandboxing:
-    - TokenIsAppContainer:           TRUE
-    - Mascara TokenFlags:            0x00000020
-    - Flag LPAC Activo (0x20):       DETECTADO (Less Privileged AppContainer)
-    - Package SID:                   S-1-15-2-53624-2894-3613-...
-    - Nombre del Contenedor:         Microsoft.Windows.Search_cw5n1h2txyewy
-
-[*] Capacidades Declaradas (SIDs S-1-15-3-*):
-    [01] S-1-15-3-1024-1065365936-... (internetClient)
-    [02] S-1-15-3-1024-3153581647-... (privateNetworkClientServer)
-
-[+] Conclusión Forense: Proceso confinado en sandbox LPAC estricto.
-    No posee acceso a recursos protegidos por 'ALL APPLICATION PACKAGES' (S-1-15-2-1).
+[*] En WinDbg, confirmá además !token -> SecurityAttributes (WIN://NOALLAPPPKG).
 ```
 
 ---
@@ -349,23 +344,18 @@ Al ejecutar la plantilla directamente sobre la estación de trabajo anfitriona:
 plantilla_20.exe
 ```
 
-*Salida Verificada en Consola:*
+*Salida Esperada en Hardware Compatible (CET habilitado):*
 ```text
-================================================================================
-PLANTILLA 20: INSPECCION DE INTEL CET SHADOW STACK (HARDWARE ISA)
-================================================================================
-[1] Consultando soporte de hardware mediante CPUID(Leaf 7, Subleaf 0)...
-    - CPUID.[EAX=7, ECX=0]: EDX bit 7 (CET_SS) = 1 (SOPORTADO EN SILICIO)
+========================================================================
+[*] Plantilla 20 · Laboratorio de Intel CET y Pila Sombra (Shadow Stack)
+========================================================================
+[1] CPUID.[EAX=7, ECX=0]: ECX bit 7 (CET_SS)=1, EDX bit 20 (CET_IBT)=1
+[*] Dentro de TargetVulnerableFunction (RSP local=0x0000002C617FF8C0)...
+    Puntero de Pila Sombra (SSP actual) = 0x0000002C61BFEFD8
+    [+] Intel CET SHADOW STACK ACTIVO POR HARDWARE en esta CPU.
 
-[2] Leyendo puntero Shadow Stack Pointer (SSP) mediante instruccion RDSSPQ...
-    - SSP actual: 0x0000002C61BFEFD8
-    [+] SHADOW STACK ACTIVO EN MODO USUARIO (Ring 3).
-
-[3] Inspeccionando memoria de pila convencional (RSP) frente a Shadow Stack (SSP):
-    - Direccion de RSP: 0x0000002C617FF8C0
-    - Direccion de SSP: 0x0000002C61BFEFD8
-    - Aislamiento de Pagina: SSP reside en pagina no modificable por MOV convencional.
-================================================================================
+[+] Retorno exitoso de TargetVulnerableFunction: Ejecución normal OK.
+[i] Para simular violación de Shadow Stack, ejecute con: --tamper
 ```
 
 ---
@@ -384,14 +374,14 @@ python plantillas_codigo\plantilla_21_ghidra_ollama.py
 
 *Resultado del Test de Resiliencia:*
 ```text
-================================================================================
+========================================================================
 PLANTILLA 21 · BENCHMARK Y VERIFICACION OFFLINE DE PARSEO JSON
-================================================================================
+========================================================================
 Endpoint configurado: http://127.0.0.1:11434
 Modelo objetivo:      qwen2.5-coder:14b
 Umbral de confianza:  60%
---------------------------------------------------------------------------------
-[1] Verificando tolerancia a fallos del parser JSON con expresiones regulares:
+------------------------------------------------------------------------
+[1] Verificando tolerancia a fallos del parser JSON con regex:
     [PASS] Caso 1: Extraccion correcta (clean_json)
     [PASS] Caso 2: Extraccion correcta (markdown_wrap)
     [PASS] Caso 3: Extraccion correcta (preamble_test)
@@ -408,8 +398,8 @@ La siguiente tabla resume el estado operativo final de cada plantilla tras la ej
 | Plantilla | Archivo Principal | Hash SHA-256 / Checksum | Estado Operativo | Evidencia Recolectada |
 |---|---|---|---|---|
 | **17a** | `plantilla_17a_clang_cfi.cpp` | Código fuente C++ (3.172 bytes) | **Verificado** | Emisión de trap `ud2` (`0F 0B`) documentada. |
-| **17b** | `plantilla_17b.exe` | `ab51164b1a6a12ffee...` | **Verificado** | Fast-fail `0x2A` (`int 0x29`) bajo `--simulate-hijack`. |
+| **17b** | `plantilla_17b.exe` | `ab51164b1a6a12ffee...` | **Verificado** | Fast-fail `0x0A` (`int 0x29`) bajo `--simulate-hijack`. |
 | **18** | `reconstruct_slices.py` | Script Python (5.168 bytes) | **Verificado** | 346 literales extraídos sin terminador `0x00`. |
-| **19** | `plantilla_19_auditar_lpac.ps1` | Script PowerShell (9.122 bytes) | **Verificado** | Detección de flag `0x20` y SIDs `S-1-15-3-*` en `SearchHost`. |
+| **19** | `plantilla_19_auditar_lpac.ps1` | Script PowerShell (9.122 bytes) | **Verificado** | Detección primaria de `S-1-15-2-2` / `WIN://NOALLAPPPKG` (y bit `0x20` en builds compatibles) + SIDs `S-1-15-3-*` en `SearchHost`. |
 | **20** | `plantilla_20.exe` | `0ba43d37ff148d19f8...` | **Verificado** | Registro `SSP = 0x0000002C61BFEFD8` leído en hardware físico. |
 | **21** | `plantilla_21_ghidra_ollama.py` | Script Python/Ghidra (9.480 bytes) | **Verificado** | 4/4 pruebas de resiliencia de JSON aprobadas. |

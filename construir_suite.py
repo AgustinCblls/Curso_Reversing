@@ -163,7 +163,8 @@ struct AFX_MSGMAP {
 <p><em>Recomendación editorial:</em> El método virtual <code>GetMessageMap()</code> en la vtable de cualquier clase derivada de <code>CWnd</code> devuelve la dirección de su <code>AFX_MSGMAP</code> en dos instrucciones (<code>lea rax, [rip + MiDialog_messageMap] ; ret</code>).</p>
 </aside>
 """,
-    "guia/02-huella-compilador.html": at1.AMPLIACION_GO_RUST + "\n\n" + av54.AMPLIACION_RUST_NICHE + """
+    # Nota Fase 4: Go/Rust profundo y Niche Optimization movidos a guia/02-go-rust.html (Leccion 2.32).
+    "guia/02-huella-compilador.html": """
 <aside class="ampliacion-ext">
 <p class="callout-titulo">Ampliación editorial basada en fuentes externas — ABI register, cabecera StrRec en offsets negativos y firma TPF0 en Delphi</p>
 <ul>
@@ -293,9 +294,7 @@ def nombre_miembro_enum(nombre_enum: str, valor: int) -&gt; str | None:
     "guia/6-04-revision-driver.html": at2.AMPLIACION_6_04_DISPATCH_ROUTINES,
     "guia/6-05-minifilters.html": at2.AMPLIACION_6_05_MINIFILTERS_CALLBACKS,
     "guia/2d-01-objetos.html": at2.AMPLIACION_2D_01_EPROCESS_TOKEN,
-    "guia/2d-10-ipc.html": at2.AMPLIACION_2D_10_RPC_INTERFACE,
-    "guia/2d-11-excepciones.html": at2.AMPLIACION_2D_11_UNWIND_PDATA,
-    "guia/2d-12-etw.html": at2.AMPLIACION_2D_12_ETW_PATCHING,
+    # Nota Fase 4: RPC/ALPC (2d-10), UNWIND/.pdata (2d-11) y ETW/ETWti (2d-12) consolidados directo en cada HTML/MD.
 }
 
 
@@ -934,6 +933,7 @@ main { max-width: none; padding: 0; }
 .print-sec h1 { font-size: 20pt; margin-top: 0; }
 .print-sec h2 { font-size: 13pt; margin-top: 1.4em; }
 .print-sec h3 { font-size: 11.5pt; }
+.print-sec pre, .print-sec code { font-family: "Cascadia Mono", Consolas, "Liberation Mono", monospace !important; font-variant-ligatures: none !important; font-feature-settings: "liga" 0, "calt" 0 !important; }
 .print-sec pre { font-size: 8.3pt; white-space: pre-wrap; break-inside: avoid; page-break-inside: avoid; }
 .print-sec pre.arbol-triage { font-size: 6.5pt; line-height: 1.17; padding: 6px 10px; margin: 4px 0; }
 .print-sec table { font-size: 8.6pt; width: 100%; table-layout: auto; word-wrap: break-word; overflow-wrap: break-word; word-break: normal; }
@@ -1080,6 +1080,10 @@ details.qa summary { font-size: 10pt; }
                 if paginas[siguiente] > inicio:
                     fin = paginas[siguiente] - 1
                     break
+            if ancla_id == "sec-guia-02-packers" and "parte-b-portadilla" in paginas:
+                p_pb = paginas["parte-b-portadilla"]
+                if p_pb > inicio and p_pb - 1 <= fin:
+                    fin = p_pb - 1
             cantidad = fin - inicio + 1
             rango = str(inicio) if inicio == fin else f"{inicio}-{fin}"
             unidad = "pág." if cantidad == 1 else "págs."
@@ -1313,12 +1317,21 @@ def compilar_volumen_pdf(
     paginas = {}
     dests_oid_map = {}
     total = 0
+    tiene_parte_b = "parte-b-portadilla" in html_documento
     print(f"\n[{nombre_interno}] Generando PDF con Chrome Headless e iterando el índice paginado...")
     for intento in range(5):
         with open(salida_html, "w", encoding="utf-8") as f:
             f.write(html_documento)
         ctx["renderizar_fn"](salida_html, draft_pdf)
         paginas, dests_oid_map, _page_objs, total = parsear_pdf_destinos_y_paginas(draft_pdf, toc_anchors)
+        if tiene_parte_b:
+            import pypdf as _pp
+            _rp = _pp.PdfReader(draft_pdf)
+            for _pi, _pg in enumerate(_rp.pages):
+                _pt = _pg.extract_text() or ""
+                if "PARTE B" in _pt and "Reversing Avanzado" in _pt:
+                    paginas["parte-b-portadilla"] = _pi + 1
+                    break
         nuevas = ctx["etiquetas_paginas_fn"](toc_anchors, paginas, total)
         print(f"  Intento {intento + 1}: {total} páginas | {len(nuevas)} destinos TOC")
         if intento > 0 and nuevas == etiquetas:
@@ -1342,6 +1355,14 @@ def compilar_volumen_pdf(
         paginas, dests_oid_map, _page_objs, total = parsear_pdf_destinos_y_paginas(
             draft_pdf, toc_anchors
         )
+        if tiene_parte_b:
+            import pypdf as _pp
+            _rp = _pp.PdfReader(draft_pdf)
+            for _pi, _pg in enumerate(_rp.pages):
+                _pt = _pg.extract_text() or ""
+                if "PARTE B" in _pt and "Reversing Avanzado" in _pt:
+                    paginas["parte-b-portadilla"] = _pi + 1
+                    break
         print(f"  [{nombre_interno}] Nuevo total par: {total} páginas ({total // 2} hojas a doble faz)")
 
     inyectar_outlines_puro(draft_pdf, arbol_marcadores, dests_oid_map)
@@ -1363,6 +1384,8 @@ def compilar_volumen_pdf(
         if paginas[anc] != a:
             problemas.append(("inicio != destino", anc, lab, paginas[anc]))
         sig = next((paginas[s] for s in orden_anc[i + 1:] if paginas[s] > a), total_contenido + 1)
+        if anc == "sec-guia-02-packers" and "parte-b-portadilla" in paginas and paginas["parte-b-portadilla"] > a:
+            sig = min(sig, paginas["parte-b-portadilla"])
         if b != sig - 1:
             problemas.append(("fin de rango", anc, a, b, sig - 1))
 
@@ -1415,7 +1438,7 @@ def generar_tomos_y_separata(ctx):
 <p class="kicker">Ingeniería Inversa en Windows · Edición Libre y Abierta · Revisión 5.5 (Trilogía Consolidada) · TOMO I DE III</p>
 <h1>Curso de reversing<br><span style="font-size: 20pt; font-weight: 600; color: #0b5f6b;">Tomo I · Tronco Principal (Etapas 0 a 5) y Material de Apoyo</span></h1>
 <p class="sub">De los fundamentos al análisis guiado en user-mode: arquitectura x86/x64, formato PE y DLLs (ciclo de vida y sideloading), IDA, Ghidra, x64dbg (flujo táctico y extracción masiva de strings), reversing de Go y Rust, evasión en user-mode (API hooking, direct/indirect syscalls y call stack spoofing), inyección de procesos en memoria, criptografía híbrida y APIs nativas (CryptoAPI/CNG), .NET, C++ profundo, WinDbg/TTD, desvirtualización con Triton/Z3/SLEIGH, ARM64EC/WinRT/LPAC, malware y vulnerabilidades.</p>
-<p class="sub"><strong>Contenido de este volumen (Tomo I):</strong> Apertura y 4 Rutas Progresivas de Estudio · Etapas 0, 1, 2 (2A, 2B, 2C, optativas 2.22–2.24 y bloque especialista 2E con 2.25–2.35), 3, 4 (4.1–4.6) y 5 · Hilo conductor multi-nivel y Kit de 20 plantillas y laboratorios (15 troncales/avanzadas + índice de 5 del Tomo III) · Hojas de referencia rápida · Glosario · Preguntas y respuestas (Etapas 0–6, 2E, 2D y Tomo III) · Fuentes y límites.</p>
+<p class="sub"><strong>Contenido de este volumen (Tomo I):</strong> Apertura y 4 Rutas Progresivas de Estudio · Etapas 0, 1, 2 (2A, 2B, 2C, optativas 2.22–2.24 y bloque especialista 2E con 2.25–2.35), 3, 4 (4.1–4.6) y 5 · Hilo conductor multi-nivel y Kit de plantillas y laboratorios (Plantillas 1 a 16 de los Tomos I/II + Plantillas 17a/17b a 21 del Tomo III) · Hojas de referencia rápida · Glosario · Preguntas y respuestas (Etapas 0–6, 2E, 2D y Tomo III) · Fuentes y límites.</p>
 <p class="sub"><strong>En los Tomos II, III y Separata:</strong> La <strong>Etapa 6 (6.1–6.10)</strong> y la <strong>Rama 2D (2D.1–2D.17)</strong> se encuentran en el <strong>Tomo II</strong>; los módulos de frontera moderna (LLVM/Clang CFI, Rust stripped, LPAC/WSL2, Intel CET e IA Local) en el <strong>Tomo III</strong>. Para consulta rápida junto al teclado, usá la <strong>Separata de Escritorio</strong>.</p>
 <div class="aviso"><strong>Material educativo y defensivo.</strong> Las prácticas usan programas propios, software abierto o crackmes diseñados para aprender. No se enseña a eludir licencias, DRM ni controles de acceso.</div>
 </section>
@@ -1588,7 +1611,7 @@ VM con Windows x64 aislada, Visual Studio Developer Command Prompt (<code>cl.exe
 
     toc_t2.append('<div class="etapa" style="margin-top:12pt; color:#555;">Referencias cruzadas en Tomo I y Separata de Escritorio</div><ol>')
     toc_t2.append(f'<li><span>Tronco principal (Etapas 0 a 5)</span><span class="toc-pag">Tomo I · p. 1–{info_t1["paginas"]["hilo-plantillas"] - 1}</span></li>')
-    toc_t2.append(f'<li><span>Hilo conductor multi-nivel y Kit de 15 plantillas y laboratorios</span><span class="toc-pag">Tomo I · {info_t1["etiquetas"]["hilo-plantillas"]}</span></li>')
+    toc_t2.append(f'<li><span>Hilo conductor multi-nivel y Kit de 21 plantillas y laboratorios</span><span class="toc-pag">Tomo I · {info_t1["etiquetas"]["hilo-plantillas"]}</span></li>')
     toc_t2.append(f'<li><span>Hojas de referencia rápida (Cheat Sheets 1 a 6)</span><span class="toc-pag">Separata y Tomo I · {info_t1["etiquetas"]["hojas-referencia"]}</span></li>')
     toc_t2.append(f'<li><span>Glosario y Preguntas frecuentes</span><span class="toc-pag">Tomo I · p. {info_t1["paginas"]["glosario"]}–{info_t1["paginas"]["fuentes"] - 1}</span></li>')
     toc_t2.append('</ol></div></section>')
@@ -1677,6 +1700,7 @@ VM con Windows x64 aislada, Visual Studio Developer Command Prompt (<code>cl.exe
         sep_row("hoja-4", "7. Hoja de Referencia 4 · Evasión User-Mode, Inyección, Go/Rust y x64dbg (Rev. 5.5)"),
         sep_row("hoja-5", "8. Hoja de Referencia 5 · Criptografía Nativa (CryptoAPI/CNG) y Drivers .sys (Rev. 5.5)"),
         sep_row("hoja-6", "9. Hoja de Referencia 6 – Offsets Críticos del Kernel (_EPROCESS, _KPROCESS, _TOKEN)"),
+        sep_row("hoja-7", "10. Hoja de Referencia 7 · Frontera Moderna (Tomo III: CFI, Rust, LPAC, CET, IA Local)"),
     ]
 
     partes_sep.append(f"""
@@ -1711,11 +1735,11 @@ VM con Windows x64 aislada, Visual Studio Developer Command Prompt (<code>cl.exe
 <tr><td><strong>Etapa 3 · Reversing en .NET e IL</strong> (<code>3.1–3.2</code>)</td><td>Principiante</td><td><strong>Tomo I</strong></td><td>{rango_en(info_t1, ancla("guia/etapa-3.html"), ancla("guia/etapa-4.html"))}</td><td>{rango_en(ctx, ancla("guia/etapa-3.html"), ancla("guia/etapa-4.html"))}</td></tr>
 <tr><td><strong>Etapa 4 · Método de 5 pasos, protocolos, cripto e informe</strong> (<code>4.1–4.6</code>)</td><td>Princ. / Intermedio</td><td><strong>Tomo I</strong></td><td>{rango_en(info_t1, ancla("guia/etapa-4.html"), ancla("guia/etapa-5.html"))}</td><td>{rango_en(ctx, ancla("guia/etapa-4.html"), ancla("guia/etapa-5.html"))}</td></tr>
 <tr><td><strong>Etapa 5 · Malware estático, vulnerabilidades, automatización</strong> (<code>5.1–5.4</code>)</td><td>Interm. / Avanzado</td><td><strong>Tomo I</strong></td><td>{rango_en(info_t1, ancla("guia/etapa-5.html"), "hilo-plantillas")}</td><td>{rango_en(ctx, ancla("guia/etapa-5.html"), ancla("guia/etapa-6.html"))}</td></tr>
-<tr><td><strong>Etapa 6 · Kernel y drivers KMDF/WDM en Windows</strong> (<code>6.1–6.10</code>)</td><td>Avanz. / Espec.</td><td><strong>Tomo II</strong></td><td>ver Tomo II (200 págs.)</td><td>ver Maestro</td></tr>
-<tr><td><strong>Rama 2D · Windows internals y Virtualización</strong> (<code>2D.1–2D.17</code>)</td><td>Interm. / Espec.</td><td><strong>Tomo II</strong></td><td>ver Tomo II (200 págs.)</td><td>ver Maestro</td></tr>
-<tr><td><strong>Tomo III · LLVM/Clang CFI, Rust, LPAC, Intel CET e IA Local</strong></td><td>Especialista</td><td><strong>Tomo III</strong></td><td>p. 1–52</td><td>ver Maestro</td></tr>
-<tr><td><strong>Hilo conductor multi-nivel y Kit de 15 plantillas y laboratorios</strong></td><td>Todos</td><td><strong>Tomo I</strong></td><td>{rango_en(info_t1, "hilo-plantillas", "hojas-referencia")}</td><td>{rango_en(ctx, "hilo-plantillas", "hojas-referencia")}</td></tr>
-<tr><td><strong>Hojas de referencia rápida (Cheat Sheets 1 a 6)</strong></td><td>Todos</td><td><strong>Separata y Tomo I</strong></td><td>{rango_en(info_t1, "hojas-referencia", "glosario")}</td><td>{rango_en(ctx, "hojas-referencia", "glosario")}</td></tr>
+<tr><td><strong>Etapa 6 · Kernel y drivers KMDF/WDM en Windows</strong> (<code>6.1–6.10</code>)</td><td>Avanz. / Espec.</td><td><strong>Tomo II</strong></td><td>ver Tomo II (198 págs.)</td><td>ver Maestro</td></tr>
+<tr><td><strong>Rama 2D · Windows internals y Virtualización</strong> (<code>2D.1–2D.17</code>)</td><td>Interm. / Espec.</td><td><strong>Tomo II</strong></td><td>ver Tomo II (198 págs.)</td><td>ver Maestro</td></tr>
+<tr><td><strong>Tomo III · LLVM/Clang CFI, Rust, LPAC, Intel CET e IA Local</strong></td><td>Especialista</td><td><strong>Tomo III</strong></td><td>p. 1–54 (54 págs.)</td><td>ver Maestro</td></tr>
+<tr><td><strong>Hilo conductor multi-nivel y Kit de 21 plantillas y laboratorios</strong></td><td>Todos</td><td><strong>Tomo I</strong></td><td>{rango_en(info_t1, "hilo-plantillas", "hojas-referencia")}</td><td>{rango_en(ctx, "hilo-plantillas", "hojas-referencia")}</td></tr>
+<tr><td><strong>Hojas de referencia rápida (Cheat Sheets 1 a 7)</strong></td><td>Todos</td><td><strong>Separata y Tomo I</strong></td><td>{rango_en(info_t1, "hojas-referencia", "glosario")}</td><td>{rango_en(ctx, "hojas-referencia", "glosario")}</td></tr>
 <tr><td><strong>Glosario, Preguntas frecuentes y Fuentes/límites</strong></td><td>Todos</td><td><strong>Tomo I</strong></td><td>{rango_en(info_t1, "glosario", None)}</td><td>{rango_en(ctx, "glosario", None)}</td></tr>
 </tbody></table></div>
 </section>
@@ -1745,7 +1769,7 @@ VM con Windows x64 aislada, Visual Studio Developer Command Prompt (<code>cl.exe
 <td><strong>Estadio 1 · Principiante</strong><br><code>check_v1_O0.exe</code> vs <code>check_v1_O2.exe</code></td>
 <td>Compilación en C puro sin optimizar (<code>/Od</code>) frente a optimizada (<code>/O2</code>).</td>
 <td>En <code>/Od</code>: variables en stack y 2 saltos condicionales. En <code>/O2</code>: argumentos directo en <code>ECX</code>/<code>EDX</code>, <code>lea eax, [rcx+rdx]</code>, <code>cmp eax, 78h</code> (<code>480/4 = 120</code>) y selección sin salto (<code>cmove rcx, rdx</code>).</td>
-<td>1.5, 2.4, 2.5, 2.7, 2.8, 4.1</td>
+<td>1.5, 2.3, 2.4, 2.7, 2.8, 4.1</td>
 </tr>
 <tr>
 <td><strong>Estadio 2 · Intermedio</strong><br><code>check_v2.exe</code> + <code>parser_clsf.exe</code></td>
@@ -1756,12 +1780,12 @@ VM con Windows x64 aislada, Visual Studio Developer Command Prompt (<code>cl.exe
 <tr>
 <td><strong>Estadio 3 · Avanzado</strong><br><code>cpp_fh4.exe</code> + <code>heap_bug_v1.exe</code> + <code>pipe_server_min.exe</code></td>
 <td>Herencia múltiple C++ (<code>ValidadorBloc</code>), <code>std::string</code> SSO, excepciones x64, bug de heap (20B en bloque de 16B), Named Pipe y despacho IOCTL en KMDF.</td>
-<td>Ajuste de <code>this</code> (<code>add rcx, 10h</code>), umbral SSO (<code>cmp [rcx+18h], 10h</code>), <code>!heap -p -a</code> con Page Heap / <code>g-</code> en TTD, protocolo <code>\\\\.\\pipe\\BlocLabPipe</code> y tabla <code>CTL_CODE</code>.</td>
+<td>Ajuste de <code>this</code> (<code>sub rcx, 10h</code>), umbral SSO (<code>cmp [rcx+18h], 10h</code>), <code>!heap -p -a</code> con Page Heap / <code>g-</code> en TTD, protocolo <code>\\\\.\\pipe\\BlocLabPipe</code> y tabla <code>CTL_CODE</code>.</td>
 <td>2.18, 2.19, 2.20, 5.2, 2D.6–2D.10, 6.2, 6.4</td>
 </tr>
 </tbody></table></div>
 
-<h2>Referencia rápida de compilación y prueba del Kit de 7 Plantillas C/C++</h2>
+<h2>Referencia rápida de compilación y prueba — Kit base de 7 Plantillas C/C++ (catálogo 1–16 en Tomo I y 17a–21 en Tomo III)</h2>
 <div class="tabla"><table>
 <thead><tr>
 <th>Archivo en <code>plantillas_codigo/</code></th>
@@ -1795,7 +1819,7 @@ VM con Windows x64 aislada, Visual Studio Developer Command Prompt (<code>cl.exe
 </tr>
 <tr>
 <td><strong>6. <code>bloclab_kmdf_min.c</code></strong><br><em>(Avanzado · KMDF Kernel Driver)</em></td>
-<td>Compilar con WDK (Visual Studio x64 Driver Environment):<br><code>cl /W4 /WX /Gz /kernel /I"%WDKContentRoot%\Include\wdf\kmdf\1.15" bloclab_kmdf_min.c</code></td>
+<td>Compilar con WDK (Visual Studio x64 Driver Environment):<br><code>cl /W4 /WX /Gz /kernel /I"%WDKContentRoot%\\Include\\wdf\\kmdf\\1.15" bloclab_kmdf_min.c</code></td>
 <td>Localizar <code>WdfVersionBind</code> y tabla <code>WdfFunctions</code> (+0x18). Auditar <code>EvtDeviceAdd</code> (+0x08) y <code>EvtIoDeviceControl</code> (+0x28). Identificar decodificación de <code>CTL_CODE</code> (0x80006000) y validación de buffers (6.2 y 6.4).</td>
 </tr>
 <tr>
@@ -1814,6 +1838,7 @@ VM con Windows x64 aislada, Visual Studio Developer Command Prompt (<code>cl.exe
     partes_sep.append(f'<section class="print-sec hoja-compacta" id="hoja-4">{limpiar_enlaces(at2.HOJA4_HTML, {})}</section>')
     partes_sep.append(f'<section class="print-sec hoja-compacta" id="hoja-5">{limpiar_enlaces(at2.HOJA5_HTML, {})}</section>')
     partes_sep.append(f'<section class="print-sec hoja-compacta" id="hoja-6">{limpiar_enlaces(at2.HOJA6_HTML, {})}</section>')
+    partes_sep.append(f'<section class="print-sec hoja-compacta" id="hoja-7">{limpiar_enlaces(at2.HOJA7_HTML, {})}</section>')
     partes_sep.append("</main></body></html>")
 
     arbol_sep = [
@@ -1826,6 +1851,7 @@ VM con Windows x64 aislada, Visual Studio Developer Command Prompt (<code>cl.exe
         ("7. Hoja 4 - Evasion User-Mode, Inyeccion, Go/Rust y x64dbg (Rev. 5.5)", "hoja-4", []),
         ("8. Hoja 5 - Criptografia Nativa (CryptoAPI/CNG) y Drivers .sys (Rev. 5.5)", "hoja-5", []),
         ("9. Hoja 6 - Offsets Criticos del Kernel (_EPROCESS, _KPROCESS, _TOKEN) (Rev. 5.5)", "hoja-6", []),
+        ("10. Hoja 7 - Frontera Moderna (Tomo III: CFI, Rust, LPAC, CET, IA Local) (Rev. 5.5)", "hoja-7", []),
     ]
 
     info_sep = compilar_volumen_pdf(
