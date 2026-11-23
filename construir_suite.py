@@ -24,6 +24,7 @@ import contenidos_nuevos as cn  # noqa: E402
 import ampliaciones_tomo1 as at1  # noqa: E402
 import ampliaciones_v54 as av54  # noqa: E402
 import ampliaciones_t2_sep as at2  # noqa: E402
+from maquetacion_pdf import PRINT_CSS_MAQUETACION, maquetar_html_impresion  # noqa: E402
 
 SRC_GUIA = REPO_ROOT
 DST_GUIA = REPO_ROOT
@@ -848,7 +849,7 @@ def generar_pdf_completo():
         # Evitar colisión de id="fuentes" en subtítulos internos con la sección final #fuentes
         cuerpo = cuerpo.replace('<h2 id="fuentes">', '<h2>')
         cuerpo = cuerpo.replace("<details", "<details open")
-        return cuerpo
+        return maquetar_html_impresion(cuerpo)
 
     def limpiar_enlaces(html_str, mapa):
         def rep(m):
@@ -939,7 +940,7 @@ main { max-width: none; padding: 0; }
 .print-sec table { font-size: 8.6pt; width: 100%; table-layout: auto; word-wrap: break-word; overflow-wrap: break-word; word-break: normal; }
 .print-sec th, .print-sec td { overflow-wrap: break-word; word-break: normal; hyphens: none; }
 .print-sec td:not(:first-child) code, .print-sec th:not(:first-child) code { word-break: break-word; }
-.print-sec .tabla { overflow-x: visible !important; break-inside: avoid; page-break-inside: avoid; }
+.print-sec .tabla { overflow-x: visible !important; }
 .print-sec tr { break-inside: avoid; page-break-inside: avoid; }
 .print-sec .callout, .print-sec .gate, .print-sec details, .print-sec .ampliacion-ext, .print-sec .nota-ed { break-inside: avoid; page-break-inside: avoid; }
 .print-sec h2, .print-sec h3, .print-sec h4 { break-after: avoid; page-break-after: avoid; }
@@ -967,7 +968,7 @@ main { max-width: none; padding: 0; }
 .toc .etapa a { color: inherit; text-decoration: none; }
 details.qa { padding: 4pt 6pt; margin: 4pt 0; }
 details.qa summary { font-size: 10pt; }
-"""
+""" + PRINT_CSS_MAQUETACION
 
     partes = [f'<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Curso de Reversing en Windows</title><style>{css}\n{css_print}</style></head><body><main>']
 
@@ -1059,7 +1060,7 @@ details.qa summary { font-size: 10pt; }
     # Fuentes y límites
     with open(os.path.join(DST_GUIA, "FUENTES_Y_LIMITES.md"), encoding="utf-8") as f:
         fuentes_md = f.read()
-    fuentes_html = limpiar_enlaces(build_mod.md(fuentes_md), mapa)
+    fuentes_html = maquetar_html_impresion(limpiar_enlaces(build_mod.md(fuentes_md), mapa))
     partes.append(f'<section class="print-sec" id="fuentes"><h1>Fuentes y límites</h1>{fuentes_html}</section>')
 
     partes.append("</main></body></html>")
@@ -1530,7 +1531,7 @@ VM con Windows x64 aislada, Visual Studio Developer Command Prompt (<code>cl.exe
 
     with open(os.path.join(DST_GUIA, "FUENTES_Y_LIMITES.md"), encoding="utf-8") as f:
         fuentes_md = f.read()
-    fuentes_html_t1 = limpiar_enlaces(build_mod.md(fuentes_md), mapa_t1)
+    fuentes_html_t1 = maquetar_html_impresion(limpiar_enlaces(build_mod.md(fuentes_md), mapa_t1))
     partes_t1.append(f'<section class="print-sec" id="fuentes"><h1>Fuentes y límites</h1>{fuentes_html_t1}</section>')
     partes_t1.append("</main></body></html>")
 
@@ -1735,9 +1736,9 @@ VM con Windows x64 aislada, Visual Studio Developer Command Prompt (<code>cl.exe
 <tr><td><strong>Etapa 3 · Reversing en .NET e IL</strong> (<code>3.1–3.2</code>)</td><td>Principiante</td><td><strong>Tomo I</strong></td><td>{rango_en(info_t1, ancla("guia/etapa-3.html"), ancla("guia/etapa-4.html"))}</td><td>{rango_en(ctx, ancla("guia/etapa-3.html"), ancla("guia/etapa-4.html"))}</td></tr>
 <tr><td><strong>Etapa 4 · Método de 5 pasos, protocolos, cripto e informe</strong> (<code>4.1–4.6</code>)</td><td>Princ. / Intermedio</td><td><strong>Tomo I</strong></td><td>{rango_en(info_t1, ancla("guia/etapa-4.html"), ancla("guia/etapa-5.html"))}</td><td>{rango_en(ctx, ancla("guia/etapa-4.html"), ancla("guia/etapa-5.html"))}</td></tr>
 <tr><td><strong>Etapa 5 · Malware estático, vulnerabilidades, automatización</strong> (<code>5.1–5.4</code>)</td><td>Interm. / Avanzado</td><td><strong>Tomo I</strong></td><td>{rango_en(info_t1, ancla("guia/etapa-5.html"), "hilo-plantillas")}</td><td>{rango_en(ctx, ancla("guia/etapa-5.html"), ancla("guia/etapa-6.html"))}</td></tr>
-<tr><td><strong>Etapa 6 · Kernel y drivers KMDF/WDM en Windows</strong> (<code>6.1–6.10</code>)</td><td>Avanz. / Espec.</td><td><strong>Tomo II</strong></td><td>ver Tomo II (198 págs.)</td><td>ver Maestro</td></tr>
-<tr><td><strong>Rama 2D · Windows internals y Virtualización</strong> (<code>2D.1–2D.17</code>)</td><td>Interm. / Espec.</td><td><strong>Tomo II</strong></td><td>ver Tomo II (198 págs.)</td><td>ver Maestro</td></tr>
-<tr><td><strong>Tomo III · LLVM/Clang CFI, Rust, LPAC, Intel CET e IA Local</strong></td><td>Especialista</td><td><strong>Tomo III</strong></td><td>p. 1–54 (54 págs.)</td><td>ver Maestro</td></tr>
+<tr><td><strong>Etapa 6 · Kernel y drivers KMDF/WDM en Windows</strong> (<code>6.1–6.10</code>)</td><td>Avanz. / Espec.</td><td><strong>Tomo II</strong></td><td>ver Tomo II (210 págs.)</td><td>ver Maestro</td></tr>
+<tr><td><strong>Rama 2D · Windows internals y Virtualización</strong> (<code>2D.1–2D.17</code>)</td><td>Interm. / Espec.</td><td><strong>Tomo II</strong></td><td>ver Tomo II (210 págs.)</td><td>ver Maestro</td></tr>
+<tr><td><strong>Tomo III · LLVM/Clang CFI, Rust, LPAC, Intel CET e IA Local</strong></td><td>Especialista</td><td><strong>Tomo III</strong></td><td>p. 1–58 (58 págs.)</td><td>ver Maestro</td></tr>
 <tr><td><strong>Hilo conductor multi-nivel y Kit de 21 plantillas y laboratorios</strong></td><td>Todos</td><td><strong>Tomo I</strong></td><td>{rango_en(info_t1, "hilo-plantillas", "hojas-referencia")}</td><td>{rango_en(ctx, "hilo-plantillas", "hojas-referencia")}</td></tr>
 <tr><td><strong>Hojas de referencia rápida (Cheat Sheets 1 a 7)</strong></td><td>Todos</td><td><strong>Separata y Tomo I</strong></td><td>{rango_en(info_t1, "hojas-referencia", "glosario")}</td><td>{rango_en(ctx, "hojas-referencia", "glosario")}</td></tr>
 <tr><td><strong>Glosario, Preguntas frecuentes y Fuentes/límites</strong></td><td>Todos</td><td><strong>Tomo I</strong></td><td>{rango_en(info_t1, "glosario", None)}</td><td>{rango_en(ctx, "glosario", None)}</td></tr>
@@ -1746,11 +1747,11 @@ VM con Windows x64 aislada, Visual Studio Developer Command Prompt (<code>cl.exe
 """)
 
     # Sección 1 de Separata: 3 Perfiles o Rutas de Estudio
-    rutas_limpio = limpiar_enlaces(BLOQUE_RUTAS_ESTUDIO, {})
+    rutas_limpio = maquetar_html_impresion(limpiar_enlaces(BLOQUE_RUTAS_ESTUDIO, {}))
     partes_sep.append(f'<section class="print-sec" id="rutas-estudio">{rutas_limpio}</section>')
 
     # Sección 2 de Separata: Árbol de Decisión de Triage Inicial y 10 Señales
-    triage_limpio = limpiar_enlaces(BLOQUE_ARBOL_TRIAGE, {})
+    triage_limpio = maquetar_html_impresion(limpiar_enlaces(BLOQUE_ARBOL_TRIAGE, {}))
     partes_sep.append(f'<section class="print-sec" id="arbol-triage">{triage_limpio}</section>')
 
     # Sección 3 de Separata: Resumen del Hilo Conductor + Guía rápida de compilación de las 7 plantillas C/C++

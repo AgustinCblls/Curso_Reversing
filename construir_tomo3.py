@@ -21,6 +21,7 @@ ARTIFACT_DIR = r"C:\Users\agust\.gemini\antigravity\brain\5f78e7db-99bc-4011-802
 MIRROR_LOCAL = r"D:\Guia\CLS_Guia_Gemini"
 PENDRIVE_USB = ""
 
+sys.path.insert(0, MODULES_DIR)
 sys.path.insert(0, REPO_ROOT)
 from construir_suite import (
     buscar_chrome,
@@ -29,6 +30,7 @@ from construir_suite import (
     SCRATCH_BRAIN,
     normalizar,
 )
+from maquetacion_pdf import PRINT_CSS_MAQUETACION, maquetar_html_impresion
 
 CHROME = buscar_chrome()
 
@@ -67,7 +69,8 @@ def parse_tabla(block):
         return None
     cab = [c.strip() for c in lineas[0].strip("|").split("|")]
     filas = [l for l in lineas[1:] if not re.match(r"^[\s:|-]+$", l.strip("|"))]
-    salida = ['<div class="tabla"><table>', "<thead><tr>"]
+    cls_tabla = "tabla tabla-compacta" if len(filas) <= 12 else "tabla"
+    salida = [f'<div class="{cls_tabla}"><table>', "<thead><tr>"]
     salida += [f"<th>{inline(c)}</th>" for c in cab]
     salida.append("</tr></thead><tbody>")
     for f in filas:
@@ -91,6 +94,13 @@ def md_to_html(texto, section_prefix=""):
     while i < len(lineas):
         line = lineas[i]
         s = line.strip()
+
+        # Saltos de página manuales (<!-- salto -->, <!-- pagebreak -->, ::: salto)
+        if re.match(r"^<!--\s*(salto|pagebreak)\s*-->$", s, re.I) or s.lower() in ("::: salto", ":::salto"):
+            cerrar_parrafo()
+            out.append('<div class="salto-pagina-manual" aria-hidden="true"></div>')
+            i += 1
+            continue
 
         # Bloques de HTML puro pasados directamente
         if s.startswith("<div") or s.startswith("</div") or s.startswith("<section") or s.startswith("</section"):
@@ -240,7 +250,7 @@ main { max-width: none; padding: 0; }
 .print-sec table { font-size: 8.6pt; width: 100%; border-collapse: collapse; margin: 12px 0; table-layout: auto; }
 .print-sec th, .print-sec td { border: 1px solid #d9d5cc; padding: 6px 8px; text-align: left; }
 .print-sec th { background: #f3f0fa; font-weight: 700; }
-.print-sec .tabla { overflow-x: visible !important; break-inside: avoid; page-break-inside: avoid; }
+.print-sec .tabla { overflow-x: visible !important; }
 .print-sec tr { break-inside: avoid; page-break-inside: avoid; }
 .print-sec .callout, .print-sec blockquote { break-inside: avoid; page-break-inside: avoid; border-left: 4px solid #0b5f6b; background: #f3f7f8; padding: 8pt 12pt; margin: 12pt 0; }
 .print-sec h2, .print-sec h3, .print-sec h4 { break-after: avoid; page-break-after: avoid; }
@@ -260,7 +270,7 @@ main { max-width: none; padding: 0; }
 .toc-tit a { color: #111; text-decoration: none; }
 .toc-pag { font-family: "JetBrains Mono", Consolas, monospace; font-size: 8.8pt; color: #555; white-space: nowrap; }
 .toc-sub { margin-left: 1.5em; font-size: 9pt; color: #555; padding: 2pt 0; }
-"""
+""" + PRINT_CSS_MAQUETACION
 
     partes = []
     partes.append(f"""<!doctype html>
@@ -292,7 +302,7 @@ main { max-width: none; padding: 0; }
     <strong>Ficha Técnica de Publicación:</strong><br>
     • <strong>Perfil Académico:</strong> Reversers, analistas de malware y auditores de seguridad de sistemas.<br>
     • <strong>Carga Estimada:</strong> 25 a 35 horas de estudio crítico + 15 a 20 horas de laboratorio práctico.<br>
-    • <strong>Presupuesto Físico:</strong> 54 páginas estándar (27 hojas a doble faz) con paridad par garantizada.<br>
+    • <strong>Presupuesto Físico:</strong> 58 páginas (29 hojas a doble faz) con paridad par garantizada.<br>
     • <strong>Encuadernación:</strong> Anillado metálico Ring Wire 3:1 de 14.3 mm con paridad par garantizada.<br>
     • <strong>Entorno de Verificación:</strong> Windows 11 Enterprise x64 (24H2), MSVC 19.51, LLVM 17+, Rust 1.78+, Ghidra 11.1+ y Ollama.
   </div>
@@ -367,7 +377,7 @@ main { max-width: none; padding: 0; }
         if not os.path.exists(ruta_archivo):
             raise FileNotFoundError(f"No se encontró el archivo del Tomo III: {ruta_archivo}")
         contenido_md = open(ruta_archivo, encoding="utf-8", errors="replace").read()
-        contenido_html = md_to_html(contenido_md, section_prefix=ancla)
+        contenido_html = maquetar_html_impresion(md_to_html(contenido_md, section_prefix=ancla))
         partes.append(f'<section class="print-sec" id="{ancla}">\n{contenido_html}\n</section>')
 
     partes.append("</main></body></html>")
@@ -631,7 +641,7 @@ def compilar_pdf_tomo3():
     print(f"Hojas Físicas:     {hojas} hojas (impresión a doble faz)")
     print(f"Paridad:           {'PAR (CUMPLE REGLA IMPRENTA)' if final_pages % 2 == 0 else 'IMPAR (ERROR)'}")
     print(f"Tamaño:            {size_mb:.2f} MB ({os.path.getsize(salida_pdf):,} bytes)")
-    print(f"Presupuesto:       54 páginas (27 hojas a doble faz)")
+    print(f"Presupuesto:       {final_pages} páginas ({hojas} hojas a doble faz)")
     print(f"Evaluación:        CUMPLE REGLAS DE IMPRENTA")
     print("=" * 80 + "\n")
 

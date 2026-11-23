@@ -135,51 +135,51 @@ html_content = """<!DOCTYPE html>
   <tbody>
     <tr>
       <td class="col-vol">1. Tomo I — Parte A</td>
-      <td class="col-arch">Tomo_1_Parte_A_pags_1-226.pdf</td>
-      <td class="col-pags">226 págs.</td>
-      <td class="col-hojas">113 hojas</td>
-      <td class="col-enc">Anillado metálico Ring Wire / espiral o binder con tapa dura/polipropileno</td>
-    </tr>
-    <tr>
-      <td class="col-vol">2. Tomo I — Parte B</td>
-      <td class="col-arch">Tomo_1_Parte_B_pags_227-468.pdf</td>
+      <td class="col-arch">Tomo_1_Parte_A_pags_1-242.pdf</td>
       <td class="col-pags">242 págs.</td>
       <td class="col-hojas">121 hojas</td>
       <td class="col-enc">Anillado metálico Ring Wire / espiral o binder con tapa dura/polipropileno</td>
     </tr>
     <tr>
+      <td class="col-vol">2. Tomo I — Parte B</td>
+      <td class="col-arch">Tomo_1_Parte_B_pags_243-496.pdf</td>
+      <td class="col-pags">254 págs.</td>
+      <td class="col-hojas">127 hojas</td>
+      <td class="col-enc">Anillado metálico Ring Wire / espiral o binder con tapa dura/polipropileno</td>
+    </tr>
+    <tr>
       <td class="col-vol">3. Tomo II</td>
       <td class="col-arch">Tomo_2_Kernel_e_Internals.pdf</td>
-      <td class="col-pags">200 págs.</td>
-      <td class="col-hojas">100 hojas</td>
+      <td class="col-pags">210 págs.</td>
+      <td class="col-hojas">105 hojas</td>
       <td class="col-enc">Anillado metálico Ring Wire / espiral o binder con tapa dura/polipropileno</td>
     </tr>
     <tr>
       <td class="col-vol">4. Tomo III</td>
       <td class="col-arch">Tomo_3_LLVM_Rust_Contenedores_IA.pdf</td>
-      <td class="col-pags">52 págs.</td>
-      <td class="col-hojas">26 hojas</td>
+      <td class="col-pags">58 págs.</td>
+      <td class="col-hojas">29 hojas</td>
       <td class="col-enc">Anillado metálico Ring Wire / espiral o binder con tapa dura/polipropileno</td>
     </tr>
     <tr>
       <td class="col-vol">5. Separata de Escritorio</td>
       <td class="col-arch">Separata_Escritorio.pdf</td>
-      <td class="col-pags">18 págs.</td>
-      <td class="col-hojas">9 hojas</td>
+      <td class="col-pags">20 págs.</td>
+      <td class="col-hojas">10 hojas</td>
       <td class="col-enc">Anillado metálico Ring Wire / espiral o binder con tapa dura/polipropileno</td>
     </tr>
     <tr class="total-row">
       <td class="col-vol">TOTAL FÍSICO A IMPRIMIR</td>
       <td class="col-arch">5 volúmenes encuadernados</td>
-      <td class="col-pags">738 págs.</td>
-      <td class="col-hojas">369 hojas</td>
+      <td class="col-pags">784 págs.</td>
+      <td class="col-hojas">392 hojas</td>
       <td class="col-enc">100 % Paridad Par (sin hojas impares ni blancas sueltas)</td>
     </tr>
   </tbody>
 </table>
 
 <div class="nota-maestro">
-  <strong>* Archivo maestro digital de consulta (Trilogía Completa Unificada):</strong> <span class="nombre-maestro">CLS_Curso_Reversing.pdf</span> (720 págs. · 360 hojas).<br>
+  <strong>* Archivo maestro digital de consulta (Trilogía Completa Unificada):</strong> <span class="nombre-maestro">CLS_Curso_Reversing.pdf</span> (764 págs. · 382 hojas).<br>
   Contiene los Tomos I, II y III consolidados en un solo archivo con marcadores de navegación completa. <strong>NO se manda a imprimir físicamente</strong> (para lectura digital en pantalla o archivo). Los archivos para impresión son exclusivamente los 5 listados arriba.
 </div>
 

@@ -77,7 +77,8 @@ def tabla(block):
         return None
     cab = [c.strip() for c in lineas[0].strip("|").split("|")]
     filas = [l for l in lineas[1:] if not re.match(r"^[\s:|-]+$", l.strip("|"))]
-    salida = ['<div class="tabla"><table>', "<thead><tr>"]
+    cls_tabla = "tabla tabla-compacta" if len(filas) <= 12 else "tabla"
+    salida = [f'<div class="{cls_tabla}"><table>', "<thead><tr>"]
     salida += [f"<th>{inline(c)}</th>" for c in cab]
     salida.append("</tr></thead><tbody>")
     for f in filas:
@@ -100,6 +101,12 @@ def md(texto):
 
     while i < len(lineas):
         s = lineas[i].strip()
+
+        if re.match(r"^<!--\s*(salto|pagebreak)\s*-->$", s, re.I) or s.lower() in ("::: salto", ":::salto"):
+            cerrar()
+            out.append('<div class="salto-pagina-manual" aria-hidden="true"></div>')
+            i += 1
+            continue
 
         if s.startswith("```"):
             cerrar()

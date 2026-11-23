@@ -20,6 +20,7 @@ ARTIFACT_DIR = r"C:\Users\agust\.gemini\antigravity\brain\5f78e7db-99bc-4011-802
 MIRROR_LOCAL = r"D:\Guia\CLS_Guia_Gemini"
 PENDRIVE_USB = ""
 
+sys.path.insert(0, MODULES_DIR)
 sys.path.insert(0, REPO_ROOT)
 from construir_suite import (
     buscar_chrome,
@@ -29,6 +30,7 @@ from construir_suite import (
     normalizar,
 )
 from construir_tomo3 import md_to_html
+from maquetacion_pdf import PRINT_CSS_MAQUETACION, maquetar_html_impresion
 
 CHROME = buscar_chrome()
 
@@ -188,7 +190,7 @@ main { max-width: none; padding: 0; }
 .print-sec table { font-size: 8.6pt; width: 100%; table-layout: auto; word-wrap: break-word; overflow-wrap: break-word; word-break: normal; }
 .print-sec th, .print-sec td { overflow-wrap: break-word; word-break: normal; hyphens: none; }
 .print-sec td:not(:first-child) code, .print-sec th:not(:first-child) code { word-break: break-word; }
-.print-sec .tabla { overflow-x: visible !important; break-inside: avoid; page-break-inside: avoid; }
+.print-sec .tabla { overflow-x: visible !important; }
 .print-sec tr { break-inside: avoid; page-break-inside: avoid; }
 .print-sec .callout, .print-sec .gate, .print-sec details, .print-sec .ampliacion-ext, .print-sec .nota-ed { break-inside: avoid; page-break-inside: avoid; }
 .print-sec h2, .print-sec h3, .print-sec h4 { break-after: avoid; page-break-after: avoid; }
@@ -204,7 +206,7 @@ main { max-width: none; padding: 0; }
 .toc li { display: flex; justify-content: space-between; align-items: baseline; font-size: 9.5pt; padding: 1.2mm 0; border-bottom: 1px dotted #e0e0e0; }
 .toc li a { color: #222; text-decoration: none; flex-grow: 1; padding-right: 4mm; }
 .toc-pag { font-weight: 700; color: #0b5f6b; font-size: 9pt; text-align: right; min-width: 14mm; }
-"""
+""" + PRINT_CSS_MAQUETACION
 
     partes = [f'<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Reversing en Windows — Tomo II</title><style>{css}\n{css_print}</style></head><body><main>']
 
@@ -262,28 +264,28 @@ main { max-width: none; padding: 0; }
     mapa_t2 = {k: v for k, v in mapa.items() if v in anclas_presentes}
 
     # Apertura Etapa 6
-    h_e6 = limpiar_enlaces(contenido("guia/etapa-6.html"), mapa_t2)
+    h_e6 = maquetar_html_impresion(limpiar_enlaces(contenido("guia/etapa-6.html"), mapa_t2))
     partes.append(f'<section class="print-sec" id="{mapa["guia/etapa-6.html"]}">{h_e6}</section>')
 
     # Lecciones 6.1 a 6.10
     for lrel, _ in LECCIONES_E6:
-        lh = limpiar_enlaces(contenido(lrel), mapa_t2)
+        lh = maquetar_html_impresion(limpiar_enlaces(contenido(lrel), mapa_t2))
         partes.append(f'<section class="print-sec" id="{mapa[lrel]}">{lh}</section>')
 
     # Apertura Rama 2D
-    h_2d = limpiar_enlaces(contenido("2d.html"), mapa_t2)
+    h_2d = maquetar_html_impresion(limpiar_enlaces(contenido("2d.html"), mapa_t2))
     partes.append(f'<section class="print-sec" id="{mapa["2d.html"]}">{h_2d}</section>')
 
     # Lecciones 2D.1 a 2D.17
     for lrel, _ in LECCIONES_2D:
-        lh = limpiar_enlaces(contenido(lrel), mapa_t2)
+        lh = maquetar_html_impresion(limpiar_enlaces(contenido(lrel), mapa_t2))
         partes.append(f'<section class="print-sec" id="{mapa[lrel]}">{lh}</section>')
 
     # 4. Anexo A: Fe de Erratas
     with open(os.path.join(DST_GUIA, "ERRATAS_TOMO_II.md"), "r", encoding="utf-8") as f_err:
         erratas_raw = f_err.read()
 
-    erratas_html = md_to_html(erratas_raw, section_prefix="erratas")
+    erratas_html = maquetar_html_impresion(md_to_html(erratas_raw, section_prefix="erratas"))
     partes.append(f'<section class="print-sec" id="tomo2-anexo-erratas"><h1 style="color:#0b5f6b;">Anexo A · Fe de Erratas Técnica y Matriz de Trazabilidad</h1>{erratas_html}</section>')
 
     partes.append("</main></body></html>")
